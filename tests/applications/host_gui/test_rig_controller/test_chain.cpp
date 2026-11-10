@@ -38,6 +38,7 @@
 
 #include "rig_controller.hpp"
 #include "support/rig_products.hpp"
+#include "support/wav_fixture.hpp"
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 #include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 
@@ -94,6 +95,19 @@ namespace
         float* outs[1] = {out.data()};
         SushiDSP::ProcessContext context{outs, ins, frames, 0.0};
         controller.active_graph()->process(context);
+    }
+    /// @brief Runs one block through the rig's active graph.
+    /// @param controller The rig to run.
+    /// @param in The block, at most the rig's prepared block size.
+    /// @return The block the graph wrote.
+    std::vector<float> process_block(RigController& controller, const std::vector<float>& in)
+    {
+        std::vector<float> out(in.size(), 0.0f);
+        const float* ins[1] = {in.data()};
+        float* outs[1] = {out.data()};
+        SushiDSP::ProcessContext context{outs, ins, static_cast<std::uint32_t>(in.size()), 0.0};
+        controller.active_graph()->process(context);
+        return out;
     }
 } // namespace
 
@@ -160,14 +174,14 @@ TEST_F(Small_RigControllerChain, RemoveDropsFromChainAndReconnectsSurvivors)
     EXPECT_EQ(controller.active_graph()->nodes().size(), 2u);
 }
 
-TEST_F(Small_RigControllerChain, BatchedEditsBuildASplitterTwoBranchMixerShapeThatProcessesABlock)
+// The splitters copy and the mixer sums at gain 1 each, so the sink holds exactly 2x; see the README.
+TEST_F(Small_RigControllerChain, BatchedEditsBuildASplitterTwoBranchMixerShapeThatDoublesABlock)
 {
     RigController controller = rig({48000.0, 256, 1});
-
-    const RigController::SlotId source = controller.add_node("sushidsp.tubescreamer", false);
+    const RigController::SlotId source = controller.add_node("sushidsp.splitter", false);
     const RigController::SlotId splitter = controller.add_node("sushidsp.splitter", false);
-    const RigController::SlotId branch_a = controller.add_node("sushidsp.jcm800", false);
-    const RigController::SlotId branch_b = controller.add_node("sushidsp.tubescreamer", false);
+    const RigController::SlotId branch_a = controller.add_node("sushidsp.splitter", false);
+    const RigController::SlotId branch_b = controller.add_node("sushidsp.splitter", false);
     const RigController::SlotId mixer = controller.add_node("sushidsp.mixer", false);
     controller.connect(source, splitter, false);
     controller.connect(splitter, branch_a, false);
@@ -175,10 +189,19 @@ TEST_F(Small_RigControllerChain, BatchedEditsBuildASplitterTwoBranchMixerShapeTh
     controller.connect(branch_a, mixer, false);
     controller.connect(branch_b, mixer, false);
     controller.publish();
-
     ASSERT_NE(controller.active_graph(), nullptr);
     ASSERT_EQ(controller.active_graph()->nodes().size(), 5u);
-    EXPECT_NO_THROW(process_silent_block(controller, 256));
+    const std::vector<float> in = TestSupport::make_test_signal(256);
+
+    const std::vector<float> out = process_block(controller, in);
+
+    std::vector<float> doubled(in.size());
+    std::transform(in.begin(), in.end(), doubled.begin(),
+                   [](float sample)
+                   {
+                       return 2.0f * sample;
+                   });
+    TestSupport::expect_same_signal(out, doubled);
 }
 
 TEST_F(Small_RigControllerChain, AddBranchBuildsTheParallelShapeTheGuiOffers)

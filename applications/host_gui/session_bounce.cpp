@@ -132,7 +132,9 @@ std::string SessionBounce::render(const BounceRequest& request, std::atomic<floa
 {
     try
     {
-        Session session(request.info);
+        Session session(request.info, request.catalogue != nullptr
+                                          ? *request.catalogue
+                                          : SushiDSP::registry_node_catalogue());
         if (!request.hrtf_path.empty())
         {
             std::string ignored;

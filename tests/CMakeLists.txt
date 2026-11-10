@@ -283,6 +283,8 @@ add_executable(sushidsp_tests
     ${CMAKE_SOURCE_DIR}/applications/plugin/rig_adapter.cpp
     ${CMAKE_SOURCE_DIR}/applications/plugin/parameter_routing.cpp
     applications/host_gui/test_session.cpp
+    applications/host_gui/test_session_file.cpp
+    applications/host_gui/test_session_bounce.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_renderer.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_file.cpp

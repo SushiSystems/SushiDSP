@@ -90,7 +90,11 @@ class Session
 
         /// @brief Builds a session of one empty track.
         /// @param info The sample rate, block size and channel count every rig is prepared at.
-        explicit Session(const SushiDSP::PrepareInfo& info);
+        /// @param catalogue Resolves each rig's descriptor ids and builds its nodes; it outlives the
+        /// session. The default is the node registry.
+        explicit Session(const SushiDSP::PrepareInfo& info,
+                         const SushiDSP::NodeCatalogue& catalogue =
+                             SushiDSP::registry_node_catalogue());
 
         ~Session();
         Session(const Session&) = delete;
@@ -205,6 +209,9 @@ class Session
 
         /// @brief Stores what every rig is prepared at.
         SushiDSP::PrepareInfo info_;
+
+        /// @brief Names the catalogue every rig is built on.
+        const SushiDSP::NodeCatalogue& catalogue_;
 
         /// @brief Owns the timeline every track's rig is built on.
         std::shared_ptr<SessionTimeline> timeline_;

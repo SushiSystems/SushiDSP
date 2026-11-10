@@ -42,9 +42,11 @@
 #include <SushiDSP/nodes/microphone/microphone_node.hpp>
 #include <SushiDSP/nodes/peavey5150/peavey5150.hpp>
 #include <SushiDSP/nodes/room/room_node.hpp>
+#include <SushiDSP/nodes/routing/bus_node.hpp>
 #include <SushiDSP/nodes/routing/channel_strip_node.hpp>
 #include <SushiDSP/nodes/routing/mixer_node.hpp>
 #include <SushiDSP/nodes/routing/splitter_node.hpp>
+#include <SushiDSP/nodes/routing/stereo_strip_node.hpp>
 #include <SushiDSP/nodes/tubescreamer/tube_screamer.hpp>
 #include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 
@@ -66,6 +68,8 @@ namespace TestSupport
                 catalogue_.add(SushiDSP::splitter_descriptor());
                 catalogue_.add(SushiDSP::mixer_descriptor());
                 catalogue_.add(SushiDSP::channel_strip_descriptor());
+                catalogue_.add(SushiDSP::stereo_strip_descriptor());
+                catalogue_.add(SushiDSP::bus_descriptor());
                 catalogue_.add(SushiDSP::cabinet_descriptor());
                 catalogue_.add(SushiDSP::microphone_descriptor());
                 catalogue_.add(SushiDSP::room::room_descriptor());

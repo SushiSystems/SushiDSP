@@ -6,8 +6,6 @@ applications/host_gui/mp3_decoder.hpp
 applications/host_gui/mp3_encoder.hpp
 applications/host_gui/rig_persistence.hpp
 applications/host_gui/rig_shape.hpp
-applications/host_gui/session_bounce.hpp
-applications/host_gui/session_file.hpp
 applications/host_gui/slot_graph.hpp
 applications/host_gui/ui/arrangement_view.hpp
 applications/host_gui/ui/cabinet_section_pane.hpp

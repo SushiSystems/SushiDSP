@@ -37,9 +37,16 @@
 #include "session_renderer.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <vector>
+
+#include <SushiDSP/nodes/capture/take.hpp>
+#include "support/rig_products.hpp"
+#include "support/tolerance.hpp"
 
 namespace
 {
@@ -196,4 +203,188 @@ TEST_F(Medium_SessionRendererProfiled, AProfiledRenderGivesTheSamplesAnUnprofile
     ASSERT_TRUE(run.start.started());
     EXPECT_EQ(plain.left, profiled.left);
     EXPECT_EQ(plain.right, profiled.right);
+}
+
+namespace
+{
+    /// @brief Holds the rounded operations a sample of the mix may differ from the oracle by: the
+    /// lane gain, the add of the live input, the strip gain and the add into the master.
+    constexpr std::size_t K_MIX_ROUNDINGS = 4;
+
+    /// @brief Holds the frame of the block the mix cases read a sample from.
+    constexpr std::size_t K_PROBE = 40;
+
+    /// @brief Returns a mono take holding one value in every frame.
+    std::unique_ptr<SushiDSP::Take> constant_take(std::size_t frames, float value)
+    {
+        auto take = std::make_unique<SushiDSP::Take>(1u, 48000.0, frames);
+        float* samples = take->mutable_channel(0);
+        std::fill(samples, samples + frames, value);
+        return take;
+    }
+
+    /// @brief Fails unless a sample of the mix is the oracle value to within the rounded operations
+    /// of the path; an oracle of zero demands exact silence.
+    void expect_sample(float actual, double expected)
+    {
+        EXPECT_TRUE(TestSupport::is_within(
+            TestSupport::measure_relative_error<float>(actual, expected, K_MIX_ROUNDINGS)));
+    }
+
+    /// @brief Builds a session on the catalogue of the fixture and renders blocks of it.
+    class Small_SessionRendererMix : public TestSupport::RigProducts
+    {
+        protected:
+            Small_SessionRendererMix() : session_(K_INFO, catalogue())
+            {
+                renderer_.prepare(K_BLOCK);
+            }
+
+            /// @brief Renders one block into outputs that start filled with a sentinel.
+            /// @param live_channel The live input for both sides, or null for none.
+            /// @return The two output channels.
+            std::array<std::vector<float>, 2> render_block(const float* live_channel)
+            {
+                std::array<std::vector<float>, 2> out{std::vector<float>(K_BLOCK, 9.0f),
+                                                      std::vector<float>(K_BLOCK, 9.0f)};
+                float* outputs[2] = {out[0].data(), out[1].data()};
+                const float* live[2] = {live_channel, live_channel};
+                renderer_.render(session_, live_channel != nullptr ? live : nullptr, outputs,
+                                 K_BLOCK);
+                return out;
+            }
+
+            /// @brief Renders blocks with no live input and returns the last.
+            /// @param count How many blocks, at least one.
+            std::array<std::vector<float>, 2> render_blocks(int count)
+            {
+                std::array<std::vector<float>, 2> last = render_block(nullptr);
+                for (int block = 1; block < count; ++block)
+                {
+                    last = render_block(nullptr);
+                }
+                return last;
+            }
+
+            /// @brief Gives lane 0 a take of 0.5 and lane 1 a take of 0.125, turns the second
+            /// track hard left, selects it and starts the transport.
+            void roll_two_lanes()
+            {
+                std::string error;
+                session_.add_track(error);
+                session_.timeline().player().set_take(0, constant_take(4096, 0.5f));
+                session_.timeline().player().set_take(1, constant_take(4096, 0.125f));
+                TrackStrip second;
+                second.pan = -1.0f;
+                session_.set_strip(1, second);
+                session_.select(1);
+                session_.timeline().transport().play();
+            }
+
+            /// @brief Puts a mixer at half gain in the first track's rig, which halves what passes
+            /// through it, and gives that lane a take of 0.5 under a rolling transport.
+            void roll_a_halving_rig()
+            {
+                const RigController::SlotId mixer = session_.rig(0).append("sushidsp.mixer");
+                session_.rig(0).set_parameter(mixer, "gain_0", 0.5f);
+                session_.timeline().player().set_take(0, constant_take(8192, 0.5f));
+                session_.timeline().transport().play();
+            }
+
+            Session session_;
+            SessionRenderer renderer_;
+    };
+} // namespace
+
+TEST_F(Small_SessionRendererMix, TheLiveInputReachesTheSelectedTrackWhileTheTransportIsStopped)
+{
+    session_.timeline().player().set_take(0, constant_take(4096, 0.5f));
+    const std::vector<float> live(K_BLOCK, 0.25f);
+
+    const std::array<std::vector<float>, 2> out = render_block(live.data());
+
+    expect_sample(out[0][K_PROBE], 0.25);
+    expect_sample(out[1][K_PROBE], 0.25);
+}
+
+TEST_F(Small_SessionRendererMix, AStoppedTransportWithNoLiveInputRendersSilence)
+{
+    session_.timeline().player().set_take(0, constant_take(4096, 0.5f));
+
+    const std::array<std::vector<float>, 2> out = render_block(nullptr);
+
+    expect_sample(out[0][K_PROBE], 0.0);
+    expect_sample(out[1][K_PROBE], 0.0);
+}
+
+TEST_F(Small_SessionRendererMix, ARenderedBlockIsCountedInTheAudioTable)
+{
+    render_block(nullptr);
+
+    EXPECT_EQ(session_.audio().blocks.load(), 1u);
+}
+
+// Left carries lane 0 (0.5) and lane 1 with the live input (0.125 + 0.25), both at unity.
+TEST_F(Small_SessionRendererMix, RollingSumsEveryLanesRigOutputAndTheLiveInputOnTheLeft)
+{
+    roll_two_lanes();
+    const std::vector<float> live(K_BLOCK, 0.25f);
+
+    const std::array<std::vector<float>, 2> out = render_block(live.data());
+
+    expect_sample(out[0][K_PROBE], 0.5 + 0.125 + 0.25);
+}
+
+// A balance of -1 takes the right gain of the second track to 1 + (-1) = 0, leaving lane 0 alone.
+TEST_F(Small_SessionRendererMix, AHardLeftPanKeepsATrackOutOfTheRightChannel)
+{
+    roll_two_lanes();
+    const std::vector<float> live(K_BLOCK, 0.25f);
+
+    const std::array<std::vector<float>, 2> out = render_block(live.data());
+
+    expect_sample(out[1][K_PROBE], 0.5);
+}
+
+TEST_F(Small_SessionRendererMix, RollingMovesTheTransportByTheBlock)
+{
+    roll_two_lanes();
+
+    render_block(nullptr);
+
+    EXPECT_EQ(session_.timeline().transport().position_frames(), K_BLOCK);
+}
+
+TEST_F(Small_SessionRendererMix, ASoloSilencesTheTracksThatAreNotSoloed)
+{
+    roll_two_lanes();
+    TrackStrip first;
+    first.soloed = true;
+    session_.set_strip(0, first);
+
+    const std::array<std::vector<float>, 2> out = render_block(nullptr);
+
+    expect_sample(out[0][K_PROBE], 0.5);
+}
+
+TEST_F(Small_SessionRendererMix, ABypassedRigPassesItsLaneUnchanged)
+{
+    roll_a_halving_rig();
+    TrackStrip strip;
+    strip.rig_bypassed = true;
+    session_.set_strip(0, strip);
+
+    const std::array<std::vector<float>, 2> out = render_block(nullptr);
+
+    expect_sample(out[0][K_PROBE], 0.5);
+}
+
+// The mixer sums its one input at gain_0 = 0.5, so a lane of 0.5 leaves the rig at 0.25.
+TEST_F(Small_SessionRendererMix, AnEngagedRigProcessesItsLane)
+{
+    roll_a_halving_rig();
+
+    const std::array<std::vector<float>, 2> out = render_blocks(8);
+
+    expect_sample(out[0][K_PROBE], 0.25);
 }

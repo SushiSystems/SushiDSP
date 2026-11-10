@@ -46,8 +46,8 @@ std::array<float, 2> strip_gains(const TrackStrip& strip, bool any_soloed) noexc
     return {level * (pan > 0.0f ? 1.0f - pan : 1.0f), level * (pan < 0.0f ? 1.0f + pan : 1.0f)};
 }
 
-Session::Session(const SushiDSP::PrepareInfo& info)
-    : info_(info), timeline_(std::make_shared<SessionTimeline>(info))
+Session::Session(const SushiDSP::PrepareInfo& info, const SushiDSP::NodeCatalogue& catalogue)
+    : info_(info), catalogue_(catalogue), timeline_(std::make_shared<SessionTimeline>(info))
 {
     // The timeline opens with every lane it can carry; a session opens with one track.
     std::string ignored;
@@ -272,7 +272,8 @@ void Session::publish()
 void Session::push_track()
 {
     Track track;
-    track.rig = std::make_unique<RigController>(info_, timeline_);
+    track.rig = std::make_unique<RigController>(info_, timeline_, RigController::ClockSource{},
+                                                catalogue_);
     if (!hrtf_path_.empty())
     {
         std::string ignored;

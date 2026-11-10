@@ -99,6 +99,10 @@ a test passes an `InMemoryNodeCatalogue` that lists only the products it names. 
 supplies the descriptor, whose `make()` builds the node, so no second port is needed. It must
 outlive the rig that reads it.
 
+`Session` takes the same catalogue as its last constructor argument and builds every track's rig on
+it. `BounceRequest::catalogue` carries one into the export's own session; null reads the node
+registry.
+
 ## Dropped files
 
 A song dropped on the window is decoded off the GUI thread. `FileDropQueue` carries GLFW's paths
