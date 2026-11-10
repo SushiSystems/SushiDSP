@@ -28,8 +28,12 @@
  */
 
 #include <cstdint>
+#include <type_traits>
 
 #include <SushiDSP/nodes/room/fdn_design.hpp>
 
 static_assert((SushiDSP::room::FdnDesign::K_LINE_COUNT & (SushiDSP::room::FdnDesign::K_LINE_COUNT - 1u)) == 0u,
               "the Hadamard feedback matrix needs a power-of-two line count");
+
+static_assert(std::is_trivially_copyable_v<SushiDSP::room::FdnDesign>,
+              "a design is a plain record the audio thread copies between banks");

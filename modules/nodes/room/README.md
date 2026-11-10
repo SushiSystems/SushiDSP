@@ -188,8 +188,8 @@ more than Eyring's own figure would: `RoomScene{}` reads 1.32 s at 500 Hz agains
 The floor rises with V / S, so the same material passes in one room and fails in another. Bare
 unpainted concrete, alpha = 0.01 at 125 Hz, passes at 6.0 x 4.0 x 2.5 m, at 9.81 s, and fails as
 a cube past an edge of 4.495 m. The block room is the tightest of the rooms in the tree, at 15.9 %
-of the bound; `RoomScene{}` sits at 11.0 %. `RoomSceneAcceptsEveryReferenceRoom` and
-`RoomSceneRefusesARoomThatRingsPastTheModulesDecay` walk them.
+of the bound; `RoomScene{}` sits at 11.0 %. `RoomSceneAcceptsTheReferenceRoom` and
+`RoomSceneAdmitsAConcreteCubeOnlyUnderTheBound` walk them.
 
 `RoomScene{}` is that 6.0 x 4.0 x 2.5 m box with gypsum board on studs on the four walls and
 the ceiling and heavy carpet on the floor, no patch and no furnishing. It is the bare reference
