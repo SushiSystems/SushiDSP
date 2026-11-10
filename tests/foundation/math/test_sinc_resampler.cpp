@@ -51,6 +51,14 @@ namespace
     /// The samples skipped at each end of an output, where the kernel runs off the signal.
     constexpr std::size_t K_EDGE = 1000;
 
+    /// The length of the 44.1 kHz source of the length and preservation cases: 0.1 s, ten periods of
+    /// 1 kHz, which resamples to 4800 samples at 48 kHz, 2800 of them past the edges.
+    constexpr std::size_t K_UPSAMPLE_FRAMES = 4410;
+
+    /// The length of the 96 kHz source of the rejection case: 0.1 s, so the halved output is 4800
+    /// samples and 2800 of them lie past the edges.
+    constexpr std::size_t K_HALVING_FRAMES = 9600;
+
     /// @brief Returns a unit sine of the given frequency sampled at the given rate.
     std::vector<float> sine(double frequency_hz, double sample_rate, std::size_t length)
     {
@@ -80,7 +88,7 @@ namespace
     double mean_energy_after_halving_the_rate(double frequency_hz)
     {
         const std::vector<float> output =
-            SushiDSP::SincResampler::resample(sine(frequency_hz, 96000.0, 96000), 96000.0, 48000.0);
+            SushiDSP::SincResampler::resample(sine(frequency_hz, 96000.0, K_HALVING_FRAMES), 96000.0, 48000.0);
         double energy = 0.0;
         for (std::size_t i = K_EDGE; i + K_EDGE < output.size(); ++i)
         {
@@ -90,21 +98,23 @@ namespace
     }
 } // namespace
 
-TEST(Medium_SincResampler, OutputLengthIsTheRatioRoundedToTheNearestSample)
+TEST(Small_SincResampler, OutputLengthIsTheRatioRoundedToTheNearestSample)
 {
-    const std::vector<float> output = SushiDSP::SincResampler::resample(sine(1000.0, 44100.0, 44100), 44100.0, 48000.0);
+    const std::vector<float> output =
+        SushiDSP::SincResampler::resample(sine(1000.0, 44100.0, K_UPSAMPLE_FRAMES), 44100.0, 48000.0);
 
-    EXPECT_EQ(output.size(), 48000u);
+    EXPECT_EQ(output.size(), 4800u);
 }
 
-TEST(Medium_SincResampler, PreservesAOneKilohertzToneBelowThePreservationLevel)
+TEST(Small_SincResampler, PreservesAOneKilohertzToneBelowThePreservationLevel)
 {
-    const std::vector<float> output = SushiDSP::SincResampler::resample(sine(1000.0, 44100.0, 44100), 44100.0, 48000.0);
+    const std::vector<float> output =
+        SushiDSP::SincResampler::resample(sine(1000.0, 44100.0, K_UPSAMPLE_FRAMES), 44100.0, 48000.0);
 
     EXPECT_LT(error_energy_db(output, 1000.0, 48000.0), K_PRESERVATION_LEVEL_DB);
 }
 
-TEST(Medium_SincResampler, LowpassesAboveTheNewNyquistWhenDownsampling)
+TEST(Small_SincResampler, LowpassesAboveTheNewNyquistWhenDownsampling)
 {
     const double passband_energy = mean_energy_after_halving_the_rate(1000.0);
     const double aliased_energy = mean_energy_after_halving_the_rate(30000.0);

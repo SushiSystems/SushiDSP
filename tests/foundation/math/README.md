@@ -349,7 +349,10 @@ differs as well. That is why the 0.10 ms the case prints against is advisory.
 
 ## Sizes, 2026-11-10
 
-In the Debug run `ResamplerRoundTripNulls` took 0.38 to 0.45 s a row, `SincResampler` 0.2 to 0.4 s a
-case, and two `Resampler` cases 0.12 and 0.16 s, against 0.1 s for a `Small_` case. They are
-`Medium_ResamplerRoundTrip`,
-`Medium_SincResampler` and `Medium_Resampler`.
+In the Debug run `ResamplerRoundTripNulls` took 0.38 to 0.45 s a row and two `Resampler` cases 0.12 and
+0.16 s, against 0.1 s for a `Small_` case. They are `Medium_ResamplerRoundTrip` and `Medium_Resampler`.
+
+The three `SincResampler` cases took 0.2 to 0.4 s each on a one-second source. Their source is now 0.1 s
+(4410 samples at 44.1 kHz, 9600 at 96 kHz), a tenth of the work, which resamples to 4800 samples with
+2800 left past the 1000-sample edges, so they are `Small_SincResampler`. The preservation and
+rejection levels are characterisation levels that do not depend on the length.
