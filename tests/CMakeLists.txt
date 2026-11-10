@@ -187,6 +187,7 @@ add_executable(sushidsp_tests
     foundation/math/dk/test_dk_circuit/test_behaviour.cpp
     foundation/circuits/stages/test_triode_stage/test_dk_netlist.cpp
     foundation/math/dk/test_dk_circuit/test_op_amp.cpp
+    nodes/tubescreamer/test_diode_pair_port_adapters.cpp
     nodes/tubescreamer/test_tube_screamer_circuits/test_clip_stage.cpp
     nodes/tubescreamer/test_tube_screamer_circuits/test_tone_stage.cpp
 
