@@ -24,6 +24,7 @@
 - 2026-11-10 — benchmark_harness: Gave `measure_node` and `profile_node` overloads that take a node the caller built (`node_benchmark.hpp`).
 - 2026-11-10 — math: Added `InMemoryDkCounters` beside `DkCircuit`, the solver counters held as numbers (`in_memory_dk_counters.hpp`).
 - 2026-11-10 — core: Added the `PollClock` port with `SystemPollClock` and `InMemoryPollClock`, and gave `CounterPollThread` a constructor that takes a clock (`poll_clock.hpp`).
+- 2026-11-10 — cli: Added `make_app(console_provider)`, which builds the `sd` Typer app on the console a provider returns; `cli.app` is `make_app()` (`cli.py`).
 - 2026-11-10 — core: Added `InMemoryMinimalNode`, an `AudioNode` that overrides only its pure virtual methods (`in_memory_minimal_node.hpp`).
 - 2026-11-10 — device: Added the `BlockClock` port with `SteadyBlockClock` and `InMemoryBlockClock`, and gave `BlockMonitor` a constructor that takes a clock (`block_clock.hpp`).
 - 2026-11-10 — device: Moved the block answer of `Sdl2AudioDevice` into `BlockServer` and added `InMemoryBlockDevice` beside it (`block_server.hpp`).

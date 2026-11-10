@@ -12,7 +12,7 @@ commands and the entry point come from sushicore.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, NoReturn, Optional, Protocol
 
 import typer
@@ -55,18 +55,6 @@ K_API_XML = "build/docs/api-site/xml"
 K_FORWARDING = {"allow_extra_args": True, "ignore_unknown_options": True}
 K_BARE_RUN = "sd run"
 
-_help_group = help_group(console.current)
-
-app = typer.Typer(
-    name=K_PROGRAM,
-    cls=_help_group,
-    help="SushiDSP developer CLI — configure, build, and test SushiDSP.",
-    no_args_is_help=True,
-    add_completion=False,
-    rich_markup_mode="rich",
-)
-
-
 def _type_option(description: str = K_TYPE_HELP) -> Any:
     """Returns the default of a `--type/-t` parameter."""
     return typer.Option(None, "--type", "-t", case_sensitive=False,
@@ -90,13 +78,6 @@ def _clean_option() -> Any:
     return typer.Option(False, "--clean", help=K_CLEAN_HELP)
 
 
-@app.command(
-    "configure",
-    rich_help_panel=K_BUILD,
-    epilog="sd configure\n"
-           "sd configure --type release\n"
-           "sd configure -D FOO=1  # Pass a CMake cache variable",
-)
 def configure(
     ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
@@ -108,16 +89,6 @@ def configure(
                                           workspace=ctx.obj))
 
 
-@app.command(
-    "build",
-    rich_help_panel=K_BUILD,
-    epilog="sd build\n"
-           "sd build --type release\n"
-           "sd build --clean  # Delete the build tree before configuring\n"
-           "sd build -D FOO=1  # Reconfigure with a CMake cache variable, then build\n"
-           "sd build --sanitize address  # ASan and UBSan in build/asan-debug; thread for TSan\n"
-           "sd build --report  # Print the build's edges by kind and save the report",
-)
 def build(
     ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
@@ -140,15 +111,6 @@ def build(
                                        jobs=jobs, report=report, workspace=ctx.obj))
 
 
-@app.command(
-    "test",
-    rich_help_panel=K_BUILD,
-    epilog="sd test  # Small and medium\n"
-           "sd test --all  # Every size, the large tests included\n"
-           "sd test --label small --label medium  # What a pull request runs\n"
-           "sd test --filter 'Jcm800.*'  # Match Suite.Case test names\n"
-           "sd test --label small --sanitize address  # Small tests under ASan and UBSan",
-)
 def test(
     ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
@@ -166,12 +128,6 @@ def test(
                                       every_size=all_sizes, workspace=ctx.obj))
 
 
-@app.command(
-    "bench",
-    rich_help_panel=K_BUILD,
-    epilog="sd bench  # Every group\n"
-           "sd bench Room Jcm800  # Groups whose name holds an argument",
-)
 def bench(
     ctx: typer.Context,
     group: Optional[list[str]] = typer.Argument(
@@ -184,14 +140,6 @@ def bench(
                                       workspace=ctx.obj))
 
 
-@app.command(
-    "run",
-    context_settings=K_FORWARDING,
-    rich_help_panel=K_BUILD,
-    epilog="sd run sushidsp_tests\n"
-           "sd run --sort  # Pick an executable from a list\n"
-           "sd run sushidsp_tests -- --gtest_filter='Jcm800.*'  # Flags after -- go to it",
-)
 def run(
     ctx: typer.Context,
     target: Optional[str] = typer.Argument(
@@ -212,14 +160,6 @@ def run(
                                      build_type=type, workspace=ctx.obj))
 
 
-@app.command(
-    "clean",
-    rich_help_panel=K_BUILD,
-    epilog="sd clean  # build/default-debug\n"
-           "sd clean --type release\n"
-           "sd clean --sanitize address  # build/asan-debug\n"
-           "sd clean --all  # The whole build/ directory",
-)
 def clean(
     ctx: typer.Context,
     type: Optional[BuildType] = _type_option(
@@ -242,38 +182,6 @@ def _docs_alias(ctx: typer.Context) -> None:
     raise typer.Exit(project_svc.docs(workspace=ctx.obj))
 
 
-register_docs_commands(
-    app,
-    program=K_PROGRAM,
-    panel=K_BUILD,
-    project_root=find_project_root,
-    api=_api_source,
-    report=lambda line: console.success(line),
-    group_cls=_help_group,
-)
-register_backlog_commands(
-    app,
-    program=K_PROGRAM,
-    panel=K_BUILD,
-    project_root=find_project_root,
-    group_cls=_help_group,
-)
-register_design_commands(
-    app,
-    program=K_PROGRAM,
-    panel=K_BUILD,
-    project_root=find_project_root,
-    group_cls=_help_group,
-)
-
-
-@app.command(
-    "check",
-    rich_help_panel=K_BUILD,
-    epilog="sd check\n"
-           "sd check --report  # Report issue counts without failing\n"
-           "sd check --rule <name>  # Run only the specified rule",
-)
 def check(
     ctx: typer.Context,
     report: bool = typer.Option(
@@ -284,19 +192,6 @@ def check(
     raise typer.Exit(project_svc.check(report=report, rule=rule, workspace=ctx.obj))
 
 
-register_diagnostic_commands(
-    app, diag_svc.DIAGNOSTICS, program=K_PROGRAM, panel=K_ENVIRONMENT)
-
-
-@app.command(
-    "host",
-    context_settings=K_FORWARDING,
-    rich_help_panel=K_APPLICATION,
-    epilog="sd host\n"
-           "sd host --type release\n"
-           "sd host --no-run  # Build only\n"
-           "sd host -- --foo  # Arguments after -- reach the host GUI",
-)
 def host(
     ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
@@ -307,10 +202,6 @@ def host(
     raise typer.Exit(project_svc.host(type, launch=not no_run, app_args=list(ctx.args),
                                       workspace=ctx.obj))
 
-
-ALIASES.command(app, "doxygen", _docs_alias, "sd doxygen")
-
-register_root_options(app, distribution=K_DISTRIBUTION)
 
 def module_provision(actions: MachineActions | None = None) -> ModuleProvision:
     """Returns what `sd` hands the shared provision commands.
@@ -328,7 +219,122 @@ def module_provision(actions: MachineActions | None = None) -> ModuleProvision:
     )
 
 
-register_provision_commands(app, module_provision())
+def make_app(console_provider: Callable[[], Any] = console.current) -> typer.Typer:
+    """Builds the Typer application of `sd` with its help group drawn on a console.
+
+    Args:
+        console_provider: Returns the console a help page is drawn on; the module console, built on
+            first use, when none is given.
+
+    Returns:
+        The application with every command registered.
+    """
+    group = help_group(console_provider)
+    app = typer.Typer(
+        name=K_PROGRAM,
+        cls=group,
+        help="SushiDSP developer CLI — configure, build, and test SushiDSP.",
+        no_args_is_help=True,
+        add_completion=False,
+        rich_markup_mode="rich",
+    )
+    app.command(
+        "configure",
+        rich_help_panel=K_BUILD,
+        epilog="sd configure\n"
+               "sd configure --type release\n"
+               "sd configure -D FOO=1  # Pass a CMake cache variable",
+    )(configure)
+    app.command(
+        "build",
+        rich_help_panel=K_BUILD,
+        epilog="sd build\n"
+               "sd build --type release\n"
+               "sd build --clean  # Delete the build tree before configuring\n"
+               "sd build -D FOO=1  # Reconfigure with a CMake cache variable, then build\n"
+               "sd build --sanitize address  # ASan and UBSan in build/asan-debug; thread for TSan\n"
+               "sd build --report  # Print the build's edges by kind and save the report",
+    )(build)
+    app.command(
+        "test",
+        rich_help_panel=K_BUILD,
+        epilog="sd test  # Small and medium\n"
+               "sd test --all  # Every size, the large tests included\n"
+               "sd test --label small --label medium  # What a pull request runs\n"
+               "sd test --filter 'Jcm800.*'  # Match Suite.Case test names\n"
+               "sd test --label small --sanitize address  # Small tests under ASan and UBSan",
+    )(test)
+    app.command(
+        "bench",
+        rich_help_panel=K_BUILD,
+        epilog="sd bench  # Every group\n"
+               "sd bench Room Jcm800  # Groups whose name holds an argument",
+    )(bench)
+    app.command(
+        "run",
+        context_settings=K_FORWARDING,
+        rich_help_panel=K_BUILD,
+        epilog="sd run sushidsp_tests\n"
+               "sd run --sort  # Pick an executable from a list\n"
+               "sd run sushidsp_tests -- --gtest_filter='Jcm800.*'  # Flags after -- go to it",
+    )(run)
+    app.command(
+        "clean",
+        rich_help_panel=K_BUILD,
+        epilog="sd clean  # build/default-debug\n"
+               "sd clean --type release\n"
+               "sd clean --sanitize address  # build/asan-debug\n"
+               "sd clean --all  # The whole build/ directory",
+    )(clean)
+    register_docs_commands(
+        app,
+        program=K_PROGRAM,
+        panel=K_BUILD,
+        project_root=find_project_root,
+        api=_api_source,
+        report=lambda line: console.success(line),
+        group_cls=group,
+    )
+    register_backlog_commands(
+        app,
+        program=K_PROGRAM,
+        panel=K_BUILD,
+        project_root=find_project_root,
+        group_cls=group,
+    )
+    register_design_commands(
+        app,
+        program=K_PROGRAM,
+        panel=K_BUILD,
+        project_root=find_project_root,
+        group_cls=group,
+    )
+    app.command(
+        "check",
+        rich_help_panel=K_BUILD,
+        epilog="sd check\n"
+               "sd check --report  # Report issue counts without failing\n"
+               "sd check --rule <name>  # Run only the specified rule",
+    )(check)
+    register_diagnostic_commands(
+        app, diag_svc.DIAGNOSTICS, program=K_PROGRAM, panel=K_ENVIRONMENT)
+    app.command(
+        "host",
+        context_settings=K_FORWARDING,
+        rich_help_panel=K_APPLICATION,
+        epilog="sd host\n"
+               "sd host --type release\n"
+               "sd host --no-run  # Build only\n"
+               "sd host -- --foo  # Arguments after -- reach the host GUI",
+    )(host)
+    ALIASES.command(app, "doxygen", _docs_alias, "sd doxygen")
+
+    register_root_options(app, distribution=K_DISTRIBUTION)
+    register_provision_commands(app, module_provision())
+    return app
+
+
+app = make_app()
 
 
 class ErrorConsole(Protocol):

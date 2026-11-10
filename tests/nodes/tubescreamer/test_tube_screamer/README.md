@@ -12,7 +12,7 @@ crossing must not depend on the block size: 64 and 4096 frames must agree within
 probe keeps the peak-detection granularity (half a period, 6 samples) far below the 1 ms that 5
 % of the 20 ms time constant allows.
 
-### `TubeScreamerReportsItsOversamplerLatencyAndTheBlocksAddOnlyPhaseLag`
+### `TubeScreamerImpulsePeakLandsWithinTheBlocksPhaseLagPastTheReportedLatency`
 
 `// Only the 4x oversampler's round trip is latency.`
 
@@ -38,7 +38,7 @@ cheap.
 At default drive the pedal is close to unity at 82 Hz, so the shipped calibration leaves a -12
 dBFS low-E sine within a couple of dB of where it came in.
 
-### `TubeScreamerHasNoCornerNearTwentyHertzTheOldBiquadRemoved`
+### `TubeScreamerInputResponseIsFlatBetweenTenAndThirtyHertz`
 
 `// The input corner is 0.312069 Hz, so 20 Hz is flat.`
 
@@ -56,7 +56,7 @@ The measurement window is truncated to whole cycles of the tone under test. Bloc
 hold 25600 samples, which is 16 cycles at 30 Hz but 5.33 at 10 Hz. The partial cycle biased the
 10 Hz RMS low by 1.2 %, and the ratio above with it, from 1.11 to 1.1233.
 
-### `TubeScreamerDriveKnobMovesTheClipThresholdWithoutClicking`
+### `TubeScreamerDriveSweepStepsNoMoreThanTwiceTheLoudestStillRender`
 
 `// A drive sweep must not produce a sample-to-sample step.`
 
