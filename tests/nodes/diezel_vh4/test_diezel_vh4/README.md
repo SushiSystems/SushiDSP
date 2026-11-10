@@ -144,9 +144,9 @@ stage, so what reaches Deep down there is mostly the saturated chain's own produ
 
 `// The chain is linear end to end at -120 dBFS.`
 
-This is a `Characterization_Medium_DiezelVh4` test: the 73.114 dB is the measured gain, because the
+This is a `Medium_DiezelVh4Characterization` test: the 73.114 dB is the measured gain, because the
 last block (power stage, transformer and sag) has no derivation. The table up to the EL34 grids is
-the derived part and gives 20 log10(49062) = 93.81 dB. A backlog entry removes the suite once the
+the derived part and gives 20 log10(49062) = 93.81 dB. RW-89 removes the suite once the
 last block is derived.
 
 The mix bus costs this channel 23.6 dB before V4a ever sees it: R43 680 kOhm into the 48.1 kOhm

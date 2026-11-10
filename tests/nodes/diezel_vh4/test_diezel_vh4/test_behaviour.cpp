@@ -515,9 +515,9 @@ TEST(Medium_DiezelVh4, DiezelVh4DeepAtMaximumIsATenDecibelShelfAtEightyHertz)
     EXPECT_NEAR(lift_at_eighty, K_DEEP_SHELF_DB / 2.0, K_SHELF_CORNER_BAND_DB);
 }
 
-TEST(Characterization_Medium_DiezelVh4, MixBusAttenuationIsApplied)
+TEST(Medium_DiezelVh4Characterization, MixBusAttenuationIsApplied)
 {
-    // The chain is linear end to end at -120 dBFS. See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
+    // The chain is linear end to end at -120 dBFS; the power block has no derivation yet (RW-89). See tests/nodes/diezel_vh4/test_diezel_vh4/README.md.
     SushiDSP::DiezelVh4 node;
     node.set_gain(0.5f);
     node.set_bass(0.5f);
