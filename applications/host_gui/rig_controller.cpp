@@ -31,16 +31,18 @@
 #include <memory>
 #include <utility>
 
-RigController::RigController(const SushiDSP::PrepareInfo& info, ClockSource clock)
-    : RigController(info, std::make_shared<SessionTimeline>(info), std::move(clock))
+RigController::RigController(const SushiDSP::PrepareInfo& info, ClockSource clock,
+                             const SushiDSP::NodeCatalogue& catalogue)
+    : RigController(info, std::make_shared<SessionTimeline>(info), std::move(clock), catalogue)
 {
 }
 
 RigController::RigController(const SushiDSP::PrepareInfo& info,
-                             std::shared_ptr<SessionTimeline> session, ClockSource clock)
-    : info_(info), graph_(info, std::move(clock)), session_owner_(std::move(session)),
+                             std::shared_ptr<SessionTimeline> session, ClockSource clock,
+                             const SushiDSP::NodeCatalogue& catalogue)
+    : info_(info), graph_(info, std::move(clock), catalogue), session_owner_(std::move(session)),
       session_(*session_owner_),
-      persistence_(info, graph_, session_)
+      persistence_(info, graph_, session_, catalogue)
 {
 }
 

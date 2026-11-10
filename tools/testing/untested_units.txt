@@ -8,9 +8,7 @@ applications/host_gui/rig_persistence.hpp
 applications/host_gui/rig_shape.hpp
 applications/host_gui/session_bounce.hpp
 applications/host_gui/session_file.hpp
-applications/host_gui/session_timeline.hpp
 applications/host_gui/slot_graph.hpp
-applications/host_gui/slot_selection.hpp
 applications/host_gui/ui/arrangement_view.hpp
 applications/host_gui/ui/cabinet_section_pane.hpp
 applications/host_gui/ui/device_settings.hpp

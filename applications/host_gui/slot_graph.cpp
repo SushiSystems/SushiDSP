@@ -40,7 +40,6 @@
 #include <SushiDSP/foundation/core/cabinet_host.hpp>
 #include <SushiDSP/foundation/io/ir_loader.hpp>
 #include <SushiDSP/foundation/log/log.hpp>
-#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 #include <SushiDSP/nodes/room/hrtf_set_loader.hpp>
 #include <SushiDSP/nodes/room/starter_scene.hpp>
 #include <SushiDSP/nodes/routing/mixer_node.hpp>
@@ -53,41 +52,25 @@ namespace
     /// @brief Finds a parameter's position in its descriptor's parameters[] array - which is
     /// exactly the index SushiDSP::ParameterChange carries and AudioNode::set_parameter_for_audio_thread()
     /// expects.
+    /// @param catalogue Resolves the descriptor id.
     /// @param descriptor_id The owning node's NodeDescriptor id.
     /// @param param_id The parameter's id.
     /// @param out_index Receives the index on success.
     /// @return True if the descriptor and the parameter were both found.
-    bool find_parameter_index(const std::string& descriptor_id, const char* param_id,
+    bool find_parameter_index(const SushiDSP::NodeCatalogue& catalogue,
+                              const std::string& descriptor_id, const char* param_id,
                               std::uint16_t& out_index)
     {
-        for (const auto& entry : SushiDSP::node_registry())
+        const SushiDSP::NodeDescriptor* descriptor = catalogue.find(descriptor_id.c_str());
+        if (descriptor == nullptr)
         {
-            if (descriptor_id != entry.descriptor->id)
-            {
-                continue;
-            }
-            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
-            {
-                if (std::strcmp(param_id, entry.descriptor->parameters[p].id) == 0)
-                {
-                    out_index = static_cast<std::uint16_t>(p);
-                    return true;
-                }
-            }
             return false;
         }
-        return false;
-    }
-
-    /// @brief Reports whether the node registry can construct a descriptor id.
-    /// @param descriptor_id The id to look for.
-    /// @return True when the registry holds an entry with that id.
-    bool descriptor_is_registered(const std::string& descriptor_id)
-    {
-        for (const auto& entry : SushiDSP::node_registry())
+        for (std::size_t p = 0; p < descriptor->parameter_count; ++p)
         {
-            if (descriptor_id == entry.descriptor->id)
+            if (std::strcmp(param_id, descriptor->parameters[p].id) == 0)
             {
+                out_index = static_cast<std::uint16_t>(p);
                 return true;
             }
         }
@@ -95,8 +78,9 @@ namespace
     }
 } // namespace
 
-SlotGraph::SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock)
-    : info_(info), clock_(std::move(clock))
+SlotGraph::SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock,
+                     const SushiDSP::NodeCatalogue& catalogue)
+    : info_(info), catalogue_(catalogue), clock_(std::move(clock))
 {
     publish();
 }
@@ -108,17 +92,15 @@ SlotGraph::Clock::time_point SlotGraph::now() const
 
 void SlotGraph::seed_defaults(Slot& slot) const
 {
-    for (const auto& entry : SushiDSP::node_registry())
+    const SushiDSP::NodeDescriptor* descriptor = catalogue_.find(slot.descriptor_id.c_str());
+    if (descriptor == nullptr)
     {
-        if (slot.descriptor_id == entry.descriptor->id)
-        {
-            for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
-            {
-                const auto& param = entry.descriptor->parameters[p];
-                slot.parameters[param.id] = param.default_value;
-            }
-            break;
-        }
+        return;
+    }
+    for (std::size_t p = 0; p < descriptor->parameter_count; ++p)
+    {
+        const auto& param = descriptor->parameters[p];
+        slot.parameters[param.id] = param.default_value;
     }
 }
 
@@ -302,7 +284,7 @@ std::optional<SlotGraph::SlotId> SlotGraph::add_branch(SlotId splitter,
     const auto splitter_slot = slots_.find(splitter);
     if (splitter_slot == slots_.end() ||
         splitter_slot->second.descriptor_id != SushiDSP::splitter_descriptor().id ||
-        !descriptor_is_registered(descriptor_id))
+        catalogue_.find(descriptor_id.c_str()) == nullptr)
     {
         return std::nullopt;
     }
@@ -434,7 +416,7 @@ void SlotGraph::set_parameter(SlotId slot, const char* param_id, float value)
     it->second.parameters[param_id] = value;
 
     std::uint16_t parameter_index = 0;
-    if (!find_parameter_index(it->second.descriptor_id, param_id, parameter_index))
+    if (!find_parameter_index(catalogue_, it->second.descriptor_id, param_id, parameter_index))
     {
         if (!unknown_parameter_reported_)
         {
@@ -1007,7 +989,12 @@ SlotGraph::build_graph(bool apply_bypass,
         {
             continue;
         }
-        auto node = SushiDSP::make_node(slot.descriptor_id.c_str(), info_);
+        const SushiDSP::NodeDescriptor* descriptor = catalogue_.find(slot.descriptor_id.c_str());
+        if (descriptor == nullptr)
+        {
+            continue;
+        }
+        auto node = descriptor->make(info_);
         if (node == nullptr)
         {
             continue;

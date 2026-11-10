@@ -264,7 +264,16 @@ add_executable(sushidsp_tests
     # --- Host diagnostics ---
     applications/host/test_sine_tone_node.cpp
     ${CMAKE_SOURCE_DIR}/applications/host/sine_tone_node.cpp
-    applications/host_gui/test_rig_controller.cpp
+    applications/host_gui/test_rig_controller/test_chain.cpp
+    applications/host_gui/test_rig_controller/test_bypass.cpp
+    applications/host_gui/test_rig_controller/test_preset.cpp
+    applications/host_gui/test_rig_controller/test_cabinet.cpp
+    applications/host_gui/test_rig_controller/test_tracks.cpp
+    applications/host_gui/test_rig_controller/test_clips.cpp
+    applications/host_gui/test_rig_controller/test_room.cpp
+    applications/host_gui/test_rig_controller/test_logging.cpp
+    applications/host_gui/test_session_timeline.cpp
+    applications/host_gui/test_slot_selection.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/rig_controller.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/slot_graph.cpp
     ${CMAKE_SOURCE_DIR}/applications/host_gui/session_timeline.cpp
@@ -470,7 +479,7 @@ set_source_files_properties(nodes/room/test_built_room_loss/test_bras_reference.
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/built_room_loss\"")
 set_source_files_properties(nodes/room/test_built_room_loss/test_motus_reference.cpp PROPERTIES COMPILE_DEFINITIONS
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/built_room_loss\"")
-set_source_files_properties(applications/host_gui/test_rig_controller.cpp PROPERTIES COMPILE_DEFINITIONS
+set_source_files_properties(applications/host_gui/test_rig_controller/test_room.cpp PROPERTIES COMPILE_DEFINITIONS
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
 set_source_files_properties(nodes/room/test_hrtf_set_loader.cpp PROPERTIES COMPILE_DEFINITIONS
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")

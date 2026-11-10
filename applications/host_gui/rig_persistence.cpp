@@ -42,7 +42,6 @@
 #include <nlohmann/json.hpp>
 
 #include <SushiDSP/foundation/core/rig_graph.hpp>
-#include <SushiDSP/catalog/node_registry/node_registry.hpp>
 #include <SushiDSP/session/rig_preset/rig_preset.hpp>
 #include <SushiDSP/nodes/room/furniture.hpp>
 #include <SushiDSP/foundation/log/log.hpp>
@@ -888,8 +887,9 @@ namespace
 } // namespace
 
 RigPersistence::RigPersistence(const SushiDSP::PrepareInfo& info, SlotGraph& graph,
-                               SessionTimeline& session)
-    : info_(info), graph_(graph), session_(session)
+                               SessionTimeline& session,
+                               const SushiDSP::NodeCatalogue& catalogue)
+    : info_(info), graph_(graph), session_(session), catalogue_(catalogue)
 {
 }
 
@@ -945,7 +945,8 @@ std::string RigPersistence::serialize_nodes(
             {
                 node_json["bypassed"] = true;
             }
-        });
+        },
+        catalogue_);
 }
 
 std::string RigPersistence::save_to_json(PresetScope scope) const
@@ -1135,7 +1136,8 @@ void RigPersistence::load_from_json(const std::string& json_text, PresetScope sc
                     legacy = room;
                 }
             }
-        });
+        },
+        catalogue_);
     if (!with_shape)
     {
         scratch.compile(info_);
@@ -1237,16 +1239,13 @@ void RigPersistence::load_from_json(const std::string& json_text, PresetScope sc
         SushiDSP::AudioNode* node = scratch.node(handle);
         SlotGraph::SlotSnapshot snapshot;
         snapshot.descriptor_id = node->type_id();
-        for (const auto& entry : SushiDSP::node_registry())
+        if (const SushiDSP::NodeDescriptor* descriptor =
+                catalogue_.find(snapshot.descriptor_id.c_str()))
         {
-            if (snapshot.descriptor_id == entry.descriptor->id)
+            for (std::size_t p = 0; p < descriptor->parameter_count; ++p)
             {
-                for (std::size_t p = 0; p < entry.descriptor->parameter_count; ++p)
-                {
-                    const char* param_id = entry.descriptor->parameters[p].id;
-                    snapshot.parameters[param_id] = node->get_parameter(param_id);
-                }
-                break;
+                const char* param_id = descriptor->parameters[p].id;
+                snapshot.parameters[param_id] = node->get_parameter(param_id);
             }
         }
         const auto cabinet_it = cabinet_paths_by_handle.find(handle);

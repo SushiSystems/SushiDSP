@@ -72,7 +72,11 @@ class RigController
         /// @brief Builds a rig with a timeline of its own.
         /// @param clock Returns the present time for the room publish interval; empty reads the
         /// steady clock.
-        explicit RigController(const SushiDSP::PrepareInfo& info, ClockSource clock = {});
+        /// @param catalogue Resolves each slot's descriptor id and builds its node; it outlives the
+        /// rig. The default is the node registry.
+        explicit RigController(const SushiDSP::PrepareInfo& info, ClockSource clock = {},
+                               const SushiDSP::NodeCatalogue& catalogue =
+                                   SushiDSP::registry_node_catalogue());
 
         /// @brief Builds a rig on a timeline another owner shares with it, so several rigs read
         /// one arrangement, one transport and one set of recorders.
@@ -80,8 +84,12 @@ class RigController
         /// @param session The shared timeline; never null.
         /// @param clock Returns the present time for the room publish interval; empty reads the
         /// steady clock.
+        /// @param catalogue Resolves each slot's descriptor id and builds its node; it outlives the
+        /// rig. The default is the node registry.
         RigController(const SushiDSP::PrepareInfo& info, std::shared_ptr<SessionTimeline> session,
-                      ClockSource clock = {});
+                      ClockSource clock = {},
+                      const SushiDSP::NodeCatalogue& catalogue =
+                          SushiDSP::registry_node_catalogue());
 
         /// @brief Returns the timeline this rig reads, shared or its own.
         const std::shared_ptr<SessionTimeline>& session() const noexcept

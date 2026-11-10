@@ -33,6 +33,7 @@
 #include <unordered_map>
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
+#include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 
 #include "session_timeline.hpp"
 #include "slot_graph.hpp"
@@ -54,8 +55,12 @@ class RigPersistence
         /// @param info The prepare info a loaded preset's scratch graph is built at.
         /// @param graph The rig graph to write from and rebuild into.
         /// @param session The arrangement to write from and rebuild into.
+        /// @param catalogue Resolves each node's type string; it outlives the codec. The default is
+        /// the node registry.
         RigPersistence(const SushiDSP::PrepareInfo& info, SlotGraph& graph,
-                       SessionTimeline& session);
+                       SessionTimeline& session,
+                       const SushiDSP::NodeCatalogue& catalogue =
+                           SushiDSP::registry_node_catalogue());
 
         /// @brief Serializes the current rig to JSON via SushiDSP::serialize_rig_to_json(), as
         /// format 2. Cabinet IR is included via the `"cabinet_ir"` JSON field and a room's
@@ -88,4 +93,5 @@ class RigPersistence
         SushiDSP::PrepareInfo info_;
         SlotGraph& graph_;
         SessionTimeline& session_;
+        const SushiDSP::NodeCatalogue& catalogue_;
 };
