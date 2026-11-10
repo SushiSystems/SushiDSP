@@ -29,6 +29,7 @@
  */
 
 #include <cstddef>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -39,6 +40,7 @@
 
 #include "rig_controller.hpp"
 #include "rig_shape.hpp"
+#include "session_timeline.hpp"
 #include "support/rig_products.hpp"
 
 namespace
@@ -46,6 +48,38 @@ namespace
     /// @brief Holds the rigs the preset tests build, on the catalogue of the fixture.
     class Small_RigControllerPreset : public TestSupport::RigProducts
     {
+    };
+
+    /// @brief Holds a timeline a rig shares, a rig document without a timeline in it, and the rigs
+    /// that load it, on the catalogue of the fixture.
+    class Small_RigControllerRigDocument : public TestSupport::RigProducts
+    {
+        protected:
+            Small_RigControllerRigDocument()
+                : info_{48000.0, 64, 2}, timeline_(std::make_shared<SessionTimeline>(info_))
+            {
+                RigController source = rig(info_);
+                source.append("sushidsp.dd3");
+                rig_only_ = source.save_rig_to_json();
+                std::string error;
+                timeline_->remove_track(timeline_->track_count() - 1, error);
+                lanes_ = timeline_->track_count();
+                timeline_->musical_clock().set_tempo(K_TEMPO);
+            }
+
+            /// @brief Builds a rig on the shared timeline.
+            RigController target() const
+            {
+                return RigController(info_, timeline_, {}, catalogue());
+            }
+
+            /// @brief Holds the tempo the shared timeline is set to before the rig loads.
+            static constexpr double K_TEMPO = 97.0;
+
+            SushiDSP::PrepareInfo info_;
+            std::shared_ptr<SessionTimeline> timeline_;
+            std::string rig_only_;
+            std::size_t lanes_ = 0;
     };
 
     /// @brief Holds one impulse-response folder and whether a save writes it.
@@ -257,4 +291,42 @@ TEST_F(Small_RigControllerPreset, RoundTripsTheRigsShapeThroughJson)
     EXPECT_EQ(loaded.hidden.di_strip, std::optional<RigController::SlotId>(order[1]));
     EXPECT_EQ(loaded.hidden.amp_bus_feeders,
               (std::vector<RigController::SlotId>{order[0], order[1]}));
+}
+
+TEST_F(Small_RigControllerPreset, ASavedRigAloneHoldsNeitherTheTracksNorTheTempo)
+{
+    RigController source = rig({48000.0, 64, 2});
+    source.append("sushidsp.dd3");
+
+    const std::string rig_only = source.save_rig_to_json();
+
+    EXPECT_EQ(rig_only.find("\"tracks\""), std::string::npos);
+    EXPECT_EQ(rig_only.find("\"tempo\""), std::string::npos);
+}
+
+TEST_F(Small_RigControllerRigDocument, LoadingARigAloneBuildsItsSlots)
+{
+    RigController controller = target();
+
+    controller.load_rig_from_json(rig_only_);
+
+    EXPECT_EQ(controller.slot_order().size(), 1u);
+}
+
+TEST_F(Small_RigControllerRigDocument, LoadingARigAloneLeavesTheLanesOfTheSharedTimeline)
+{
+    RigController controller = target();
+
+    controller.load_rig_from_json(rig_only_);
+
+    EXPECT_EQ(timeline_->track_count(), lanes_);
+}
+
+TEST_F(Small_RigControllerRigDocument, LoadingARigAloneLeavesTheTempoOfTheSharedTimeline)
+{
+    RigController controller = target();
+
+    controller.load_rig_from_json(rig_only_);
+
+    EXPECT_EQ(timeline_->musical_clock().beats_per_minute(), K_TEMPO);
 }

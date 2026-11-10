@@ -36,13 +36,16 @@ no case reaches the process-wide node registry. The WAV writers are in
 
 ## `test_rig_controller/test_chain.cpp`
 
-### `BatchedEditsBuildASplitterTwoBranchMixerShapeThatProcessesABlock`
+### `BatchedEditsBuildASplitterTwoBranchMixerShapeThatDoublesABlock`
 
 The split/mix shape needs publish batching to build: before the publish-batching parameter it was
 impossible to construct through the public API at all, because the second add_node() would have
 republished a two-node, zero-edge graph, which RigGraph::compile() rejects for having no sink. The
-case checks that every node exists and the graph published; it checks no output, because the
-splitter and mixer gain laws are not stated anywhere a test can derive a block from.
+case builds the shape from routing nodes only. A splitter copies its input and the mixer sums its
+inputs at gain 1 each (`gains_` starts at 1.0 and `process` accumulates `input * gain`), so a block
+that enters the root leaves the sink as 0 + x + x, which is exactly 2x in binary floating point.
+The case compares every sample bit for bit. The old case used a screamer and an amplifier in the
+branches; their output has no closed form, so it asserted nothing about the block.
 
 ### `AddBranchBuildsTheParallelShapeTheGuiOffers`
 
@@ -67,6 +70,13 @@ graph leaves it out, wiring its upstream neighbours straight to its downstream o
 Deliberately no process() call and no further structural edit here: the live node still reads the
 pre-edit default, but save_to_json() reports the controller's own stored value, matching what
 get_parameter() and the GUI slider show.
+
+### `ASavedRigAloneHoldsNeitherTheTracksNorTheTempo` and the `Small_RigControllerRigDocument` cases
+
+A rig document carries the slots and none of the timeline. Loading one onto a controller that
+shares a timeline builds the slots and leaves the lanes and the tempo of that timeline as they were;
+the timeline has one lane fewer than a new one and a tempo of 97, so a load that reset either would
+show.
 
 ## `test_rig_controller/test_cabinet.cpp`
 
@@ -128,3 +138,47 @@ the caller's work.
 
 The main path is untouched and the path that opened carries a copy of it, the knob position
 included.
+
+### `MigratingAnOldRoomHeardByAMicrophoneRestoresItsLevelOnTheStrip`
+
+The strip of a centred microphone is 10 log10(2) = 3.0103 dB down a side, so the migration adds that
+amount back to the old level. It adds the decimal 3.0103 held in a float. The oracle is the old
+level plus 10 log10(2) in double precision, and the bound is the error of that constant: its decimal
+rounding, |3.0103 - 10 log10(2)| = 4.3e-8, plus one float rounding of 3.0103, which is
+u * 3.0103 = 1.8e-7. The sum of the two floats -3 and 3.0103 is within a factor of two and so is
+exact. The comparison keeps the repository's threshold of 16 on that bound.
+
+## `test_session.cpp`
+
+### `AStripGivesTheLeftAndRightGainOfItsRow`
+
+The fader row is the decibel law 10^(-6.0206 / 20), about 0.5, in double precision. The float code
+takes one division for the exponent, one powf and one product, so the row allows three roundings of
+relative error. A centre balance, a hard turn, a clamped turn and a mute scale or zero a unity gain
+by 1, 0.5 or 0, which are exact, so those rows allow none.
+
+## `test_session_renderer.cpp`
+
+### The `Small_SessionRendererMix` cases
+
+Every lane holds a constant that is a power of two (0.5, 0.125, 0.25), so the sums are exact in
+binary. The bound allows four roundings against the oracle for the path the sample takes: the lane
+gain, the add of the live input, the strip gain and the add into the master. A rig that holds one
+mixer with `gain_0` at 0.5 halves a lane, because a mono mixer reads host channel 0 and the render
+copies its one channel to both sides; the bypassed rig leaves the lane at 0.5 and the engaged one
+brings it to 0.25.
+
+## `test_session_file.cpp`
+
+A float crosses the project document as its double, which parses back to the same float, so the
+strip level and balance compare exactly. The preset file cases write into the test temporary folder
+and stay `Medium_` until `read_text_file` and `write_text_file` go through a port.
+
+## `test_session_bounce.cpp`
+
+The clip is a constant of 0.5 and the track's fader is -6.0206 dB, so the exported sample is 0.5
+times 10^(-6.0206 / 20) to within three roundings, as in the strip cases. The clip is 4800 frames,
+which is 75 blocks of 64, so block 75 is the first silent one. The tail ends after
+floor(0.5 * 48000 / 64) + 1 = 376 silent blocks, so the file holds 4800 + 376 * 64 frames, exactly.
+The test target compiles `session_bounce.cpp` without `SUSHIDSP_HAVE_LAME`, so an MP3 request is
+refused; a build of the target with the encoder would change that case.
