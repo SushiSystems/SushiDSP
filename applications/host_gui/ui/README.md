@@ -57,6 +57,10 @@ connection keeps the window up to show the error; the caller clears it once the 
 logs that as one `WARN` under `K_HOST_GUI_LOG_CATEGORY`, with the cause first and the path
 last. A path long enough to be cut at the message limit then still shows why it failed.
 
+`list_directory` reads through a `DirectorySource`. `FileSystemDirectorySource` is the default;
+`InMemoryDirectorySource` serves named directories from memory and can refuse one with a given
+error, so a test reaches the ordering, the extension filter and the refusal without a disk.
+
 ## `divider.hpp`
 
 `DrawDivider` draws a 14 px-thick invisible button spanning the region's cross axis, with a

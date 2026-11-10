@@ -30,6 +30,7 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -38,25 +39,27 @@
 
 namespace
 {
-    /// @brief Creates an empty fixture directory under the system temp directory, replacing one
-    /// an interrupted run left behind.
-    /// @param leaf The directory's own name, unique within this file.
-    /// @return The directory's path.
-    std::filesystem::path make_fixture(const std::string& leaf)
+    /// @brief The directory name every in-memory case lists.
+    const std::string K_DIRECTORY = "browsed";
+
+    /// @brief Builds a source holding one directory.
+    /// @param entries The directory's entries.
+    /// @return The source.
+    ui::InMemoryDirectorySource source_of(std::vector<ui::DirectoryEntry> entries)
     {
-        const std::filesystem::path root =
-            std::filesystem::temp_directory_path() / ("sushidsp_listing_" + leaf);
-        std::filesystem::remove_all(root);
-        std::filesystem::create_directories(root);
-        return root;
+        ui::InMemoryDirectorySource source;
+        source.add_directory(K_DIRECTORY, std::move(entries));
+        return source;
     }
 
-    /// @brief Writes a one-byte file.
-    /// @param path Where to write it.
-    void write_file(const std::filesystem::path& path)
+    /// @brief Lists the in-memory directory for a set of extensions.
+    /// @param source The source that holds the directory.
+    /// @param extensions The extensions to keep.
+    /// @return The listing.
+    std::vector<ui::DirectoryEntry> list(const ui::InMemoryDirectorySource& source,
+                                         const std::vector<std::string>& extensions)
     {
-        std::ofstream out(path, std::ios::binary);
-        out.put('x');
+        return ui::list_directory(K_DIRECTORY, extensions, source);
     }
 
     /// @brief Reads back the names a listing carries, in listing order.
@@ -72,66 +75,86 @@ namespace
         }
         return names;
     }
+
+    /// @brief Reads back which entries of a listing are directories, in listing order.
+    /// @param entries The listing.
+    /// @return The directory flags.
+    std::vector<bool> directory_flags_of(const std::vector<ui::DirectoryEntry>& entries)
+    {
+        std::vector<bool> flags;
+        flags.reserve(entries.size());
+        for (const ui::DirectoryEntry& entry : entries)
+        {
+            flags.push_back(entry.is_directory);
+        }
+        return flags;
+    }
+
+    /// @brief Creates an empty fixture directory under the system temp directory, replacing one
+    /// an interrupted run left behind.
+    /// @param leaf The directory's own name, unique within this file.
+    /// @return The directory's path.
+    std::filesystem::path make_fixture(const std::string& leaf)
+    {
+        const std::filesystem::path root =
+            std::filesystem::temp_directory_path() / ("sushidsp_listing_" + leaf);
+        std::filesystem::remove_all(root);
+        std::filesystem::create_directories(root);
+        return root;
+    }
 } // namespace
 
-TEST(Medium_DirectoryListing, ListDirectoryPutsSubdirectoriesBeforeMatchingFilesAndSortsEachGroup)
+TEST(Small_DirectoryListing, ListDirectoryPutsSubdirectoriesBeforeMatchingFiles)
 {
-    const std::filesystem::path root = make_fixture("ordering");
-    std::filesystem::create_directory(root / "sub");
-    write_file(root / "b.wav");
-    write_file(root / "a.wav");
-    write_file(root / "notes.txt");
+    const ui::InMemoryDirectorySource source =
+        source_of({{"b.wav", false}, {"sub", true}, {"a.wav", false}, {"notes.txt", false}});
 
-    const std::vector<ui::DirectoryEntry> entries = ui::list_directory(root.string(), ".wav");
+    const std::vector<ui::DirectoryEntry> entries = list(source, {".wav"});
 
-    EXPECT_EQ(names_of(entries), (std::vector<std::string>{"sub", "a.wav", "b.wav"}));
-    ASSERT_EQ(entries.size(), 3u);
-    EXPECT_TRUE(entries[0].is_directory);
-    EXPECT_FALSE(entries[1].is_directory);
-    EXPECT_FALSE(entries[2].is_directory);
-
-    std::filesystem::remove_all(root);
+    EXPECT_EQ(directory_flags_of(entries), (std::vector<bool>{true, false, false}));
 }
 
-TEST(Medium_DirectoryListing, ListDirectoryMatchesTheExtensionIgnoringCase)
+TEST(Small_DirectoryListing, ListDirectorySortsEachGroupByNameIgnoringCase)
 {
-    const std::filesystem::path root = make_fixture("case");
-    write_file(root / "Cab.WAV");
+    const ui::InMemoryDirectorySource source = source_of(
+        {{"beta.wav", false}, {"Zulu", true}, {"alpha.wav", false}, {"Yankee", true}, {"Charlie.wav", false}});
 
-    const std::vector<ui::DirectoryEntry> entries = ui::list_directory(root.string(), ".wav");
+    const std::vector<ui::DirectoryEntry> entries = list(source, {".wav"});
 
-    EXPECT_EQ(names_of(entries), (std::vector<std::string>{"Cab.WAV"}));
-
-    std::filesystem::remove_all(root);
+    EXPECT_EQ(names_of(entries),
+              (std::vector<std::string>{"Yankee", "Zulu", "alpha.wav", "beta.wav", "Charlie.wav"}));
 }
 
-TEST(Medium_DirectoryListing, ListDirectoryWithAnEmptyExtensionKeepsEveryFile)
+TEST(Small_DirectoryListing, ListDirectoryMatchesTheExtensionIgnoringCase)
 {
-    const std::filesystem::path root = make_fixture("every_file");
-    write_file(root / "a.wav");
-    write_file(root / "notes.txt");
-    write_file(root / "readme");
+    const ui::InMemoryDirectorySource source = source_of({{"Cab.WAV", false}});
 
-    const std::vector<ui::DirectoryEntry> entries = ui::list_directory(root.string(), "");
-
-    EXPECT_EQ(names_of(entries), (std::vector<std::string>{"a.wav", "notes.txt", "readme"}));
-
-    std::filesystem::remove_all(root);
+    EXPECT_EQ(names_of(list(source, {".wav"})), (std::vector<std::string>{"Cab.WAV"}));
 }
 
-TEST(Medium_DirectoryListing, ListDirectoryKeepsEveryExtensionItIsGiven)
+TEST(Small_DirectoryListing, ListDirectoryWithAnEmptyExtensionKeepsEveryFile)
 {
-    const std::filesystem::path root = make_fixture("several_extensions");
-    write_file(root / "take.wav");
-    write_file(root / "song.MP3");
-    write_file(root / "sample.flac");
+    const ui::InMemoryDirectorySource source =
+        source_of({{"a.wav", false}, {"notes.txt", false}, {"readme", false}});
 
-    const std::vector<ui::DirectoryEntry> entries =
-        ui::list_directory(root.string(), std::vector<std::string>{".wav", ".mp3"});
+    EXPECT_EQ(names_of(list(source, {""})),
+              (std::vector<std::string>{"a.wav", "notes.txt", "readme"}));
+}
 
-    EXPECT_EQ(names_of(entries), (std::vector<std::string>{"song.MP3", "take.wav"}));
+TEST(Small_DirectoryListing, ListDirectoryKeepsEveryExtensionItIsGiven)
+{
+    const ui::InMemoryDirectorySource source =
+        source_of({{"take.wav", false}, {"song.MP3", false}, {"sample.flac", false}});
 
-    std::filesystem::remove_all(root);
+    EXPECT_EQ(names_of(list(source, {".wav", ".mp3"})),
+              (std::vector<std::string>{"song.MP3", "take.wav"}));
+}
+
+TEST(Small_DirectoryListing, ListDirectoryReturnsNothingForADirectoryTheSourceDoesNotHold)
+{
+    const ui::InMemoryDirectorySource source;
+
+    EXPECT_TRUE(list(source, {".wav"}).empty());
 }
 
 TEST(Medium_DirectoryListing, ListDirectoryReturnsNothingForADirectoryThatDoesNotExist)
@@ -146,7 +169,10 @@ TEST(Medium_DirectoryListing, ListDirectoryReturnsNothingForAPathThatNamesAFile)
 {
     const std::filesystem::path root = make_fixture("not_a_directory");
     const std::filesystem::path file = root / "a.wav";
-    write_file(file);
+    {
+        std::ofstream out(file, std::ios::binary);
+        out.put('x');
+    }
 
     EXPECT_TRUE(ui::list_directory(file.string(), ".wav").empty());
 
