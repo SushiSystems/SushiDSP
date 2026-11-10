@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <chrono>
 #include <exception>
+#include <utility>
 
 #include <SushiDSP/nodes/capture/capture_log_category.hpp>
 #include <SushiDSP/foundation/log/log.hpp>
@@ -48,8 +49,9 @@ namespace SushiDSP
     } // namespace
 
     TrackRecorder::TrackRecorder(std::uint32_t channels, double sample_rate,
-                                 std::size_t ring_capacity_frames)
-        : sample_rate_(sample_rate),
+                                 std::size_t ring_capacity_frames, AudioFileWriterOpener opener)
+        : opener_(std::move(opener)),
+          sample_rate_(sample_rate),
           ring_capacity_frames_(std::max<std::size_t>(ring_capacity_frames, 1u)),
           channels_(std::max<std::uint32_t>(channels, 1u))
     {
@@ -87,7 +89,7 @@ namespace SushiDSP
 
         try
         {
-            writer_.reset(new WavWriter(path, sample_rate_, channels_, WavWriter::Format::Float32));
+            writer_ = opener_(path, sample_rate_, channels_);
         }
         catch (const std::exception& error)
         {

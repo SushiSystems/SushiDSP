@@ -31,14 +31,17 @@
 
 #include <cstdint>
 #include <fstream>
+#include <memory>
 #include <string>
+
+#include <SushiDSP/foundation/io/audio_file_writer.hpp>
 
 namespace SushiDSP
 {
     /// @brief Streaming WAV output: open, append frames, close. Not real-time safe — it
     /// allocates, throws and touches the filesystem, exactly like PartitionedConvolution's
     /// constructor and WavFile; call only from the control thread.
-    class WavWriter
+    class WavWriter final : public AudioFileWriter
     {
         public:
             /// @brief Sample encoding written to the file.
@@ -58,7 +61,7 @@ namespace SushiDSP
                       Format format);
 
             /// @brief Closes the file if the caller did not already call close().
-            ~WavWriter();
+            ~WavWriter() override;
 
             WavWriter(const WavWriter&) = delete;
             WavWriter& operator=(const WavWriter&) = delete;
@@ -66,13 +69,13 @@ namespace SushiDSP
             /// @brief Appends frames, interleaving the channels. Does nothing once close() has run.
             /// @param channels One pointer per channel, each with at least `frames` samples.
             /// @param frames Number of frames to append, per channel.
-            void append(const float* const* channels, std::uint32_t frames);
+            void append(const float* const* channels, std::uint32_t frames) override;
 
             /// @brief Rewrites the RIFF and data sizes and closes the file. Safe to call twice.
-            void close();
+            void close() override;
 
             /// @brief Returns the number of frames appended so far.
-            std::uint64_t frames_written() const;
+            std::uint64_t frames_written() const override;
 
         private:
             /// @brief The underlying file stream.
@@ -86,4 +89,10 @@ namespace SushiDSP
             /// @brief Whether close() has already run.
             bool closed_ = false;
     };
+
+    /// @brief The production AudioFileWriterOpener: opens a Float32 WavWriter.
+    /// @throws std::runtime_error if the path cannot be opened for writing.
+    std::unique_ptr<AudioFileWriter> open_float32_wav_writer(const std::string& path,
+                                                             double sample_rate,
+                                                             std::uint32_t channels);
 } // namespace SushiDSP

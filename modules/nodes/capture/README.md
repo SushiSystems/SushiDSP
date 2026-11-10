@@ -26,6 +26,7 @@ directory does.
 | Mixing up to eight clip timelines into one output at that position and speed | `TrackPlayer` |
 | Reading a take at a playback speed other than 1.0 | `VariRateReader` |
 | Interleaving and the RIFF header | `SushiDSP::WavWriter`, in the core's `io/` |
+| The file a recorder writes through, replaceable in a test | `SushiDSP::AudioFileWriter` and `InMemoryAudioFileStore`, in `io/` |
 | Parsing a WAV file back into samples | `SushiDSP::WavFile`, in the core's `io/` |
 
 `TrackRecorder` knows nothing about takes, folders or naming; `RecordingBus` is the only class

@@ -152,6 +152,7 @@ add_executable(sushidsp_tests
     nodes/routing/test_mixer_node.cpp
     nodes/routing/test_pan_node.cpp
     nodes/capture/test_track_recorder/test_behaviour.cpp
+    nodes/capture/test_track_recorder/test_in_memory_writer.cpp
     nodes/capture/test_track_player.cpp
     applications/host_gui/test_file_drop_queue.cpp
     nodes/capture/test_transport.cpp
@@ -228,6 +229,8 @@ add_executable(sushidsp_tests
     foundation/io/test_ir_loader.cpp
     foundation/io/test_wav_file.cpp
     foundation/io/test_wav_writer.cpp
+    foundation/io/test_audio_file_writer.cpp
+    foundation/io/test_in_memory_audio_file_writer.cpp
 
     # --- Real-time safety ---
     foundation/allocation_trap/test_allocation_trap.cpp

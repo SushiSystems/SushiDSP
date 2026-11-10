@@ -38,12 +38,13 @@
 #include <vector>
 
 #include <SushiDSP/foundation/core/spsc_ring.hpp>
+#include <SushiDSP/foundation/io/audio_file_writer.hpp>
 #include <SushiDSP/foundation/io/wav_writer.hpp>
 
 namespace SushiDSP
 {
     /// @brief One recording destination: the audio thread pushes blocks into one SpscRing<float>
-    /// per channel and a writer thread drains all of them in step into a WavWriter. A disk that
+    /// per channel and a writer thread drains all of them in step into an AudioFileWriter. A disk that
     /// cannot keep up costs whole blocks, counted by dropped_blocks(), never a wait in write().
     /// @see the stereo tracks design spec in the version history §5
     class TrackRecorder
@@ -53,8 +54,10 @@ namespace SushiDSP
             /// @param channels Number of channels to record.
             /// @param sample_rate The file's sample rate in Hz.
             /// @param ring_capacity_frames Frames each channel's ring holds before blocks are dropped.
+            /// @param opener Opens the take file in arm(); the default writes a Float32 WAV file.
             TrackRecorder(std::uint32_t channels, double sample_rate,
-                          std::size_t ring_capacity_frames);
+                          std::size_t ring_capacity_frames,
+                          AudioFileWriterOpener opener = open_float32_wav_writer);
 
             /// @brief Calls stop().
             ~TrackRecorder();
@@ -148,11 +151,14 @@ namespace SushiDSP
             /// @brief Holds the writer thread's per-channel drain buffer.
             std::vector<std::vector<float>> scratch_;
 
-            /// @brief Points at each scratch buffer, in the shape WavWriter::append() takes.
+            /// @brief Points at each scratch buffer, in the shape AudioFileWriter::append() takes.
             std::vector<const float*> scratch_pointers_;
 
             /// @brief Owns the open file between arm() and stop().
-            std::unique_ptr<WavWriter> writer_;
+            std::unique_ptr<AudioFileWriter> writer_;
+
+            /// @brief Opens the take file in arm().
+            AudioFileWriterOpener opener_;
 
             /// @brief Runs drain_loop() while the recorder is armed.
             std::thread writer_thread_;

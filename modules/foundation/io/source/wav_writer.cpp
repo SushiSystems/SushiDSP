@@ -195,4 +195,12 @@ namespace SushiDSP
     {
         return frames_written_;
     }
+
+    std::unique_ptr<AudioFileWriter> open_float32_wav_writer(const std::string& path,
+                                                             double sample_rate,
+                                                             std::uint32_t channels)
+    {
+        return std::unique_ptr<AudioFileWriter>(
+            new WavWriter(path, sample_rate, channels, WavWriter::Format::Float32));
+    }
 } // namespace SushiDSP

@@ -1,5 +1,21 @@
 # tests/nodes/dd3
 
+## Measuring a filter in these tests
+
+A probe drives a unit sine for 10 ms to let the poles settle, then reads the amplitude of the next
+0.05 s as sqrt(I^2 + Q^2) \* 2/N with I and Q the sums of the output against cos and sin. Every
+probe frequency is a multiple of 20 Hz, so the window holds a whole number of cycles and the
+estimate is exact for a steady sine.
+
+The filters keep double state and round to float at the input and at each section's output. A
+chain of m sections has m + 1 rounding events, each at most u = 2^-24 of the signal at that point.
+Taking the signal at every point as at most the L1 norm of the whole chain's impulse response (the
+largest of the partial norms for low-pass chains), the error of a sample is at most (m + 1) \* u \*
+L1, and the quadrature estimate turns an error of D per sample into at most 2D. The bound is
+therefore 2 \* (m + 1) \* u \* L1, with L1 summed over 4096 samples of the filter's own impulse
+response (every pole decays in under 0.3 ms). The bound is already a worst case, so the tests hold the error to a ratio of 1.
+
+
 ## `test_dd3_analog_filters.cpp`
 
 ### `Dd3SectionConstantsMatchTheComponentValues`
@@ -15,12 +31,23 @@ AA 3: C17 0.018u / C16 220p    RC 1: C38 2700p / C37 1200p
 RC 2: C35 6800p / C36 150p
 ```
 
+### `Dd3EmphasisConstantsMatchTheComponentValues`
+
+`// The zero and the pole follow from R7, R8 and C4, and the shelf gain from 33/47.`
+
+The zero is 1/(2\*pi\*(R7+R8)\*C4) and the pole 1/(2\*pi\*R8\*C4) with R7 47K, R8 10K and C4 4.7 nF.
+The pole sits (R7+R8)/R8 = 5.7 times above the zero, so the shelf's high-frequency gain is
+33/47 \* 5.7 = 1881/470 = 4.0021277, which the emphasis constants test derives instead of pasting.
+
 ### `Dd3EmitterFollowerDampingLowersEveryQ`
 
 `// Q = 1/(1/q + 2*(1-K)*q) for a buffer of gain K.`
 
 Q = 1/(1/q + 2\*(1-K)\*q) for the equal-R Sallen-Key with a buffer of gain K, which is what
 takes the cascade from +6.45 dB at 7 kHz to inside the published window.
+The oracle is built from the capacitors, not from the stored Q: the equal-R Sallen-Key with a buffer
+of gain K has Q = 1/(2\*sqrt(C2/C1) + (1-K)\*sqrt(C1/C2)), which is 0.5\*sqrt(C1/C2) at K = 1 and
+the code's expression after substituting q = 0.5\*sqrt(C1/C2).
 
 ### `Dd3PrewarpIsExactAtThePassbandEdgeAndScalesEveryCornerAlike`
 
@@ -29,68 +56,96 @@ takes the cascade from +6.45 dB at 7 kHz to inside the published window.
 One prewarp reference for the whole cascade, so tan(pi\*fd/fs) stays proportional to the
 analogue f0 and the sections keep their stagger at every rate.
 
+### `Dd3AntiAliasCascadeMatchesItsDigitalResponse`
+
+`// Each section is the bilinear low-pass with its corner prewarped.`
+
+Each section is the bilinear low-pass with its corner prewarped, so its exact response is
+1/(1 - x^2 + jx/Q) with x = tan(pi\*f/fs)/tan(pi\*fc/fs), and the cascade is the product. The
+filter is measured by a quadrature estimate over whole cycles and differs from that response only
+by the float conversions of the input and of each section's output; the bound is derived from the
+filter's own L1 norm in the test.
+
 ### `Dd3AntiAliasCascadeMatchesItsDampedPrototype`
 
-`// The prewarp holds the passband within 0.4 %.`
+`// The prewarp holds the passband close to the analogue prototype.`
 
 The discretisation is checked against the analogue prototype at both rates the node runs at and
-at 192 kHz. The prewarp holds the passband to 0.4 % of the prototype everywhere, which is the
-whole reason it is anchored at 7 kHz rather than per section.
+at 192 kHz. The prewarp holds the passband to under 0.5 % of the prototype, which is the whole
+reason it is anchored at 7 kHz rather than per section. The bound is characterized: an offline
+evaluation of both responses reads 0.446 % at worst, and it has no closed form yet.
+
+### `Dd3ReconstructionCascadeMatchesItsDigitalResponse`
+
+The same check as the anti-alias cascade, for the two reconstruction sections.
 
 ### `Dd3ReconstructionCascadeMatchesItsDampedPrototype`
 
 `// The 4th-order filter is still rising at the band edge.`
 
-1.003462 at 1 kHz, 1.041637 at 5 kHz, 1.010033 at 7 kHz: the 4th-order filter alone is still
-rising at the band edge, which is why the 6th-order one carries the roll-off.
+The 4th-order filter alone is still rising at the band edge, which is why the 6th-order one
+carries the roll-off. The agreement with the analogue prototype is the same characterized bound
+as the anti-alias cascade's; the worst offline reading is 0.15 %.
 
-### `Dd3DelayPathMeetsThePublishedResponseWindow`
+### `Dd3AntiAliasAloneMeetsThePublishedResponseWindow`
 
 `// The window is +1/-3 dB of 1 kHz from 40 Hz to 7 kHz.`
 
 The acceptance: 40 Hz - 7 kHz within +1/-3 dB of 1 kHz, from the DD-3's published delay-path
-figure (the boss dd3 design dossier research note in the version history section 3). Both the
-anti-alias cascade alone and the two cascades in series are held to it, because on the board the
-wet signal passes through both.
+figure (the boss dd3 design dossier research note in the version history section 3). The
+anti-alias cascade alone is held to it at 48 and 96 kHz. The probes are sixth-octave steps
+rounded to the 20 Hz grid that keeps a whole number of cycles in the measuring window.
+
+### `Dd3DelayPathMeetsThePublishedResponseWindow`
+
+`// On the board the wet signal passes through both cascades.`
+
+The two cascades in series are held to the same window, because on the board the wet signal
+passes through both.
 
 ### `Dd3AntiAliasCascadeRejectsAboveTheBandEdge`
 
 `// 20 kHz is further down at 48 kHz than at 96 kHz.`
 
 What the filter is for. The RBJ low-pass carries a zero at Nyquist the analogue prototype does
-not, so 20 kHz is further down at 48 kHz than at 96 kHz; both are asserted so a change of
-discretisation is caught rather than absorbed.
-
-`// The thresholds sit just above the measured readings.`
-
-0.1325 and 4.7e-6 at 48 kHz; 0.2073 and 8.3e-4 at 96 kHz. The four thresholds are set just above
-those, so they catch a change in the cascade rather than state a requirement.
+not, so 20 kHz is further down at 48 kHz than at 96 kHz. The digital response is the oracle at
+10 kHz and 20 kHz at both rates (0.1336 and 4.8e-6 at 48 kHz; 0.2077 and 8.3e-4 at 96 kHz), so
+a change of discretisation is caught rather than absorbed, to within the float conversions.
 
 ### `Dd3EmphasisPairIsTheIdentity`
 
 `// The pair is unity by construction: 33/47 * 47/33 = 1.`
 
 The pre-emphasis zero is the de-emphasis pole and vice versa, and 33/47 \* 47/33 = 1, so the
-cascade is unity by construction. Assert a null below -120 dB on broadband noise, which no
-tolerance-based response check would catch.
+cascade is unity by construction. The error power on broadband noise is held to the square of the
+worst-case float rounding error over the noise power, which the test builds from the two shelves'
+L1 norms; no tolerance-based response check would catch a mismatch this small.
+
+### `Dd3PreEmphasisMatchesItsDigitalShelfAtThreeProbes`
+
+`// Both corners are prewarped separately.`
+
+Both corners are prewarped separately, so the exact response is the shelf with each ratio f/fc
+replaced by tan(pi\*f/fs)/tan(pi\*fc/fs). The probe stays at fs/16 or below; at fs/4 a
+peak-of-sine estimator would read 99.58 % of the digital response, which hides the stretch. The
+quadrature estimate reads the response exactly.
 
 ### `Dd3PreEmphasisHitsItsThreeDerivedGains`
 
-`// The probe stays at fs/16; fs/4 hides both errors.`
+`// The digital shelf sits above the analogue one as the tangent stretches the probe.`
 
-0.7025132 below the zero, 1.3184111 at 1 kHz, 3.5023974 well above the pole. All three are the
-analogue shelf; the discretised one sits above it, because the bilinear tangent stretches the
-shelf as the probe climbs (3.5234141 at 6 kHz), and the tolerances carry that gap. The probe
-stays at fs/16: at fs/4 the peak-of-sine estimator reads 99.58 % of the digital response, which
-happens to cancel the stretch and hide both errors.
+The analogue shelf reads 0.7025132 below the zero, 1.3184111 at 1 kHz and 3.5023974 well above
+the pole. The discretised one sits above it, because the bilinear tangent stretches the shelf as
+the probe climbs (3.5234141 at 6 kHz). The gap is bounded by exp(m^2/2) - 1 with m the larger
+of the probe and the pole angle, 1.9 % at 6 kHz.
 
 ### `Dd3DeEmphasisIsTheReciprocalOfThePreEmphasis`
 
-`// The tolerance is the bilinear warp, not the estimator.`
+`// The de-emphasis swaps the two corners and inverts the low-frequency gain.`
 
-The tolerance is the bilinear warp, not the estimator: at 5 kHz the discretised shelf sits
-1.61e-3 below the analogue one and the peak-of-sine reading is within 4.6e-5 of the discretised
-response. Dd3EmphasisPairIsTheIdentity is what pins the pair exactly.
+The de-emphasis swaps the two corners and inverts the low-frequency gain, so its exact digital
+response is 1 over the digital pre-emphasis response. The measured response is held to it to
+within the float conversions. Dd3EmphasisPairIsTheIdentity is what pins the pair on noise.
 
 ## `test_dd3_clock.cpp`
 

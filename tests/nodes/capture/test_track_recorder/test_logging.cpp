@@ -27,28 +27,25 @@
  * @author Mustafa Garip
  */
 
-#include <filesystem>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/nodes/capture/track_recorder.hpp>
+#include <SushiDSP/foundation/io/in_memory_audio_file_writer.hpp>
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
+#include <SushiDSP/nodes/capture/track_recorder.hpp>
 
-TEST(Medium_TrackRecorder, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpened)
+TEST(Small_TrackRecorder, LogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpened)
 {
-    const std::filesystem::path root =
-        std::filesystem::temp_directory_path() / "sushidsp_recorder_logging";
-    std::filesystem::remove_all(root);
-    std::filesystem::create_directories(root);
-    // No directory named "missing" exists under root, so the take file cannot be created.
-    const std::string path = (root / "missing" / "take.wav").string();
+    const std::string path = "folder/missing/take.wav";
+    SushiDSP::InMemoryAudioFileStore store;
+    store.refuse(path);
 
     SushiDSP::LogCapture capture;
     {
-        SushiDSP::TrackRecorder recorder(1u, 48000.0, 8192);
+        SushiDSP::TrackRecorder recorder(1u, 48000.0, 8192, store.opener());
         EXPECT_FALSE(recorder.arm(path));
         EXPECT_FALSE(recorder.is_recording());
     }
@@ -61,6 +58,4 @@ TEST(Medium_TrackRecorder, TrackRecorderLogsOneErrorNamingThePathWhenTheTakeFile
     EXPECT_NE(lines[0].message.find("could not open"), std::string::npos) << lines[0].message;
     EXPECT_NE(lines[0].message.find("the recorder stays disarmed"), std::string::npos)
         << lines[0].message;
-
-    std::filesystem::remove_all(root);
 }

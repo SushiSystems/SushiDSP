@@ -4,6 +4,8 @@ Impulse responses and WAV files.
 
 ## Owns
 
+- `modules/foundation/io/include/SushiDSP/foundation/io/audio_file_writer.hpp`
+- `modules/foundation/io/include/SushiDSP/foundation/io/in_memory_audio_file_writer.hpp`
 - `modules/foundation/io/include/SushiDSP/foundation/io/io_log_category.hpp`
 - `modules/foundation/io/include/SushiDSP/foundation/io/ir.hpp`
 - `modules/foundation/io/include/SushiDSP/foundation/io/ir_loader.hpp`

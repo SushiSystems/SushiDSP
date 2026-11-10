@@ -115,18 +115,6 @@ namespace
         return result;
     }
 
-    /// @brief Writes the same block to a recorder several times and counts the writes it took.
-    std::size_t count_accepted_writes(SushiDSP::TrackRecorder& recorder, const float* const* channels,
-                                      std::uint32_t frames, std::size_t blocks)
-    {
-        std::size_t accepted = 0;
-        for (std::size_t index = 0; index < blocks; ++index)
-        {
-            accepted += recorder.write(channels, frames) ? 1u : 0u;
-        }
-        return accepted;
-    }
-
     /// @brief Writes the same block to a bus several times and counts the writes it took.
     std::size_t count_accepted_bus_writes(SushiDSP::RecordingBus& bus, const float* const* processed,
                                           const float* dry, std::uint32_t frames, std::size_t blocks)
@@ -196,52 +184,6 @@ TEST(Medium_TrackRecorder, TrackRecorderWritesAFileOfItsChannelsAndRate)
 
     EXPECT_EQ(take.channels(), 1u);
     EXPECT_EQ(take.sample_rate(), 48000.0); // the file stores the rate as the integer 48000
-}
-
-TEST(Medium_TrackRecorder, TrackRecorderDropsAndCountsEveryBlockLargerThanTheRing)
-{
-    const TempFolder folder("undersized");
-    SushiDSP::TrackRecorder recorder(1u, 48000.0, 64);
-    ASSERT_TRUE(recorder.arm((folder.path() / "undersized.wav").string()));
-    std::vector<float> block(K_DROP_BLOCK_FRAMES, 0.25f);
-    const float* channels[1] = {block.data()};
-
-    const std::size_t accepted = count_accepted_writes(recorder, channels, K_DROP_BLOCK_FRAMES, K_DROP_BLOCKS);
-
-    EXPECT_EQ(accepted, 0u);
-    EXPECT_EQ(recorder.dropped_blocks(), static_cast<std::uint64_t>(K_DROP_BLOCKS));
-}
-
-TEST(Medium_TrackRecorder, TrackRecorderWritesNothingOfADroppedBlock)
-{
-    const TempFolder folder("undersized_file");
-    SushiDSP::TrackRecorder recorder(1u, 48000.0, 64);
-    ASSERT_TRUE(recorder.arm((folder.path() / "undersized.wav").string()));
-    std::vector<float> block(K_DROP_BLOCK_FRAMES, 0.25f);
-    const float* channels[1] = {block.data()};
-    count_accepted_writes(recorder, channels, K_DROP_BLOCK_FRAMES, K_DROP_BLOCKS);
-
-    recorder.stop();
-
-    EXPECT_EQ(recorder.frames_written(), 0u);
-}
-
-TEST(Medium_TrackRecorder, TrackRecorderWriteAfterStopIsANoOp)
-{
-    const TempFolder folder("after_stop");
-    SushiDSP::TrackRecorder recorder(1u, 48000.0, 4096);
-    ASSERT_TRUE(recorder.arm((folder.path() / "after_stop.wav").string()));
-    std::vector<float> block(128, 0.5f);
-    const float* channels[1] = {block.data()};
-    ASSERT_TRUE(recorder.write(channels, 128u));
-    recorder.stop();
-    ASSERT_FALSE(recorder.is_recording());
-    const std::uint64_t frames_at_stop = recorder.frames_written();
-
-    EXPECT_FALSE(recorder.write(channels, 128u));
-
-    EXPECT_EQ(recorder.frames_written(), frames_at_stop);
-    EXPECT_EQ(recorder.dropped_blocks(), 0u);
 }
 
 TEST(Medium_TrackRecorder, RecordingBusWritesTheSameFrameCountToBothFiles)
