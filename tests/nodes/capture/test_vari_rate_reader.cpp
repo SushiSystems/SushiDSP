@@ -51,6 +51,17 @@ namespace
     /// speed, in dB. Characterized from the first version of the test; it has no derivation yet.
     constexpr double K_MIN_IMAGE_REJECTION_DB = 80.0;
 
+    /// @brief Blocks of 256 outputs the ratio case reads before it counts: the converter's start-up
+    /// consumes at most its latency, 34 * max(speed, 1) take frames, 68 at the fastest row; the first
+    /// block already costs 128 take frames or more, so four blocks leave three more.
+    constexpr std::uint32_t K_RATIO_SETTLING_BLOCKS = 4u;
+
+    /// @brief Blocks of 256 outputs the ratio case counts. Every speed of its rows is a multiple of
+    /// 0.25, so the phase arithmetic is exact in double and a read that loses the fraction at a block
+    /// boundary loses at least a quarter of a take frame per block: sixteen blocks turn that into four
+    /// frames or more, where the exact count is an integer.
+    constexpr std::uint32_t K_RATIO_COUNTED_BLOCKS = 16u;
+
     /// @brief Names a speed and the take frames a run at it must consume.
     struct RatioRow
     {
@@ -130,9 +141,9 @@ namespace
     }
 
     /// @brief Reads blocks of 256 frames and returns the take frames consumed after the first
-    /// hundred blocks, once the converter has settled.
+    /// settling blocks, once the converter has settled.
     std::uint64_t frames_consumed_after_settling(const SushiDSP::Take& take, double speed,
-                                                 std::uint32_t blocks)
+                                                 std::uint32_t settling_blocks, std::uint32_t counted_blocks)
     {
         SushiDSP::VariRateReader reader;
         reader.prepare(1u, 256u);
@@ -141,10 +152,10 @@ namespace
         std::uint64_t cursor = 0u;
         std::uint64_t after_settling = 0u;
 
-        for (std::uint32_t block = 0; block < blocks; ++block)
+        for (std::uint32_t block = 0; block < settling_blocks + counted_blocks; ++block)
         {
             cursor = reader.read(take, cursor, speed, pointers, 1u, 256u);
-            if (block == 99u)
+            if (block + 1u == settling_blocks)
             {
                 after_settling = cursor;
             }
@@ -329,28 +340,29 @@ TEST(Small_VariRateReader, VariRateReaderResetStartsFromSilence)
         0.0, 0.0)));
 }
 
-class Medium_VariRateReaderRatio : public ::testing::TestWithParam<RatioRow>
+class Small_VariRateReaderRatio : public ::testing::TestWithParam<RatioRow>
 {
 };
 
-TEST_P(Medium_VariRateReaderRatio, VariRateReaderHoldsItsRatioAtEveryLegalSpeed)
+TEST_P(Small_VariRateReaderRatio, VariRateReaderHoldsItsRatioAtEveryLegalSpeed)
 {
     // At half speed 256 outputs cost 128 take frames. See tests/nodes/capture/README.md.
     const SushiDSP::Take take = sine_take(440.0, 4096u, 48000.0);
 
-    const std::uint64_t consumed = frames_consumed_after_settling(take, GetParam().speed, 4000u);
+    const std::uint64_t consumed = frames_consumed_after_settling(
+        take, GetParam().speed, K_RATIO_SETTLING_BLOCKS, K_RATIO_COUNTED_BLOCKS);
 
-    // 3900 blocks of 256 outputs follow the first hundred, each costing 256 * speed take frames.
+    // 16 blocks of 256 outputs follow the first four, each costing 256 * speed take frames.
     EXPECT_EQ(consumed, GetParam().frames_consumed);
 }
 
-INSTANTIATE_TEST_SUITE_P(Rows, Medium_VariRateReaderRatio,
-                         ::testing::Values(RatioRow{"Half", 0.5, 499200ull},
-                                           RatioRow{"ThreeQuarters", 0.75, 748800ull},
-                                           RatioRow{"Unity", 1.0, 998400ull},
-                                           RatioRow{"FiveQuarters", 1.25, 1248000ull},
-                                           RatioRow{"OneAndAHalf", 1.5, 1497600ull},
-                                           RatioRow{"Double", 2.0, 1996800ull}),
+INSTANTIATE_TEST_SUITE_P(Rows, Small_VariRateReaderRatio,
+                         ::testing::Values(RatioRow{"Half", 0.5, 2048ull},
+                                           RatioRow{"ThreeQuarters", 0.75, 3072ull},
+                                           RatioRow{"Unity", 1.0, 4096ull},
+                                           RatioRow{"FiveQuarters", 1.25, 5120ull},
+                                           RatioRow{"OneAndAHalf", 1.5, 6144ull},
+                                           RatioRow{"Double", 2.0, 8192ull}),
                          [](const ::testing::TestParamInfo<RatioRow>& info)
                          { return std::string(info.param.name); });
 

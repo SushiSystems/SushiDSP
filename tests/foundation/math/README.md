@@ -350,7 +350,21 @@ differs as well. That is why the 0.10 ms the case prints against is advisory.
 ## Sizes, 2026-11-10
 
 In the Debug run `ResamplerRoundTripNulls` took 0.38 to 0.45 s a row and two `Resampler` cases 0.12 and
-0.16 s, against 0.1 s for a `Small_` case. They are `Medium_ResamplerRoundTrip` and `Medium_Resampler`.
+0.16 s, against 0.1 s for a `Small_` case. Their inputs are now shorter, and none of the bounds changes,
+because none of them depends on the length:
+
+- `ResamplerRoundTripNulls` runs 8192 frames in place of 96000 and searches a lag of 256 in place of 512.
+  The longest round-trip delay is Dd3SlowClock's, 82 + 81.6 = 164 samples. `null_test()` costs frames
+  times lags, so a row falls to about a twentieth. The -80 dB level is a ratio of mean squares of two
+  stationary errors (the kernel's stopband and interpolation floor), so the length leaves it alone. No FFT
+  window is involved. The suite is `Small_ResamplerRoundTrip`, at an estimate of 0.03 s a row.
+- `ResamplerSizesTheHistoryForAnUpsampleOnlyInstance` runs 4096 frames in place of 24000, 512 pushes of 8
+  that wrap the 76-slot ring many times over, with the same level and lag. Estimate 0.02 s.
+- `ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel` runs 40960 frames in place of 262144, 64 blocks
+  starved and 96 decimated, which gives 1536 outputs against the 1000 it asserts. Its bound is a worst case
+  per sample, `(2 + |2 cos w|) * 3 u`, so the block count does not enter it. Estimate 0.03 s.
+
+Both cases are `Small_Resampler`.
 
 The three `SincResampler` cases took 0.2 to 0.4 s each on a one-second source. Their source is now 0.1 s
 (4410 samples at 44.1 kHz, 9600 at 96 kHz), a tenth of the work, which resamples to 4800 samples with

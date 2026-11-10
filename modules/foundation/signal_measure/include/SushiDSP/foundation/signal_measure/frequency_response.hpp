@@ -49,17 +49,21 @@ namespace SushiDSP::measure
 
     /// @brief Returns a node's small-signal magnitude response by sine sweep and deconvolution.
     /// @param node The node under test, knobs already set.
+    /// @param sample_rate The rate the node runs at.
     /// @param frequencies_hz Frequencies to report.
+    /// @param sweep_seconds Length of the sweep in seconds; the silent tail is half of it. The default of two
+    /// seconds, one second of tail, is the length every caller got before the parameter existed.
     /// @return One point per requested frequency.
     /// @see modules/foundation/signal_measure/README.md, "frequency_response.hpp", for the sweep and its measured error.
     inline std::vector<ResponsePoint> frequency_response(AudioNode& node, double sample_rate,
-                                                         const std::vector<double>& frequencies_hz)
+                                                         const std::vector<double>& frequencies_hz,
+                                                         double sweep_seconds = 2.0)
     {
-        const double sweep_seconds = 2.0;
         const double f1 = 5.0;
         const double f2 = sample_rate / 2.0;
         const std::size_t sweep_length = static_cast<std::size_t>(sweep_seconds * sample_rate);
-        const std::size_t total_length = sweep_length + static_cast<std::size_t>(sample_rate);
+        const std::size_t tail_length = static_cast<std::size_t>(sweep_seconds * sample_rate / 2.0);
+        const std::size_t total_length = sweep_length + tail_length;
         const double rate = std::log(f2 / f1);
         constexpr float amplitude = 0.01f; // -40 dBFS
 
@@ -113,8 +117,8 @@ namespace SushiDSP::measure
             }
             std::vector<float> impulse(fft_size);
             fft.inverse(product_real.data(), product_imaginary.data(), impulse.data());
-            // The linear response begins at index sweep_length - 1; keep one second from there.
-            std::vector<float> causal(static_cast<std::size_t>(sample_rate), 0.0f);
+            // The linear response begins at index sweep_length - 1; keep the tail's length from there.
+            std::vector<float> causal(tail_length, 0.0f);
             for (std::size_t i = 0; i < causal.size(); ++i)
             {
                 causal[i] = impulse[sweep_length - 1 + i];

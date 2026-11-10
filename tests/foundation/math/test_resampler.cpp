@@ -68,6 +68,22 @@ namespace
     /// by the lower rate, the conversion and the minimum.
     constexpr std::size_t K_LATENCY_OPERATIONS = 4;
 
+    /// Frames of the round-trip multitone: 8192, of which 7936 are left after K_SETTLING_FRAMES, 16.5
+    /// cycles of the 100 Hz partial. The residual is a ratio of mean squares over the window, and the
+    /// two terms behind K_ROUND_TRIP_LEVEL_DB (the kernel's stopband and interpolation errors) are
+    /// stationary, so the level does not depend on the length; a window shorter than a few cycles of
+    /// the 100 Hz partial would only make the gain fit of null_test() coarser.
+    constexpr std::size_t K_ROUND_TRIP_FRAMES = 8192;
+
+    /// Frames of the upsample-only round trip: 4096, 3840 after K_SETTLING_FRAMES. The 76-slot reach it
+    /// guards is 34 input samples wide on each side, so 512 pushes of 8 frames wrap its ring many times over.
+    constexpr std::size_t K_UPSAMPLE_ONLY_FRAMES = 4096;
+
+    /// Largest delay null_test() searches for a round trip, in samples at the outer rate. The longest
+    /// round-trip delay of the rows is Dd3SlowClock's: 82 samples down plus 34 / 20000 * 48000 = 81.6 up,
+    /// 164 in all; 256 leaves 92 above it, and the lag search costs 2 * 256 + 1 passes over the window.
+    constexpr std::uint32_t K_ROUND_TRIP_MAX_LAG = 256;
+
     /// The residual, in decibels, below which a round trip must null. A characterisation level:
     /// the kernel's own limit is -100 dB (stopband) and -108 dB (interpolation floor), two
     /// stages add in power to about -97 dB, and 17 dB stay for the float buffers.
@@ -96,6 +112,12 @@ namespace
 
     /// Frames per block in the block-wise tests.
     constexpr std::uint32_t K_BLOCK = 256;
+
+    /// Frames of the reclamp run: 160 blocks, of which the first 64 are starved and 96 decimate 16:1 into
+    /// 1536 outputs, above the 1000 the case asserts. The bound of that case is a worst case per
+    /// sample, (2 + |2 cos w|) * 3 u, so it holds for any length; only the count of outputs it is
+    /// checked on shrinks, and 1536 are still many cycles of the 100 Hz sine at 3 kHz (30 samples a cycle).
+    constexpr std::size_t K_RECLAMP_FRAMES = 160u * K_BLOCK;
 
     /// Blocks that the output-count test pushes.
     constexpr std::uint32_t K_COUNT_BLOCKS = 4000;
@@ -162,7 +184,7 @@ namespace
     {
         const std::vector<float> settled_a(a.begin() + K_SETTLING_FRAMES, a.end());
         const std::vector<float> settled_b(b.begin() + K_SETTLING_FRAMES, b.end());
-        return SushiDSP::measure::null_test(settled_a, settled_b, 512u);
+        return SushiDSP::measure::null_test(settled_a, settled_b, K_ROUND_TRIP_MAX_LAG);
     }
 
     /// Sum of unit-amplitude sines, scaled so the peak stays inside +/-1.
@@ -333,14 +355,14 @@ namespace
         // The 7 kHz content sits inside the 8000 Hz passband of the 20 kHz stage.
         {"Dd3SlowClock",
          {100.0, 1000.0, 3000.0, 7000.0},
-         96000u,
+         K_ROUND_TRIP_FRAMES,
          {48000.0, 20000.0, 256u, 20000.0 / 48000.0},
          {20000.0, 48000.0, 256u, 20000.0 / 82500.0},
          256u,
          256u},
         {"Dd3FastClock",
          {100.0, 1000.0, 7000.0, 15000.0},
-         96000u,
+         K_ROUND_TRIP_FRAMES,
          {48000.0, 82500.0, 256u, 31250.0 / 48000.0},
          {82500.0, 48000.0, 512u, 48000.0 / 82500.0},
          256u,
@@ -348,7 +370,7 @@ namespace
         // 12 kHz content survives at the SPX90 ratio.
         {"Spx90Ratio",
          {100.0, 1000.0, 7000.0, 12000.0},
-         96000u,
+         K_ROUND_TRIP_FRAMES,
          {48000.0, 31250.0, 256u, 31250.0 / 48000.0},
          {31250.0, 48000.0, 512u, 48000.0 / 82500.0},
          256u,
@@ -359,7 +381,7 @@ namespace
     const RoundTripRow kUpsampleOnlyRow = {
         "UpsampleOnly",
         {100.0, 1000.0, 7000.0},
-        24000u,
+        K_UPSAMPLE_ONLY_FRAMES,
         {48000.0, 192000.0, 8u, 2.0},
         {192000.0, 48000.0, 128u, 48000.0 / 192000.0},
         8u,
@@ -431,7 +453,7 @@ namespace
     {
     };
 
-    class Medium_ResamplerRoundTrip : public ::testing::TestWithParam<RoundTripRow>
+    class Small_ResamplerRoundTrip : public ::testing::TestWithParam<RoundTripRow>
     {
     };
 
@@ -628,16 +650,16 @@ TEST_P(Small_ResamplerDcLevel, ResamplerHoldsADcLevelAtEveryRatio)
 INSTANTIATE_TEST_SUITE_P(Clocks, Small_ResamplerDcLevel, ::testing::ValuesIn(kDcRows), dc_name);
 
 // The round trip is limited by the kernel's own error. See tests/foundation/math/README.md.
-TEST_P(Medium_ResamplerRoundTrip, ResamplerRoundTripNulls)
+TEST_P(Small_ResamplerRoundTrip, ResamplerRoundTripNulls)
 {
     EXPECT_LE(round_trip_residual_db(GetParam()), K_ROUND_TRIP_LEVEL_DB);
 }
 
-INSTANTIATE_TEST_SUITE_P(Clocks, Medium_ResamplerRoundTrip, ::testing::ValuesIn(kRoundTripRows),
+INSTANTIATE_TEST_SUITE_P(Clocks, Small_ResamplerRoundTrip, ::testing::ValuesIn(kRoundTripRows),
                          round_trip_name);
 
 // The history is sized on min(1, minimum_ratio). See tests/foundation/math/README.md.
-TEST(Medium_Resampler, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
+TEST(Small_Resampler, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
 {
     EXPECT_LE(round_trip_residual_db(kUpsampleOnlyRow), K_ROUND_TRIP_LEVEL_DB);
 }
@@ -744,9 +766,9 @@ TEST(Small_Resampler, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
 }
 
 // y[n-1] + y[n+1] = 2*cos(w)*y[n] for a sampled sinusoid. See tests/foundation/math/README.md.
-TEST(Medium_Resampler, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
+TEST(Small_Resampler, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
 {
-    const ReclampRun run = run_reclamped(tone(100.0, 48000.0, 262144u, 1.0));
+    const ReclampRun run = run_reclamped(tone(100.0, 48000.0, K_RECLAMP_FRAMES, 1.0));
     ASSERT_GT(run.output.size(), 1000u);
     EXPECT_TRUE(run.sane);
 

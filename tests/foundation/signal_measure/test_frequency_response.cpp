@@ -35,6 +35,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace
@@ -233,9 +234,18 @@ namespace
             float previous_{0.0f};
     };
 
-    /// @brief The worst error of the sweep from 20 Hz up, in decibels, as measured: 0.17 dB, in
-    /// modules/foundation/signal_measure/README.md, "frequency_response.hpp"; the README gives two
-    /// decimals, so half of the last one, 0.005 dB, is added.
+    /// @brief The sweep length every case runs, in seconds: a quarter second of tail follows it.
+    /// The default of two seconds took 0.22 to 0.97 s a case; the FFT size follows the total length, so
+    /// this one is a quarter of the work. Below it the 20 Hz reading of the highpass case climbs: a
+    /// float64 replica of the sweep read 0.119 dB at 0.4 s against 0.043 dB at 0.5 s.
+    constexpr double K_SWEEP_SECONDS = 0.5;
+
+    /// @brief The worst error of the short sweep from 20 Hz up, in decibels: a characterised constant.
+    /// The two-second sweep measured 0.17 dB (modules/foundation/signal_measure/README.md); the 5 Hz
+    /// onset error of the short one does not derive in closed form, so the bound keeps that value and
+    /// widens nothing. A float64 replica reads 0.043 dB worst at 0.5 s. Read the real value from the
+    /// `worst_sweep_error_db` property of each case in the XML report of the Debug run, and set this
+    /// to the worst of the four plus half of the last decimal.
     constexpr double K_SWEEP_ERROR_DB = 0.17 + 0.005;
 
     /// @brief The rate of the bottom-of-the-band test: high enough for a 5 Hz sweep to be sampled well.
@@ -254,41 +264,50 @@ namespace
         }
         return worst;
     }
+
+    /// @brief Records the worst deviation as the `worst_sweep_error_db` property, and returns it.
+    /// @param worst The worst deviation of the case, in decibels.
+    inline double recorded(double worst)
+    {
+        ::testing::Test::RecordProperty("worst_sweep_error_db", std::to_string(worst));
+        return worst;
+    }
 } // namespace
 
-TEST(Medium_FrequencyResponse, IdentityIsFlat)
+TEST(Small_FrequencyResponse, IdentityIsFlat)
 {
     GainNode node(1.0f);
 
     const std::vector<SushiDSP::measure::ResponsePoint> response =
-        SushiDSP::measure::frequency_response(node, 48000.0, {100.0, 1000.0, 10000.0, 20000.0});
+        SushiDSP::measure::frequency_response(node, 48000.0, {100.0, 1000.0, 10000.0, 20000.0}, K_SWEEP_SECONDS);
 
     ASSERT_EQ(response.size(), 4u);
-    EXPECT_LE(worst_deviation_db(response, [](double) { return 0.0; }), K_SWEEP_ERROR_DB);
+    EXPECT_LE(recorded(worst_deviation_db(response, [](double) { return 0.0; })), K_SWEEP_ERROR_DB);
 }
 
-TEST(Medium_FrequencyResponse, HalfGainReadsAsMinusSixDecibels)
+TEST(Small_FrequencyResponse, HalfGainReadsAsMinusSixDecibels)
 {
     GainNode node(0.5f);
 
     const std::vector<SushiDSP::measure::ResponsePoint> points =
-        SushiDSP::measure::frequency_response(node, 48000.0, {1000.0});
+        SushiDSP::measure::frequency_response(node, 48000.0, {1000.0}, K_SWEEP_SECONDS);
 
     ASSERT_EQ(points.size(), 1u);
-    EXPECT_LE(worst_deviation_db(points, [](double) { return 20.0 * std::log10(0.5); }), K_SWEEP_ERROR_DB);
+    EXPECT_LE(recorded(worst_deviation_db(points, [](double) { return 20.0 * std::log10(0.5); })),
+              K_SWEEP_ERROR_DB);
 }
 
 // The expectations are the difference equation's own |H|. See tests/foundation/signal_measure/README.md.
-TEST(Medium_FrequencyResponse, TracksAOnePoleLowpass)
+TEST(Small_FrequencyResponse, TracksAOnePoleLowpass)
 {
     OnePoleNode node;
 
     const std::vector<SushiDSP::measure::ResponsePoint> response =
-        SushiDSP::measure::frequency_response(node, 48000.0, {1000.0, 10000.0});
+        SushiDSP::measure::frequency_response(node, 48000.0, {1000.0, 10000.0}, K_SWEEP_SECONDS);
 
     ASSERT_EQ(response.size(), 2u);
-    EXPECT_LE(worst_deviation_db(response, [](double frequency_hz)
-                                 { return OnePoleNode::magnitude_db(frequency_hz, 48000.0); }),
+    EXPECT_LE(recorded(worst_deviation_db(response, [](double frequency_hz)
+                                          { return OnePoleNode::magnitude_db(frequency_hz, 48000.0); })),
               K_SWEEP_ERROR_DB);
 }
 
@@ -298,10 +317,10 @@ TEST(Medium_FrequencyResponse, IsAccurateAtTheBottomOfTheAudioBand)
     OnePoleHighPassNode node;
 
     const std::vector<SushiDSP::measure::ResponsePoint> response =
-        SushiDSP::measure::frequency_response(node, K_RUN_RATE, {20.0, 30.0, 50.0, 100.0});
+        SushiDSP::measure::frequency_response(node, K_RUN_RATE, {20.0, 30.0, 50.0, 100.0}, K_SWEEP_SECONDS);
 
     ASSERT_EQ(response.size(), 4u);
-    EXPECT_LE(worst_deviation_db(response, [](double frequency_hz)
-                                 { return OnePoleHighPassNode::magnitude_db(frequency_hz, K_RUN_RATE); }),
+    EXPECT_LE(recorded(worst_deviation_db(response, [](double frequency_hz)
+                                          { return OnePoleHighPassNode::magnitude_db(frequency_hz, K_RUN_RATE); })),
               K_SWEEP_ERROR_DB);
 }

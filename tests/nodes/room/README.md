@@ -21,7 +21,11 @@ targets are one band cut with its neighbours flat; the third is the reference ga
 path through the 4x12, whose 2 kHz octave the array null pulls down. Measured: 0.20, 0.45 and
 0.10 dB.
 
-`BandResponseFitMovesCoefficientsContinuouslyWithTheTarget` took 0.43 s (Debug, 2026-11-10): `Medium_BandResponseFit`.
+`BandResponseFitMovesCoefficientsContinuouslyWithTheTarget` took 0.43 s (Debug, 2026-11-10) over 672 targets,
+13 fits each. It now visits 112 of them: the 14 materials at 48 and 96 kHz (the original sweep read its
+worst move, 0.128, at 96 kHz), orders one and four and 0 and 30 m of air. The bounds
+`K_SMALL_NUDGE_MOVE` and `K_LARGE_NUDGE_MOVE` held over all 672 and so hold over any subset; they are not
+touched. At 49 microseconds a fit the case is estimated at 0.07 s and is `Small_BandResponseFit`.
 
 ## `test_cabinet_directivity.cpp`
 

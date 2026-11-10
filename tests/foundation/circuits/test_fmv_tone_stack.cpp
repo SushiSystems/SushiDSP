@@ -341,23 +341,20 @@ namespace
         return steady_gain_db(loaded, K_SAMPLE_RATE, frequency_hz) - steady_gain_db(unloaded, K_SAMPLE_RATE, frequency_hz);
     }
 
-    // The warp shifts each of the two stacks' levels by its slope times ln(1 + x^2 / 3); the slope of a level is read from the stack itself over a 5 % step, and the deviation is the difference of the two, so the bound is the sum of the two shifts.
+    // The warp shifts each of the two stacks' levels by its slope times ln(1 + x^2 / 3), and the deviation is the difference of the two, so the bound is the sum of the two shifts. The unloaded stack's slope is the closed form's own, at the stack's default knobs of one half, taken over a thousandth of a neper: it needs no run, and it is exact where the 5 % step it replaced was a difference over a tenth of a neper. The loaded stack has no closed form here, so its slope is read from the stack itself over a 5 % step, two runs.
     double loading_warp_bound_db(const SushiDSP::FmvComponents& components, double frequency_hz)
     {
         constexpr double K_SAMPLE_RATE = 192000.0;
-        double total = 0.0;
-        for (const bool with_termination : {false, true})
-        {
-            SushiDSP::FmvToneStack above = with_termination ? SushiDSP::FmvToneStack(K_SAMPLE_RATE, components, K_TERMINATION)
-                                                            : SushiDSP::FmvToneStack(K_SAMPLE_RATE, components);
-            SushiDSP::FmvToneStack below = with_termination ? SushiDSP::FmvToneStack(K_SAMPLE_RATE, components, K_TERMINATION)
-                                                            : SushiDSP::FmvToneStack(K_SAMPLE_RATE, components);
-            const double slope = (steady_gain_db(above, K_SAMPLE_RATE, frequency_hz * 1.05) -
-                                  steady_gain_db(below, K_SAMPLE_RATE, frequency_hz / 1.05)) /
-                                 (2.0 * std::log(1.05));
-            total += warp_bound_db(slope, frequency_hz, K_SAMPLE_RATE);
-        }
-        return total + 2.0 * kMeasurementDb;
+        constexpr double K_DEFAULT_KNOB = 0.5;
+        SushiDSP::FmvToneStack above(K_SAMPLE_RATE, components, K_TERMINATION);
+        SushiDSP::FmvToneStack below(K_SAMPLE_RATE, components, K_TERMINATION);
+        const double loaded_slope = (steady_gain_db(above, K_SAMPLE_RATE, frequency_hz * 1.05) -
+                                     steady_gain_db(below, K_SAMPLE_RATE, frequency_hz / 1.05)) /
+                                    (2.0 * std::log(1.05));
+        const double unloaded_slope =
+            slope_db_per_neper(components, K_DEFAULT_KNOB, K_DEFAULT_KNOB, K_DEFAULT_KNOB, frequency_hz);
+        return warp_bound_db(unloaded_slope, frequency_hz, K_SAMPLE_RATE) +
+               warp_bound_db(loaded_slope, frequency_hz, K_SAMPLE_RATE) + 2.0 * kMeasurementDb;
     }
 
     /// @brief Builds a stack at 0 Hz, which the derivation refuses, and drops the exception.
@@ -489,12 +486,19 @@ TEST_P(Medium_FmvToneStackLoadingDeck, FmvToneStackLoadingTiltIsTheDecksOwn)
     EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(tilt, deck.expected_tilt_db, bound)));
 }
 
-TEST_P(Medium_FmvToneStackLoadingDeck, FmvToneStackLoadingCostsMoreThanOneDecibelAtOneKilohertz)
+class Small_FmvToneStackLoadingCost : public ::testing::TestWithParam<Deck>
+{
+};
+
+TEST_P(Small_FmvToneStackLoadingCost, FmvToneStackLoadingCostsMoreThanOneDecibelAtOneKilohertz)
 {
     EXPECT_GT(std::fabs(loading_deviation_db(*GetParam().components, 1000.0)), K_MINIMUM_LEVEL_COST_DB);
 }
 
 INSTANTIATE_TEST_SUITE_P(Decks, Medium_FmvToneStackLoadingDeck, ::testing::ValuesIn(kDecks),
+                         [](const ::testing::TestParamInfo<Deck>& info) { return std::string(info.param.name); });
+
+INSTANTIATE_TEST_SUITE_P(Decks, Small_FmvToneStackLoadingCost, ::testing::ValuesIn(kDecks),
                          [](const ::testing::TestParamInfo<Deck>& info) { return std::string(info.param.name); });
 
 TEST(Small_FmvToneStack, FmvToneStackThrowsWhenTheDerivationFails)

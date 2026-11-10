@@ -60,5 +60,17 @@ signed correlation picks whatever lag is least negative and the residual never n
 
 ## Sizes, 2026-11-10
 
-The four `frequency_response` cases took 0.22 to 0.97 s in the Debug run and are `Medium_FrequencyResponse`. `UnoversampledTanhIsPoor` took 0.115 s (20 tones of one
-second and a frame) and is `Medium_AliasFloor`.
+The four `frequency_response` cases took 0.22 to 0.97 s in the Debug run at the default two-second
+sweep. They now pass `sweep_seconds = 0.5` (`K_SWEEP_SECONDS`), with a quarter second of tail, which
+cuts the FFT of each to a quarter: the three 48 kHz cases (`IdentityIsFlat`,
+`HalfGainReadsAsMinusSixDecibels`, `TracksAOnePoleLowpass`) are estimated at 0.06 s and are
+`Small_FrequencyResponse`, and the 192 kHz bottom-of-the-band case at 0.24 s stays
+`Medium_FrequencyResponse`. A float64 replica of the algorithm read at most 0.043 dB over the four
+cases at 0.5 s, against 0.039 dB at two seconds and 0.119 dB at 0.4 s, which is why the sweep stops
+at 0.5 s. `K_SWEEP_ERROR_DB` is a characterised constant: it keeps its value (0.175 dB) and each case
+records the `worst_sweep_error_db` property; read it from the XML report of the Debug run and set the
+constant to the worst of the four plus half of the last decimal.
+
+`UnoversampledTanhIsPoor` took 0.115 s (20 tones of one second and a frame) and is
+`Medium_AliasFloor`. It was not shrunk: `alias_floor()` has no sweep and does not call
+`frequency_response()`, and a shorter settle there is a new parameter on another function.

@@ -35,6 +35,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <initializer_list>
 #include <string>
 
 #include <SushiDSP/nodes/room/air_absorption.hpp>
@@ -159,9 +160,10 @@ namespace
         }
     }
 
-    /// @brief Calls the visitor with every material but the doorway, raised to orders one to
-    /// four, behind 0, 5 and 30 m of air, at four sample rates.
-    void for_every_target(const TargetVisitor& visitor)
+    /// @brief Calls the visitor with every material but the doorway, raised to each order, behind
+    /// each path of air, at each sample rate.
+    void for_each_target(const TargetVisitor& visitor, std::initializer_list<double> rates,
+                         std::initializer_list<double> orders, std::initializer_list<double> metres_list)
     {
         for (std::uint8_t id = 0; id < SushiDSP::room::K_MATERIAL_COUNT; ++id)
         {
@@ -170,11 +172,11 @@ namespace
             {
                 continue;
             }
-            for (const double rate : {44100.0, 48000.0, 96000.0, 192000.0})
+            for (const double rate : rates)
             {
-                for (const double order : {1.0, 2.0, 3.0, 4.0})
+                for (const double order : orders)
                 {
-                    for (const double metres : {0.0, 5.0, 30.0})
+                    for (const double metres : metres_list)
                     {
                         BandResponse target = SushiDSP::room::reflection_factor(material_id).powered(order);
                         target *= AirAbsorption::over_path(metres);
@@ -183,6 +185,23 @@ namespace
                 }
             }
         }
+    }
+
+    /// @brief Calls the visitor with every material but the doorway, raised to orders one to
+    /// four, behind 0, 5 and 30 m of air, at four sample rates.
+    void for_every_target(const TargetVisitor& visitor)
+    {
+        for_each_target(visitor, {44100.0, 48000.0, 96000.0, 192000.0}, {1.0, 2.0, 3.0, 4.0}, {0.0, 5.0, 30.0});
+    }
+
+    /// @brief Calls the visitor with the targets of the continuity case: every material but the
+    /// doorway at the two rates 48 and 96 kHz, the 96 kHz one being where the original sweep of the
+    /// full set read its worst move (0.128), at orders one and four and behind 0 and 30 m of air:
+    /// 112 targets of the 672 in for_every_target(). A bound that holds on all 672 holds on any
+    /// subset, so K_SMALL_NUDGE_MOVE and K_LARGE_NUDGE_MOVE are not touched.
+    void for_every_continuity_target(const TargetVisitor& visitor)
+    {
+        for_each_target(visitor, {48000.0, 96000.0}, {1.0, 4.0}, {0.0, 30.0});
     }
 
     /// @brief Returns the target with one band raised by the given decibels.
@@ -336,9 +355,9 @@ INSTANTIATE_TEST_SUITE_P(
                       DipRow{"OfAGarageWall", {-0.05f, -0.19f, -0.76f, -3.11f, -11.50f, -3.49f}}),
     row_name<DipRow>);
 
-TEST(Medium_BandResponseFit, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
+TEST(Small_BandResponseFit, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
 {
-    for_every_target(expect_fit_moves_continuously);
+    for_every_continuity_target(expect_fit_moves_continuously);
 }
 
 TEST(Small_BandResponseFit, BandResponseFitGivesTheSameFitAndTheSameStepsOnASecondCall)

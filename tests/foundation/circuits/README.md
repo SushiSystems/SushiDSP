@@ -34,5 +34,14 @@ values and 0.87 dB for the IIC+'s.
 
 ## Sizes, 2026-11-10
 
-`FmvToneStackLoadingTiltIsTheDecksOwn` took 0.235 s a deck in the Debug run and its
-suite is `Medium_FmvToneStackLoadingDeck`; the other case of the suite moves with it.
+`FmvToneStackLoadingTiltIsTheDecksOwn` took 0.235 s a deck in the Debug run, twelve 192 kHz runs of
+a second and a quarter. Its bound took the unloaded stack's slope from two more runs of each probe;
+it now takes it from the closed form at the default knobs of one half, which needs no run and is exact
+where the 5 % step was not, leaving eight runs, an estimate of 0.16 s a deck, and the suite stays
+`Medium_FmvToneStackLoadingDeck`. The settle of one second is not cut: the crude bound on the slowest time
+constant, the resistor sum times the capacitor sum, is 29.7 ms for the JCM but 95 ms for the Mark IIC+,
+where one second already leaves only e^-10.5, so there is no room to shorten it without measuring the true
+constant. The rate stays 192 kHz, since the warp bound grows with the square of the probe over the rate and
+the Mark deck's 0.87 dB tilt would stop being told apart at 96 kHz. The other case of the fixture,
+`FmvToneStackLoadingCostsMoreThanOneDecibelAtOneKilohertz`, is two runs, estimated at 0.04 s, and is back in
+`Small_FmvToneStackLoadingCost`.

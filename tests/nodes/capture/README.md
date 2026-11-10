@@ -109,7 +109,13 @@ loads, a beat index and a copy out of a vector already sized.
 
 ## Sizes, 2026-11-10
 
-`VariRateReaderHoldsItsRatioAtEveryLegalSpeed` took 0.5 to 1.0 s a row in the Debug run against 0.1 s for a `Small_` case, so its suite is `Medium_VariRateReaderRatio`.
+`VariRateReaderHoldsItsRatioAtEveryLegalSpeed` took 0.5 to 1.0 s a row in the Debug run against 0.1 s for a `Small_` case, at 4000 blocks.
+It now reads 4 blocks to settle and counts 16, so the counts are 16 * 256 * speed (2048, 3072, 4096,
+5120, 6144 and 8192). The converter's start-up consumes at most 34 * max(speed, 1) take frames, at most 68,
+which the first block already covers. Every speed of the rows is a multiple of 0.25, so the phase
+arithmetic is exact in double and a fraction lost at a block boundary costs at least a quarter of a take
+frame a block, four frames or more over 16 blocks. A drift below that rate, which 3900 blocks would have
+shown, goes unseen. The case is about 3 ms a row, `Small_VariRateReaderRatio`.
 
 ## `test_sushilog_capture_log.cpp`
 

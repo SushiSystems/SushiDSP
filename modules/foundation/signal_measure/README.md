@@ -37,7 +37,11 @@ point its data sheet or service note publishes.
 ## frequency_response.hpp
 
 `frequency_response` sweeps from 5 Hz to half the sample rate over two seconds at -40 dBFS, then
-holds one second of silence for the tail.
+holds one second of silence for the tail. Its last parameter, `sweep_seconds`, sets the sweep
+length and defaults to 2.0; the tail is always half of it, so the default is the two seconds and
+one second above. The FFT size follows the total length, so a sweep of 0.5 s costs a quarter of
+the default. The table below and the 0.17 dB figure were measured at the default; a shorter
+sweep has its own error, which its caller measures and states.
 
 The sweep starts two octaves below the lowest frequency any caller reports. An exponential sine
 sweep carries no energy below its own start frequency, and the abrupt onset at the start
