@@ -61,8 +61,8 @@ namespace
     /// An independent nodal solve of docs/reference/spice/jcm_fmv/jcm_fmv.asc, in double, differs from the sweep by up to 0.0142 dB
     /// (middle at one tenth; 0.0046 and 0.0027 at the other two) and agrees with the stack to its own warp and measurement bound,
     /// so the distance belongs to the sweep's solver, not to the stack. It does not follow the printed frequency by a shift of the
-    /// axis. The value is the old tolerance of this test, 0.05 dB.
-    constexpr double K_SPICE_SOLVER_DB = 0.05;
+    /// axis. The value is that largest distance, 0.0142 dB, rounded up to 0.015 dB.
+    constexpr double K_SPICE_SOLVER_DB = 0.015;
 
     /// @brief The tone stack's level at 1 kHz for the cost of a source and a load is above this, in decibels; the dossier section 4.1 gives it for both decks.
     constexpr double K_MINIMUM_LEVEL_COST_DB = 1.0;
