@@ -23,7 +23,7 @@
 
 /**
  * @file test_room_host.cpp
- * @brief Tests that the room host is an interface that cannot be instantiated.
+ * @brief Tests that the room host names the reason an HRTF set was refused, and "installed" when it was not.
  * @author Mustafa Garip
  */
 
@@ -31,9 +31,42 @@
 
 #include <SushiDSP/nodes/room/room_host.hpp>
 
-#include <type_traits>
+#include <array>
+#include <string>
 
-TEST(Small_RoomHost, IsAbstract)
+namespace
 {
-    EXPECT_TRUE(std::is_abstract<SushiDSP::room::RoomHost>::value);
+    using SushiDSP::room::HrtfStatus;
+
+    /// @brief Holds one status and the text the host gives for it.
+    struct StatusText
+    {
+            const char* name;
+            HrtfStatus status;
+            const char* text;
+    };
+
+    const std::array<StatusText, 4> kStatusTexts = {{
+        {"Installed", HrtfStatus::Installed, "installed"},
+        {"SampleRateMismatch", HrtfStatus::SampleRateMismatch, "the set's sample rate differs from the node's"},
+        {"DecoderRefused", HrtfStatus::DecoderRefused, "the binaural decoder could not be prepared from the set"},
+        {"PublishRefused", HrtfStatus::PublishRefused, "the render set could not be rebuilt with the set"},
+    }};
+
+    /// @brief Names a status case after the status.
+    std::string status_name(const ::testing::TestParamInfo<StatusText>& info)
+    {
+        return info.param.name;
+    }
+} // namespace
+
+class Small_RoomHostStatus : public ::testing::TestWithParam<StatusText>
+{
+};
+
+TEST_P(Small_RoomHostStatus, HrtfStatusTextNamesTheReason)
+{
+    EXPECT_STREQ(SushiDSP::room::hrtf_status_text(GetParam().status), GetParam().text);
 }
+
+INSTANTIATE_TEST_SUITE_P(Statuses, Small_RoomHostStatus, ::testing::ValuesIn(kStatusTexts), status_name);

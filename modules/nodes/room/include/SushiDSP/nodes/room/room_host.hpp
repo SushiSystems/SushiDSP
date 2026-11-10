@@ -31,6 +31,7 @@
 
 #include <cstdint>
 #include <string>
+#include <type_traits>
 
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
@@ -119,4 +120,6 @@ namespace SushiDSP::room
             /// @pre Control thread, never concurrently with process(); once per GUI frame.
             virtual void reclaim_rooms() = 0;
     };
+
+    static_assert(std::is_abstract_v<RoomHost>, "RoomHost is an interface and is never instantiated");
 } // namespace SushiDSP::room
