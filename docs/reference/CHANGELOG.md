@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-10 — host: Keep a slot whose descriptor the catalogue does not know (RW-92, `f8fb2217`).
 - 2026-11-10 — tests_ci: Give a Debug tree the Release packages its imported-config map links (RW-91, `8207f272`).
 - 2026-11-10 — tests: Registered the cases of `sushidsp_tests` as CTest shards per size instead of `gtest_discover_tests`, and added the `check_test_odr.py` checker (RW-90, `cmake/SushiDSPTests.cmake`).
 - 2026-11-10 — cli: Required sushicore 0.12.2, which narrows a sharded test run by `--filter` and reruns a failed shard's cases.
