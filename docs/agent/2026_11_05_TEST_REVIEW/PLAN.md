@@ -69,5 +69,9 @@ The owner chooses inline or parallel mode.
 
 ## Resume note
 
-M4 is applied and syntax-checked (`clang -fsyntax-only` through `build/compile_commands.json`), not
-built or run. Resume at M2, then M5, M6 and onward in table order; every other M job is untouched.
+M2, M4, M5 are applied and M6 is partly applied, all syntax-checked (`clang -fsyntax-only` through
+`build/compile_commands.json`, with `-I tests`), not built or run. M6 leaves four files: `test_benchmark_registry.cpp`
+needs `run_selected` and `registered_cases` to take a case list; `test_node_benchmark.cpp` and `test_profiled_node.cpp` need
+an `InMemoryNode` that `measure_node<Node>` can default-construct; `test_solver_counters.cpp` needs a counters adapter
+beside `DkCircuit`. Each is a production seam no job above built. Resume at M7 and onward in table order;
+the other M jobs are untouched.
