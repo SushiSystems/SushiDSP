@@ -208,9 +208,3 @@ path = "modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_
 count = 1
 backlog = "RW-82"
 
-[[finding]]
-checker = "testing/check_test_odr.py"
-rule = "rule_unsafe_name"
-path = "tests/foundation/math/test_oversampler.cpp"
-count = 2
-backlog = "RW-90"

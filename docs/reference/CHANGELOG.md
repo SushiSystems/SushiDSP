@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-10 — tools: Took the narrowed `check_test_odr.py`, which reads a name generator's parameter type from its fixture, and emptied its baseline (RW-90, `19cb9228`).
 - 2026-11-10 — host: Made `SlotGraph::set_hrtf_path` read the HRTF asset through the `HrtfFiles` port, the disk adapter by default (RW-96, `a8d9424d`).
 - 2026-11-10 — capture: Gave `TrackRecorder` a `CaptureLog` port, the SushiLog adapter by default, with its records unchanged (RW-98, `f1f0e4d0`).
 - 2026-11-10 — host: Made `SlotGraph::set_cabinet` read its impulse response through the `AudioFiles` port, the disk adapter by default (RW-95, `180f59ce`).

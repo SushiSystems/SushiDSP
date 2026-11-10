@@ -347,12 +347,12 @@ namespace
 
     std::string step_name(const ::testing::TestParamInfo<int>& info)
     {
-        return "Step" + std::to_string(info.param);
+        return "Step" + std::to_string(static_cast<std::size_t>(info.param));
     }
 
     std::string fraction_name(const ::testing::TestParamInfo<double>& info)
     {
-        return "Fraction" + std::to_string(static_cast<int>(std::lround(info.param * 100.0)));
+        return "Fraction" + std::to_string(static_cast<std::size_t>(std::lround(info.param * 100.0)));
     }
 
     class Small_OversamplerAlias : public ::testing::TestWithParam<int>
