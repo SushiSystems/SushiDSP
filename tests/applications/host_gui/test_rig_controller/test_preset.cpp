@@ -50,6 +50,17 @@ namespace
     {
     };
 
+    /// @brief Lists the type of each node of a preset, in document order.
+    std::vector<std::string> node_types(const nlohmann::json& document)
+    {
+        std::vector<std::string> types;
+        for (const auto& node : document.at("nodes"))
+        {
+            types.push_back(node.at("type").get<std::string>());
+        }
+        return types;
+    }
+
     /// @brief Holds a timeline a rig shares, a rig document without a timeline in it, and the rigs
     /// that load it, on the catalogue of the fixture.
     class Small_RigControllerRigDocument : public TestSupport::RigProducts
@@ -329,4 +340,27 @@ TEST_F(Small_RigControllerRigDocument, LoadingARigAloneLeavesTheTempoOfTheShared
     controller.load_rig_from_json(rig_only_);
 
     EXPECT_EQ(timeline_->musical_clock().beats_per_minute(), K_TEMPO);
+}
+
+TEST_F(Small_RigControllerPreset, AnUnknownSlotIsWrittenBackUnchanged)
+{
+    RigController source = rig({48000.0, 256, 1});
+    source.append("sushidsp.tubescreamer");
+    const RigController::SlotId unknown = source.append("sushidsp.does_not_exist");
+    source.append("sushidsp.jcm800");
+    source.set_parameter(unknown, "depth", 0.75f);
+
+    const nlohmann::json first = nlohmann::json::parse(source.save_to_json());
+    RigController target = rig({48000.0, 256, 1});
+    target.load_from_json(source.save_to_json());
+    const nlohmann::json second = nlohmann::json::parse(target.save_to_json());
+
+    const std::vector<std::string> expected_types{"sushidsp.tubescreamer",
+                                                  "sushidsp.does_not_exist", "sushidsp.jcm800"};
+    EXPECT_EQ(node_types(first), expected_types);
+    EXPECT_EQ(node_types(second), expected_types);
+    EXPECT_FLOAT_EQ(second.at("nodes").at(1).at("params").at("depth").get<float>(), 0.75f);
+    EXPECT_EQ(second.at("edges").size(), first.at("edges").size());
+    EXPECT_EQ(first.at("edges").size(), 2u);
+    EXPECT_EQ(target.slot_order().size(), 3u);
 }

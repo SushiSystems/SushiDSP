@@ -291,8 +291,13 @@ the pacing interval allows.
 `restore()` writes a snapshot's values over the defaults `add_node()` already seeded, the way a
 preset's values layer over a fresh slot's defaults.
 
-`publish()` drops a slot whose node type the registry does not know. It does so itself and not inside
-`build_graph()`, which stays `const` so that a preset save can call it too.
+`publish()` keeps a slot whose descriptor the catalogue does not know. The slot stays in the order
+with its descriptor id and stored values and builds no node. `build_graph()` bridges around it as it
+does around a bypassed slot, so audio passes through, and it does so in the save's unbypassed
+build too. `publish()` logs one `WARN` naming the descriptor id the first time it finds the slot
+unknown. `RigPersistence` writes the slot back where it sits in the order, with its values, and reads
+it back from a format 2 preset; the stage panel shows its id as an unknown node type. A format 1
+preset that names an unlisted type is still refused.
 
 ### `TopologyApplier`
 
@@ -403,7 +408,9 @@ higher number before it touches the rig.
 | A room node's `"room"` | 1 | One scene: the shell and the poses of one cabinet, the listener and one microphone. |
 
 A format 2 preset's nodes are read alone and its edges come from `"edges"`, so the rig's own
-publish is what checks the graph. A format 1 preset is read whole and compiled first.
+publish is what checks the graph. A node whose `"type"` the catalogue does not list is set aside
+before the read and restored as an unavailable slot, in the file's order, with its `"params"`,
+`"cabinet_ir"` and `"bypassed"`; a save writes it back with those keys. A format 1 preset is read whole and compiled first.
 
 A format 1 room was a slot of the chain with `listener`, `level` and `mix` parameters. Loading
 one takes the room out of the chain, bridges what fed it to what it fed, and keeps it as a

@@ -304,17 +304,27 @@ TEST_F(Small_RigControllerChain, AddBranchWithAnUnregisteredDescriptorIdIsRefuse
     EXPECT_EQ(count_slots_of_type(controller, "sushidsp.mixer"), 0u);
 }
 
-TEST_F(Small_RigControllerChain, AppendWithUnknownDescriptorIdDropsTheSlotAndBuildsNoNodeForIt)
+TEST_F(Small_RigControllerChain, AppendWithUnknownDescriptorIdKeepsTheSlotAndBuildsNoNodeForIt)
 {
     RigController controller = rig({48000.0, 256, 1});
     const RigController::SlotId a = controller.append("sushidsp.tubescreamer");
     const RigController::SlotId unknown = controller.append("sushidsp.does_not_exist");
+    const RigController::SlotId b = controller.append("sushidsp.jcm800");
 
-    // publish() drops a slot whose node type the catalogue does not list.
-    EXPECT_EQ(controller.slot_order(), (std::vector<RigController::SlotId>{a}));
-    EXPECT_EQ(controller.descriptor_id(unknown), "");
+    // The slot keeps its place and its descriptor id; only the graph leaves it out.
+    EXPECT_EQ(controller.slot_order(), (std::vector<RigController::SlotId>{a, unknown, b}));
+    EXPECT_EQ(controller.descriptor_id(unknown), "sushidsp.does_not_exist");
     ASSERT_NE(controller.active_graph(), nullptr);
-    EXPECT_EQ(controller.active_graph()->nodes().size(), 1u);
+    SushiDSP::RigGraph& graph = *controller.active_graph();
+    ASSERT_EQ(graph.nodes().size(), 2u);
+
+    // The block passes through: the node after the unknown slot is fed by the one before it.
+    std::size_t fed_nodes = 0;
+    for (SushiDSP::NodeHandle handle : graph.nodes())
+    {
+        fed_nodes += graph.upstream_of(handle).size();
+    }
+    EXPECT_EQ(fed_nodes, 1u);
 }
 
 TEST_F(Small_RigControllerChain, AppendBuildsNoNodeForAProductTheInjectedCatalogueDoesNotList)

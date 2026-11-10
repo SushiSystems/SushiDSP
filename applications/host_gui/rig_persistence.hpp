@@ -32,6 +32,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <nlohmann/json_fwd.hpp>
+
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 
@@ -89,6 +91,14 @@ class RigPersistence
         /// @throws std::runtime_error if the unbypassed graph does not compile.
         std::string serialize_nodes(
             std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle>& handles_out) const;
+
+        /// @brief Writes the slots that built no node, because their descriptor is not in the
+        /// catalogue, into the `"nodes"` document at their place in the slot order.
+        /// @param document The document serialize_nodes() produced; its `"nodes"` is rewritten.
+        /// @param handles Gains the id each unavailable slot carries in the document.
+        void append_unavailable_nodes(
+            nlohmann::json& document,
+            std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle>& handles) const;
 
         SushiDSP::PrepareInfo info_;
         SlotGraph& graph_;
