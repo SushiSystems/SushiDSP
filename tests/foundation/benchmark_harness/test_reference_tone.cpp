@@ -29,36 +29,71 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include <gtest/gtest.h>
 
+#include "support/tolerance.hpp"
+
 #include <SushiDSP/foundation/benchmark_harness/reference_tone.hpp>
 
-TEST(Small_ReferenceTone, ReferenceToneHasTheRequestedLengthAndStartsAtZero)
+namespace
 {
-    const std::vector<float> tone = SushiDSP::bench::reference_tone(256);
-    ASSERT_EQ(tone.size(), 256u);
-    EXPECT_FLOAT_EQ(tone[0], 0.0f);
-}
 
-TEST(Small_ReferenceTone, ReferenceTonePeaksAtAQuarterOfFullScale)
-{
-    // One 220 Hz period at 48 kHz is 218.18 samples, so a second's worth reaches its peak.
-    const std::vector<float> tone = SushiDSP::bench::reference_tone(48000);
-    const auto [low, high] = std::minmax_element(tone.begin(), tone.end());
-    EXPECT_NEAR(*high, 0.25f, 1e-4f);
-    EXPECT_NEAR(*low, -0.25f, 1e-4f);
-}
+constexpr std::uint32_t kOneSecondOfFrames = 48000;
 
-TEST(Small_ReferenceTone, ReferenceToneCompletesTwoHundredTwentyCyclesASecond)
+/** Counts the samples where the tone passes from below zero to zero or above. */
+int count_rising_crossings(const std::vector<float>& tone)
 {
-    const std::vector<float> tone = SushiDSP::bench::reference_tone(48000);
     int rising = 0;
     for (std::size_t i = 1; i < tone.size(); ++i)
     {
         if (tone[i - 1] < 0.0f && tone[i] >= 0.0f)
+        {
             ++rising;
+        }
     }
-    EXPECT_EQ(rising, 219);
+    return rising;
+}
+
+/** The most a sampled sine can fall short of its peak: half a phase step, plus the float rounding of the product. */
+double peak_shortfall_bound()
+{
+    const double pi = std::acos(-1.0);
+    const double half_step = pi * SushiDSP::bench::K_REFERENCE_TONE_HZ / SushiDSP::bench::K_SAMPLE_RATE;
+    const double level = SushiDSP::bench::K_REFERENCE_TONE_LEVEL;
+    return level * (1.0 - std::cos(half_step)) + 2.0 * TestSupport::unit_roundoff<float>() * level;
+}
+
+} // namespace
+
+TEST(Small_ReferenceTone, ReferenceToneHasTheRequestedLength)
+{
+    EXPECT_EQ(SushiDSP::bench::reference_tone(256).size(), 256u);
+}
+
+TEST(Small_ReferenceTone, ReferenceToneStartsAtZero)
+{
+    EXPECT_EQ(SushiDSP::bench::reference_tone(256)[0], 0.0f);
+}
+
+// The tone peaks where a sample lands within half a phase step of the crest.
+TEST(Small_ReferenceTone, ReferenceTonePeaksAtAQuarterOfFullScale)
+{
+    const std::vector<float> tone = SushiDSP::bench::reference_tone(kOneSecondOfFrames);
+    const auto [low, high] = std::minmax_element(tone.begin(), tone.end());
+    const double level = SushiDSP::bench::K_REFERENCE_TONE_LEVEL;
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(*high, level, peak_shortfall_bound(), 1.0)));
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(*low, -level, peak_shortfall_bound(), 1.0)));
+}
+
+// The first cycle starts at zero and is not a crossing, so one second of 220 Hz holds 219 rising crossings.
+TEST(Small_ReferenceTone, ReferenceToneCompletesTwoHundredTwentyCyclesASecond)
+{
+    constexpr int kRisingCrossings = 219;
+
+    EXPECT_EQ(count_rising_crossings(SushiDSP::bench::reference_tone(kOneSecondOfFrames)), kRisingCrossings);
 }
