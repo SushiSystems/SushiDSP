@@ -88,7 +88,7 @@ add_executable(sushidsp_tests
     nodes/mesa_mark2c/test_mesa_mark2c_tone_stack.cpp
     nodes/peavey5150/test_peavey5150_tone_stack.cpp
     nodes/room_scenes/test_room_fixtures.cpp
-    nodes/room_scenes/test_room_ports.cpp
+    nodes/room_scenes/compile_room_ports.cpp
     # --- Unit tests written for the units that had none ---
     foundation/circuit_blocks/test_dk_block_node.cpp
     foundation/circuit_blocks/test_jcm_v1a_netlist.cpp
@@ -137,6 +137,9 @@ add_executable(sushidsp_tests
     foundation/core/test_audio_device.cpp
     foundation/core/test_in_memory_audio_device.cpp
     foundation/core/test_in_memory_node.cpp
+    foundation/core/test_in_memory_poll_clock.cpp
+    foundation/core/test_system_poll_clock.cpp
+    foundation/core/compile_poll_clock.cpp
     foundation/core/test_buffer_pool.cpp
     foundation/core/test_denormal_guard.cpp
     foundation/core/test_rig_graph/test_behaviour.cpp
@@ -162,6 +165,7 @@ add_executable(sushidsp_tests
     nodes/capture/test_track_timeline.cpp
     applications/host_gui/ui/test_timeline_scale.cpp
     session/rig_preset/test_rig_preset.cpp
+    session/rig_preset/test_node_catalogue.cpp
     foundation/core/test_rt_graph_slot.cpp
     foundation/core/test_rt_swap_slot.cpp
     foundation/audio_format/test_channel_selection.cpp

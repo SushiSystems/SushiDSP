@@ -38,10 +38,11 @@ the fix: it fails if the sweep's low edge is ever raised back into the reported 
 
 ## `test_null_test.cpp`
 
-### `HandlesPolarityInversion`
+### `AlignedDelayedCopyNullsCompletely`
 
 `// The lag search matches on correlation magnitude.`
 
-b is inverted as well as delayed and scaled, as it would be after an odd number of inverting
-stages. The lag search has to match on correlation magnitude to find 37 here; matching on the
+The rows are a noise copy at delay 3 and a tone copy at delay 37 with gain 0.25 and -0.25. In
+the last row b is inverted as well as delayed and scaled, as it would be after an odd number of
+inverting stages. The lag search has to match on correlation magnitude to find 37 here; matching on the
 signed correlation picks whatever lag is least negative and the residual never nulls.

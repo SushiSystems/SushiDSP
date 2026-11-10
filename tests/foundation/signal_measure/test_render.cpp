@@ -32,9 +32,13 @@
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/signal_measure/render.hpp>
 
+#include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
+
+#include "support/tolerance.hpp"
 
 namespace
 {
@@ -70,40 +74,61 @@ namespace
         private:
             float gain_;
     };
+
+    /// @brief Returns the values 0, 1, 2, ... for length samples.
+    std::vector<float> ramp(std::size_t length)
+    {
+        std::vector<float> values(length);
+        for (std::size_t i = 0; i < length; ++i)
+        {
+            values[i] = static_cast<float>(i);
+        }
+        return values;
+    }
+
+    /// @brief Returns the largest magnitude in a signal.
+    float peak_of(const std::vector<float>& signal)
+    {
+        float peak = 0.0f;
+        for (const float sample : signal)
+        {
+            peak = std::max(peak, std::fabs(sample));
+        }
+        return peak;
+    }
+
+    /// @brief Rounded operations on the longest path to a sine sample: the double sine, the
+    /// product with the amplitude and the conversion to float.
+    constexpr std::size_t K_SINE_OPERATIONS = 3;
 } // namespace
 
 TEST(Small_Render, EverySampleOfAPartialLastBlockIsProcessed)
 {
     GainNode node(0.5f);
     const std::vector<float> stimulus(1000, 1.0f);
-    const std::vector<float> output = SushiDSP::measure::render(node, stimulus, 48000.0, 64);
-    ASSERT_EQ(output.size(), stimulus.size());
-    for (float sample : output)
-    {
-        EXPECT_FLOAT_EQ(sample, 0.5f);
-    }
+
+    // 0.5 times 1 is exact, so the comparison is equality.
+    EXPECT_EQ(SushiDSP::measure::render(node, stimulus, 48000.0, 64), std::vector<float>(1000, 0.5f));
 }
 
 TEST(Small_Render, OutputKeepsTheStimulusOrder)
 {
     GainNode node(1.0f);
-    std::vector<float> stimulus(300);
-    for (std::size_t i = 0; i < stimulus.size(); ++i)
-    {
-        stimulus[i] = static_cast<float>(i);
-    }
-    const std::vector<float> output = SushiDSP::measure::render(node, stimulus, 48000.0, 128);
-    EXPECT_EQ(output, stimulus);
+    const std::vector<float> stimulus = ramp(300);
+
+    EXPECT_EQ(SushiDSP::measure::render(node, stimulus, 48000.0, 128), stimulus);
 }
 
-TEST(Small_Render, SineStimulusHasTheRequestedLengthAndPeak)
+TEST(Small_Render, SineStimulusHasTheRequestedLength)
 {
+    EXPECT_EQ(SushiDSP::measure::sine_stimulus(1000.0, 48000.0, 4800, 0.25f).size(), 4800u);
+}
+
+TEST(Small_Render, SineStimulusHasTheRequestedPeak)
+{
+    // 1000 Hz at 48000 Hz is 48 samples per cycle, so sample 12 lands on the crest.
     const std::vector<float> sine = SushiDSP::measure::sine_stimulus(1000.0, 48000.0, 4800, 0.25f);
-    ASSERT_EQ(sine.size(), 4800u);
-    float peak = 0.0f;
-    for (float sample : sine)
-    {
-        peak = std::max(peak, std::fabs(sample));
-    }
-    EXPECT_NEAR(peak, 0.25f, 1e-3f);
+
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_relative_error<float>(peak_of(sine), 0.25, K_SINE_OPERATIONS)));
 }
