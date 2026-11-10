@@ -9,6 +9,7 @@
 | RW-85 | P3 | open | Derive the amplitude band of the half-speed track player tone test | TrackPlayerAtHalfSpeedKeepsTheToneAmplitude holds a derived bound, not the 0.01 band |  | `docs/agent/2026_11_05_TEST_REVIEW/REPORT.md` | 2026-11-10 |
 | RW-86 | P3 | open | Derive the image rejection floor of the half-speed vari-rate reader test | VariRateReaderAtHalfSpeedKeepsTheSourceToneImageDown holds a derived floor, not 80 dB |  | `docs/agent/2026_11_05_TEST_REVIEW/REPORT.md` | 2026-11-10 |
 | RW-90 | P2 | open | Run the test shards and confirm every case runs once | A full sd test run executes each case in exactly one shard and test_budget.py reads the shard XML. |  | `cmake/SushiDSPTests.cmake` | 2026-11-10 |
+| RW-91 | P1 | open | Give a Debug tree the Release packages its imported-config map links | sd build of a Debug tree asks for Release packages and configures |  | `cli/sushidsp/services/library_packages.py` | 2026-11-10 |
 
 ## Known issues
 

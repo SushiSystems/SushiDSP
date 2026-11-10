@@ -28,6 +28,13 @@ def test_the_build_asks_for_the_sushilog_closure_with_its_compiler_and_type(proj
 
 
 @pytest.mark.medium
+def test_a_debug_build_asks_for_release_packages(project):
+    assert project_svc.build(BuildType.debug, workspace=project.workspace) == 0
+
+    assert [asked["build_type"] for asked in project.packages.asked] == ["release"]
+
+
+@pytest.mark.medium
 def test_the_packages_are_chosen_on_every_build_not_only_on_a_configure(project):
     project.configure_tree("Debug")
 

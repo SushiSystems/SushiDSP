@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from sushicore.build_tree import package_build_type
 from sushicore.provision.sushi_packages import PackageSet, RunDirs
 from sushicore.provision.sushi_packages import configure_arguments  # noqa: F401  (callers take it from here)
 
@@ -27,7 +28,8 @@ def resolve(cfg: Config, root: Path, build_type: str, report: Callable[[str], No
     """Return a built package of every library the project links, building a missing one.
 
     SushiDSP passes no option to a library, and the packages are built with the compiler
-    ``cfg.resolved_compiler`` finds.
+    ``cfg.resolved_compiler`` finds, as the build type ``package_build_type`` gives: a Debug tree
+    links Release packages.
 
     Args:
         cfg: The resolved configuration.
@@ -41,9 +43,10 @@ def resolve(cfg: Config, root: Path, build_type: str, report: Callable[[str], No
         sushicore.provision.sushi_packages.PackageError: A package cannot be chosen.
     """
     compiler = cfg.resolved_compiler(root)
+    packages_type = package_build_type(build_type)
     if resolver is not None:
-        return resolver.resolve(root, build_type, {}, report, warn, compiler)
-    return cfg.sushi_packages(root, build_type, {}, report=report, warn=warn, compiler=compiler)
+        return resolver.resolve(root, packages_type, {}, report, warn, compiler)
+    return cfg.sushi_packages(root, packages_type, {}, report=report, warn=warn, compiler=compiler)
 
 
 #: The run-time folders of the packages a tree linked, kept in the tree for the commands that run it.
