@@ -30,7 +30,9 @@
 // _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
 #define _USE_MATH_DEFINES
 
+#include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -54,10 +56,19 @@
 
 namespace
 {
-    /// @brief Returns the garage with an omni microphone 2.5 m in front of the cabinet.
-    SushiDSP::room::RoomScene room_trap_scene(double microphone_x)
+    using SushiDSP::room::RoomNode;
+    using SushiDSP::room::RoomScene;
+
+    /// @brief Names the block size every rig below runs at.
+    constexpr std::uint32_t K_BLOCK_FRAMES = 256;
+
+    /// @brief Names the sample rate every rig below runs at.
+    constexpr double K_SAMPLE_RATE = 48000.0;
+
+    /// @brief Returns the garage with an omni microphone in front of the cabinet.
+    RoomScene room_trap_scene(double microphone_x)
     {
-        SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+        RoomScene scene = SushiDSP::test::garage_scene();
         scene.source_position = {1.5, 2.0, 0.5};
         scene.microphone_position = {microphone_x, 2.0, 1.2};
         scene.microphone_pattern = SushiDSP::room::PolarPattern::Omni;
@@ -73,59 +84,71 @@ namespace
                                        static_cast<float>(i) / 48000.0f);
         }
     }
-} // namespace
 
-TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocation)
-{
-    // The first trapped block adopts the published set. See tests/nodes/room/test_room_node/README.md.
-    SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
-    std::string reason;
-    ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
-
-    std::vector<float> input(256);
-    fill_room_tone(input);
-    std::vector<float> left(256, 0.0f);
-    std::vector<float> right(256, 0.0f);
-    const float* input_channels[1] = {input.data()};
-    float* output_channels[2] = {left.data(), right.data()};
-    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
-
-    SushiDSP::test::AllocationTrap trap;
-    trap.arm();
-    for (int block = 0; block < 16; ++block)
+    /// @brief Checks that every sample of a block is a finite number.
+    void expect_finite(const std::vector<float>& block)
     {
-        node.set_parameter_for_audio_thread(std::uint16_t{0}, block % 2 == 0 ? 0.0f : 1.0f);
-        node.process(context);
+        for (const float sample : block)
+        {
+            EXPECT_TRUE(std::isfinite(sample));
+        }
     }
-    trap.disarm();
 
-    EXPECT_EQ(trap.count(), 0);
-    for (std::size_t i = 0; i < left.size(); ++i)
+    /// @brief Holds one tone input, a stereo output and the context that reads them.
+    struct MonoRig
     {
-        EXPECT_TRUE(std::isfinite(left[i]));
-        EXPECT_TRUE(std::isfinite(right[i]));
+            MonoRig() : input(K_BLOCK_FRAMES), left(K_BLOCK_FRAMES, 0.0f), right(K_BLOCK_FRAMES, 0.0f)
+            {
+                fill_room_tone(input);
+            }
+
+            MonoRig(const MonoRig&) = delete;
+            MonoRig& operator=(const MonoRig&) = delete;
+
+            std::vector<float> input;
+            std::vector<float> left;
+            std::vector<float> right;
+            std::array<const float*, 1> input_channels{input.data()};
+            std::array<float*, 2> output_channels{left.data(), right.data()};
+            SushiDSP::ProcessContext context{output_channels.data(), input_channels.data(), K_BLOCK_FRAMES, 0.0};
+    };
+
+    /// @brief Prepares a node and publishes the trap scene; the test asserts the publish.
+    void prepare_with_trap_scene(RoomNode& node)
+    {
+        node.prepare(SushiDSP::PrepareInfo{K_SAMPLE_RATE, K_BLOCK_FRAMES, 1});
+        std::string reason;
+        ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
     }
-}
 
-TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocationAcrossAPublish)
-{
-    // Only the audio thread's half of a publish is trapped. See tests/nodes/room/test_room_node/README.md.
-    SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
-
-    std::vector<float> input(256);
-    fill_room_tone(input);
-    const float* input_channels[2] = {input.data(), input.data()};
-    SushiDSP::test::RoomPorts ports(256);
-    SushiDSP::ProcessContext context = ports.context(input_channels, 256);
-
-    SushiDSP::test::AllocationTrap trap;
-    for (int publish = 0; publish < 4; ++publish)
+    /// @brief Processes blocks, writing a parameter to 0 or 1 alternately from the audio thread
+    /// before each block, starting at 0.
+    void process_alternating(RoomNode& node, SushiDSP::ProcessContext& context, std::uint16_t parameter,
+                             int blocks)
     {
-        SushiDSP::room::RoomScene scene = room_trap_scene(3.0 + 0.25 * publish);
-        scene.listener_position.y = 2.0 + 0.1 * (publish % 2);
-        scene.dimensions.x = publish < 2 ? 6.0 : 6.2;
+        for (int block = 0; block < blocks; ++block)
+        {
+            node.set_parameter_for_audio_thread(parameter, block % 2 == 0 ? 0.0f : 1.0f);
+            node.process(context);
+        }
+    }
+
+    /// @brief Processes blocks.
+    void run_blocks(RoomNode& node, SushiDSP::ProcessContext& context, int blocks)
+    {
+        for (int block = 0; block < blocks; ++block)
+        {
+            node.process(context);
+        }
+    }
+
+    /// @brief Publishes the trap scene as an arrangement with one microphone, moved and widened as
+    /// the row says.
+    void assert_scene_published(RoomNode& node, double microphone_x, double listener_dy, double width_m)
+    {
+        RoomScene scene = room_trap_scene(microphone_x);
+        scene.listener_position.y = 2.0 + listener_dy;
+        scene.dimensions.x = width_m;
         SushiDSP::Room::Arrangement arrangement = SushiDSP::Room::Arrangement::from_scene(scene);
         SushiDSP::Room::MicrophonePlacement microphone;
         microphone.id = 1;
@@ -134,118 +157,243 @@ TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocationAcrossAPublish)
         std::string reason;
         ASSERT_TRUE(arrangement.add_microphone(microphone, reason)) << reason;
         ASSERT_TRUE(node.set_arrangement(arrangement, reason)) << reason;
-
-        trap.arm();
-        for (int block = 0; block < 3; ++block)
-        {
-            node.process(context);
-        }
-        trap.disarm();
-
-        node.reclaim_rooms();
     }
 
-    EXPECT_EQ(trap.count(), 0);
-    for (std::size_t i = 0; i < 256; ++i)
+    /// @brief Publishes the garage spread to a number of cabinets and microphones, one of them
+    /// moved when asked.
+    void assert_spread_published(RoomNode& node, std::uint32_t sources, std::uint32_t microphones, bool moved)
     {
-        EXPECT_TRUE(std::isfinite(ports.listener(0)[i]));
-        EXPECT_TRUE(std::isfinite(ports.microphone(0)[i]));
-    }
-}
-
-TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocationAtTheLimits)
-{
-    // Three cabinets and eight microphones, with placements coming and going between blocks.
-    SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
-
-    std::vector<float> input(256);
-    fill_room_tone(input);
-    const float* input_channels[6] = {input.data(), input.data(), input.data(),
-                                      input.data(), input.data(), input.data()};
-    SushiDSP::test::RoomPorts ports(256);
-    SushiDSP::ProcessContext context = ports.context(input_channels, 256);
-
-    SushiDSP::test::AllocationTrap trap;
-    const std::uint32_t source_counts[4] = {3, 3, 1, 3};
-    const std::uint32_t microphone_counts[4] = {8, 8, 2, 8};
-    for (int publish = 0; publish < 4; ++publish)
-    {
-        SushiDSP::Room::Arrangement arrangement = SushiDSP::test::spread_arrangement(
-            SushiDSP::test::garage_scene(), source_counts[publish], microphone_counts[publish]);
-        if (publish == 1)
+        SushiDSP::Room::Arrangement arrangement =
+            SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), sources, microphones);
+        if (moved)
         {
-            SushiDSP::Room::MicrophonePlacement moved = arrangement.microphones().front();
-            moved.pose.position.x += 0.2;
-            ASSERT_TRUE(arrangement.update_microphone(moved));
+            SushiDSP::Room::MicrophonePlacement shifted = arrangement.microphones().front();
+            shifted.pose.position.x += 0.2;
+            ASSERT_TRUE(arrangement.update_microphone(shifted));
         }
         std::string reason;
         ASSERT_TRUE(node.set_arrangement(arrangement, reason)) << reason;
+    }
 
-        trap.arm();
-        for (int block = 0; block < 4; ++block)
+    /// @brief Holds the state a publish moves a node to, after the base state is playing.
+    struct PublishState
+    {
+            const char* name;
+            double microphone_x;
+            double listener_dy;
+            double width_m;
+    };
+
+    /// @brief Holds the base state, microphone at 3.0 m, listener on the cabinet's line, 6.0 m wide.
+    constexpr PublishState K_BASE_STATE{"Base", 3.0, 0.0, 6.0};
+
+    /// @brief Holds the states the audio thread adopts and crossfades to.
+    const std::array<PublishState, 4> K_PUBLISH_STATES = {{{"MicrophoneMoves", 3.25, 0.0, 6.0},
+                                                           {"ListenerMoves", 3.0, 0.1, 6.0},
+                                                           {"RoomWidens", 3.0, 0.0, 6.2},
+                                                           {"EverythingChanges", 3.75, 0.1, 6.2}}};
+
+    /// @brief Names a publish state case.
+    std::string publish_state_name(const ::testing::TestParamInfo<PublishState>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Holds a shape change between two spreads of cabinets and microphones.
+    struct SpreadChange
+    {
+            const char* name;
+            std::uint32_t from_sources;
+            std::uint32_t from_microphones;
+            std::uint32_t to_sources;
+            std::uint32_t to_microphones;
+            bool moved;
+    };
+
+    /// @brief Holds the changes between one cabinet with two microphones and the limits, three
+    /// cabinets with eight, and one microphone moving at the limits.
+    const std::array<SpreadChange, 3> K_SPREAD_CHANGES = {{{"GrowsToTheLimits", 1, 2, 3, 8, false},
+                                                           {"ShrinksFromTheLimits", 3, 8, 1, 2, false},
+                                                           {"MovesAMicrophoneAtTheLimits", 3, 8, 3, 8, true}}};
+
+    /// @brief Names a spread change case.
+    std::string spread_change_name(const ::testing::TestParamInfo<SpreadChange>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Leaves the node as it is.
+    void change_nothing(RoomNode&)
+    {
+    }
+
+    /// @brief Switches the direct path's delay on from the control thread.
+    void switch_direct_delay_on(RoomNode& node)
+    {
+        node.set_parameter_for_control_thread("direct_delay", 1.0f);
+    }
+
+    /// @brief Reinstalls the fallback HRTF and checks that the node took it.
+    void expect_fallback_hrtf_installed(RoomNode& node)
+    {
+        EXPECT_EQ(node.set_hrtf(SushiDSP::room::HrtfSet{}), SushiDSP::room::HrtfStatus::Installed);
+    }
+
+    /// @brief Holds a control-thread change made before the binaural blocks.
+    struct BinauralChange
+    {
+            const char* name;
+            void (*apply)(RoomNode&);
+    };
+
+    /// @brief Holds the changes the binaural path adopts: none, the direct delay and the fallback.
+    const std::array<BinauralChange, 3> K_BINAURAL_CHANGES = {{{"Nothing", change_nothing},
+                                                               {"DirectDelaySwitches", switch_direct_delay_on},
+                                                               {"FallbackHrtfReinstalled",
+                                                                expect_fallback_hrtf_installed}}};
+
+    /// @brief Names a binaural change case.
+    std::string binaural_change_name(const ::testing::TestParamInfo<BinauralChange>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Runs a window of periods, marking the timeline and processing one block in each.
+    void process_periods(SushiDSP::profile::ProfileSession& session, RoomNode& node, SushiDSP::ProcessContext& context,
+                         std::uint32_t periods)
+    {
+        for (std::uint32_t period = 0; period < periods; ++period)
         {
+            session.mark(SushiDSP::profile::names::K_BENCH_TIMELINE, 0U);
             node.process(context);
         }
-        trap.disarm();
-
-        node.reclaim_rooms();
     }
+} // namespace
 
-    EXPECT_EQ(trap.count(), 0);
-    for (std::size_t i = 0; i < 256; ++i)
-    {
-        EXPECT_TRUE(std::isfinite(ports.listener(0)[i]));
-        EXPECT_TRUE(std::isfinite(ports.listener(1)[i]));
-        EXPECT_TRUE(std::isfinite(ports.microphone(7)[i]));
-    }
-}
-
-TEST(Medium_RoomNode, BinauralProcessPerformsNoHeapAllocation)
+class Medium_RoomNodePublish : public ::testing::TestWithParam<PublishState>
 {
-    // The ears render every binaural path inside the trap. See tests/nodes/room/test_room_node/README.md.
-    SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
-    std::string reason;
-    ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
+};
 
-    std::vector<float> input(256);
-    fill_room_tone(input);
-    std::vector<float> left(256, 0.0f);
-    std::vector<float> right(256, 0.0f);
-    const float* input_channels[1] = {input.data()};
-    float* output_channels[2] = {left.data(), right.data()};
-    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
+class Medium_RoomNodeSpread : public ::testing::TestWithParam<SpreadChange>
+{
+};
+
+class Medium_RoomNodeBinaural : public ::testing::TestWithParam<BinauralChange>
+{
+};
+
+class Medium_RoomNodeProfile : public ::testing::Test
+{
+    protected:
+        void SetUp() override
+        {
+            if (!SushiDSP::profile::K_PROFILER_BUILT)
+            {
+                GTEST_SKIP() << "this build records nothing";
+            }
+        }
+};
+
+TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocation)
+{
+    // The first trapped block adopts the published set. See tests/nodes/room/test_room_node/README.md.
+    RoomNode node;
+    ASSERT_NO_FATAL_FAILURE(prepare_with_trap_scene(node));
+    MonoRig rig;
 
     SushiDSP::test::AllocationTrap trap;
-    for (int publish = 0; publish < 3; ++publish)
-    {
-        if (publish == 1)
-        {
-            node.set_parameter_for_control_thread("direct_delay", 1.0f);
-        }
-        if (publish == 2)
-        {
-            ASSERT_EQ(node.set_hrtf(SushiDSP::room::HrtfSet{}),
-                      SushiDSP::room::HrtfStatus::Installed);
-        }
-        trap.arm();
-        for (int block = 0; block < 4; ++block)
-        {
-            node.set_parameter_for_audio_thread(std::uint16_t{3}, block % 2 == 0 ? 1.0f : 0.0f);
-            node.process(context);
-        }
-        trap.disarm();
-        node.reclaim_rooms();
-    }
+    trap.arm();
+    process_alternating(node, rig.context, std::uint16_t{0}, 16);
+    trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
-    for (std::size_t i = 0; i < left.size(); ++i)
-    {
-        EXPECT_TRUE(std::isfinite(left[i]));
-        EXPECT_TRUE(std::isfinite(right[i]));
-    }
+    expect_finite(rig.left);
+    expect_finite(rig.right);
 }
+
+TEST_P(Medium_RoomNodePublish, ProcessPerformsNoHeapAllocationAcrossAPublish)
+{
+    // Only the audio thread's half of a publish is trapped. See tests/nodes/room/test_room_node/README.md.
+    RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{K_SAMPLE_RATE, K_BLOCK_FRAMES, 1});
+    std::vector<float> input(K_BLOCK_FRAMES);
+    fill_room_tone(input);
+    const std::array<const float*, 2> input_channels = {input.data(), input.data()};
+    SushiDSP::test::RoomPorts ports(K_BLOCK_FRAMES);
+    SushiDSP::ProcessContext context = ports.context(input_channels.data(), K_BLOCK_FRAMES);
+    ASSERT_NO_FATAL_FAILURE(assert_scene_published(node, K_BASE_STATE.microphone_x, K_BASE_STATE.listener_dy,
+                                                   K_BASE_STATE.width_m));
+    run_blocks(node, context, 3);
+    node.reclaim_rooms();
+    ASSERT_NO_FATAL_FAILURE(assert_scene_published(node, GetParam().microphone_x, GetParam().listener_dy,
+                                                   GetParam().width_m));
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    run_blocks(node, context, 3);
+    trap.disarm();
+    node.reclaim_rooms();
+
+    EXPECT_EQ(trap.count(), 0);
+    expect_finite(ports.listener(0));
+    expect_finite(ports.microphone(0));
+}
+
+INSTANTIATE_TEST_SUITE_P(States, Medium_RoomNodePublish, ::testing::ValuesIn(K_PUBLISH_STATES),
+                         publish_state_name);
+
+TEST_P(Medium_RoomNodeSpread, ProcessPerformsNoHeapAllocationAtTheLimits)
+{
+    // Up to three cabinets and eight microphones, with placements coming and going between blocks.
+    RoomNode node;
+    node.prepare(SushiDSP::PrepareInfo{K_SAMPLE_RATE, K_BLOCK_FRAMES, 1});
+    std::vector<float> input(K_BLOCK_FRAMES);
+    fill_room_tone(input);
+    const std::array<const float*, 6> input_channels = {input.data(), input.data(), input.data(),
+                                                        input.data(), input.data(), input.data()};
+    SushiDSP::test::RoomPorts ports(K_BLOCK_FRAMES);
+    SushiDSP::ProcessContext context = ports.context(input_channels.data(), K_BLOCK_FRAMES);
+    ASSERT_NO_FATAL_FAILURE(assert_spread_published(node, GetParam().from_sources, GetParam().from_microphones, false));
+    run_blocks(node, context, 4);
+    node.reclaim_rooms();
+    ASSERT_NO_FATAL_FAILURE(
+        assert_spread_published(node, GetParam().to_sources, GetParam().to_microphones, GetParam().moved));
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    run_blocks(node, context, 4);
+    trap.disarm();
+    node.reclaim_rooms();
+
+    EXPECT_EQ(trap.count(), 0);
+    expect_finite(ports.listener(0));
+    expect_finite(ports.listener(1));
+    expect_finite(ports.microphone(0));
+}
+
+INSTANTIATE_TEST_SUITE_P(Changes, Medium_RoomNodeSpread, ::testing::ValuesIn(K_SPREAD_CHANGES), spread_change_name);
+
+TEST_P(Medium_RoomNodeBinaural, BinauralProcessPerformsNoHeapAllocation)
+{
+    // The ears render every binaural path inside the trap. See tests/nodes/room/test_room_node/README.md.
+    RoomNode node;
+    ASSERT_NO_FATAL_FAILURE(prepare_with_trap_scene(node));
+    MonoRig rig;
+    GetParam().apply(node);
+
+    SushiDSP::test::AllocationTrap trap;
+    trap.arm();
+    process_alternating(node, rig.context, std::uint16_t{3}, 4);
+    trap.disarm();
+    node.reclaim_rooms();
+
+    EXPECT_EQ(trap.count(), 0);
+    expect_finite(rig.left);
+    expect_finite(rig.right);
+}
+
+INSTANTIATE_TEST_SUITE_P(Changes, Medium_RoomNodeBinaural, ::testing::ValuesIn(K_BINAURAL_CHANGES),
+                         binaural_change_name);
 
 TEST(Small_RoomNodeCounters, AnUnpreparedNodeCountsABlockWithNoRenderSet)
 {
@@ -279,33 +427,19 @@ TEST(Small_RoomNodeCounters, APreparedNodeWithASetCountsNothing)
     EXPECT_EQ(counts.no_render_set.value(), 0U);
 }
 
-TEST(Medium_RoomNodeProfile, ProcessWritesTheRegionZonesUnderTheRoomGroup)
+TEST_F(Medium_RoomNodeProfile, ProcessWritesTheRegionZonesUnderTheRoomGroup)
 {
-    if (!SushiDSP::profile::K_PROFILER_BUILT)
-        GTEST_SKIP() << "this build records nothing";
     constexpr std::uint32_t K_WARMUP = 2;
     constexpr std::uint32_t K_ACTIVE = 4;
-    SushiDSP::room::RoomNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
-    std::string reason;
-    ASSERT_TRUE(node.set_scene(room_trap_scene(4.0), reason)) << reason;
-    std::vector<float> input(256);
-    fill_room_tone(input);
-    std::vector<float> left(256, 0.0f);
-    std::vector<float> right(256, 0.0f);
-    const float* input_channels[1] = {input.data()};
-    float* output_channels[2] = {left.data(), right.data()};
+    RoomNode node;
+    ASSERT_NO_FATAL_FAILURE(prepare_with_trap_scene(node));
+    MonoRig rig;
 
     SushiDSP::profile::ProfileSession session;
     ASSERT_TRUE(session
                     .start_window(SushiDSP::profile::names::K_BENCH_TIMELINE, K_WARMUP, K_ACTIVE)
                     .started());
-    for (std::uint32_t period = 0; period < K_WARMUP + K_ACTIVE; ++period)
-    {
-        session.mark(SushiDSP::profile::names::K_BENCH_TIMELINE, 0U);
-        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
-        node.process(context);
-    }
+    process_periods(session, node, rig.context, K_WARMUP + K_ACTIVE);
     session.mark(SushiDSP::profile::names::K_BENCH_TIMELINE, 0U);
     const SushiDSP::profile::ProfileFinish finished = session.finish();
 
