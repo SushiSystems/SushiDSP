@@ -16,6 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from sushicore.proc_memory import RecordingRunner
 
 from sushidsp.services import project as project_svc
 from sushicore.testing import TestLabel
@@ -393,3 +394,49 @@ def test_docs_runs_doxygen_on_the_doxyfile_and_exits_with_its_code(project):
 
     assert project_svc.docs(workspace=project.workspace) == 6
     assert project.commands == [[str(doxygen), ".config/doxygen/Doxyfile"]]
+
+
+class _FailingShardRunner(RecordingRunner):
+    """A runner whose ctest leaves the files of a run in which one case of one shard failed."""
+
+    def __init__(self, console, tree: Path, shard: str) -> None:
+        """Keeps the tree the run writes its results into and the shard that fails."""
+        super().__init__(console)
+        self._tree = tree
+        self._shard = shard
+
+    def run_drained(self, cmd, cwd, env=None) -> int:
+        """Records *cmd*; a ctest run writes its JUnit file and the shard's result file and fails."""
+        code = super().run_drained(cmd, cwd, env)
+        if "--output-junit" not in cmd:
+            return code
+        junit = Path(cmd[cmd.index("--output-junit") + 1])
+        junit.parent.mkdir(parents=True, exist_ok=True)
+        junit.write_text(
+            f'<testsuite><testcase name="{self._shard}" status="fail"><failure/></testcase></testsuite>',
+            encoding="utf-8")
+        results = self._tree / "test_results" / "gtest"
+        results.mkdir(parents=True, exist_ok=True)
+        (results / f"{self._shard}.xml").write_text(
+            '<testsuites><testsuite><testcase name="One" classname="Small_A"><failure/></testcase>'
+            "</testsuite></testsuites>", encoding="utf-8")
+        return 1
+
+
+def test_a_failed_shard_reruns_by_gtest_filter_on_its_program_and_not_by_ctest_over_the_shard(project):
+    """sd hands the shared command a run_program, so only the failing case of a failed shard reruns."""
+    tree = project.configure_tree("Debug")
+    shard = "sushidsp_tests.small_shard_0of1"
+    program = project.plant_executable("sushidsp_tests", "tests")
+    (tree / "CTestTestfile.cmake").write_text(
+        f'add_test([=[{shard}]=] "{program.as_posix()}")\n', encoding="utf-8")
+    runner = _FailingShardRunner(project.console, tree, shard)
+    workspace = Workspace(project.root, project.workspace.config, project.console, runner, runner,
+                          environment={}, packages=project.packages)
+
+    assert project_svc.test(None, workspace=workspace) == 1
+
+    commands = [list(command.argv) for command in runner.commands]
+    reruns = [argv for argv in commands if argv[0] == str(program)]
+    assert [argv[1] for argv in reruns] == ["--gtest_filter=Small_A.One"]
+    assert len([argv for argv in commands if "--output-junit" in argv]) == 1
