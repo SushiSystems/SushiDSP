@@ -29,12 +29,12 @@
 
 #pragma once
 
+#include <SushiDSP/foundation/benchmark_harness/nanosecond_clock.hpp>
 #include <SushiDSP/foundation/profile/profile_record.hpp>
 #include <SushiDSP/foundation/profile/profile_run.hpp>
 #include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 
 #include <algorithm>
-#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -128,14 +128,14 @@ namespace SushiDSP::bench
         return result;
     }
 
-    /// @brief Runs `body` repeatedly under the steady clock, with no profiler, and reports the
-    /// median cost per sample. It is the path `measure` takes when no session can run, and it
-    /// records nothing, so no check can be judged against its result.
-    template <typename Body>
+    /// @brief Runs `body` repeatedly under @p clock, with no profiler, and reports the median
+    /// cost per sample. It records nothing, so no check can be judged against its result.
+    /// @tparam Clock A type with `double now_nanoseconds()`; see SteadyNanosecondClock.
+    /// @param clock The clock read before and after each repetition.
+    template <typename Body, typename Clock>
     Result measure_unrecorded(const char* name, std::uint32_t samples_per_call, double sample_rate,
-                              Body&& body)
+                              Body&& body, Clock& clock)
     {
-        using clock = std::chrono::steady_clock;
         for (std::uint32_t i = 0; i < K_WARMUP_PERIODS; ++i)
         {
             body();
@@ -144,10 +144,10 @@ namespace SushiDSP::bench
         call_ns.reserve(K_ACTIVE_PERIODS);
         for (std::uint32_t i = 0; i < K_ACTIVE_PERIODS; ++i)
         {
-            const auto start = clock::now();
+            const double start = clock.now_nanoseconds();
             body();
-            const auto stop = clock::now();
-            call_ns.push_back(std::chrono::duration<double, std::nano>(stop - start).count());
+            const double stop = clock.now_nanoseconds();
+            call_ns.push_back(stop - start);
         }
         Result result = result_from_calls(name, samples_per_call, sample_rate, call_ns);
         std::vector<double> differences;
@@ -158,6 +158,16 @@ namespace SushiDSP::bench
         std::sort(differences.begin(), differences.end());
         result.jitter_nanoseconds = differences[differences.size() / 2];
         return result;
+    }
+
+    /// @brief Runs `body` repeatedly under the steady clock; the path `measure` takes when no
+    /// session can run. See the overload that takes a clock.
+    template <typename Body>
+    Result measure_unrecorded(const char* name, std::uint32_t samples_per_call, double sample_rate,
+                              Body&& body)
+    {
+        SteadyNanosecondClock clock;
+        return measure_unrecorded(name, samples_per_call, sample_rate, body, clock);
     }
 
     /// @brief Runs `body` in 20 warm-up and 2000 active periods of the timeline `bench.block`,

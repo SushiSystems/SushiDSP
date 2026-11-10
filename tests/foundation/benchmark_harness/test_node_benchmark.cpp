@@ -32,62 +32,47 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/benchmark_harness/node_benchmark.hpp>
+#include <SushiDSP/foundation/core/in_memory_node.hpp>
 
 namespace
 {
-    /// @brief Declares a node that records what the harness did to it.
-    class RecordingNode final : public SushiDSP::AudioNode
+    /// @brief Holds the repetitions measure() runs: the warm-up periods and the active ones.
+    constexpr std::uint32_t K_REPETITIONS = SushiDSP::bench::K_WARMUP_PERIODS + SushiDSP::bench::K_ACTIVE_PERIODS;
+
+    /// @brief Gives each test a mono pass-through node that writes its calls into a record.
+    class Medium_NodeBenchmark : public ::testing::Test
     {
-        public:
-            void prepare(const SushiDSP::PrepareInfo& info) override
-            {
-                prepared_block = info.max_block;
-            }
-
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                ++process_calls;
-                frames = context.frames;
-                for (std::uint32_t i = 0; i < context.frames; ++i)
-                    context.outputs[0][i] = context.inputs[0][i];
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override
-            {
-
-            }
-
-            void reset() override
-            {
-
-            }
-
-            static inline std::uint32_t prepared_block = 0;
-            static inline std::uint32_t frames = 0;
-            static inline int process_calls = 0;
+        protected:
+            SushiDSP::InMemoryNodeRecord record;
+            SushiDSP::InMemoryNode node{SushiDSP::InMemoryNodeShape{}, SushiDSP::InMemoryNodeSignal{}, record};
     };
 } // namespace
 
-TEST(Medium_NodeBenchmark, NodeBenchmarkPreparesConfiguresAndProcessesOneBlockPerRepetition)
+TEST_F(Medium_NodeBenchmark, NodeBenchmarkPreparesTheNodeOnceAtTheReferenceBlockBeforeConfiguringIt)
 {
-    bool configured_after_prepare = false;
-    const SushiDSP::bench::Result result = SushiDSP::bench::measure_node<RecordingNode>(
-        "recording",
-        [&](RecordingNode&)
-        { configured_after_prepare = RecordingNode::prepared_block == SushiDSP::bench::K_BLOCK_SIZE; });
+    std::uint32_t prepares_seen_by_configure = 0;
 
-    EXPECT_TRUE(configured_after_prepare);
-    EXPECT_EQ(RecordingNode::process_calls, 2020);
-    EXPECT_EQ(RecordingNode::frames, SushiDSP::bench::K_BLOCK_SIZE);
+    SushiDSP::bench::measure_node(node, "recording",
+                                  [&](SushiDSP::InMemoryNode& prepared)
+                                  { prepares_seen_by_configure = prepared.record().prepare_calls; });
+
+    EXPECT_EQ(prepares_seen_by_configure, 1u);
+    EXPECT_EQ(record.prepare_calls, 1u);
+    EXPECT_EQ(record.last_prepare.max_block, SushiDSP::bench::K_BLOCK_SIZE);
+}
+
+TEST_F(Medium_NodeBenchmark, NodeBenchmarkProcessesOneBlockPerRepetition)
+{
+    SushiDSP::bench::measure_node(node, "recording", [](SushiDSP::InMemoryNode&) {});
+
+    EXPECT_EQ(record.process_calls, K_REPETITIONS);
+    EXPECT_EQ(record.last_frames, SushiDSP::bench::K_BLOCK_SIZE);
+}
+
+TEST_F(Medium_NodeBenchmark, NodeBenchmarkNamesTheRowItReturns)
+{
+    const SushiDSP::bench::Result result =
+        SushiDSP::bench::measure_node(node, "recording", [](SushiDSP::InMemoryNode&) {});
+
     EXPECT_STREQ(result.name, "recording");
 }

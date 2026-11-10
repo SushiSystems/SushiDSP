@@ -30,6 +30,7 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/benchmark_harness/benchmark_harness.hpp>
+#include <SushiDSP/foundation/benchmark_harness/in_memory_nanosecond_clock.hpp>
 
 #include "support/tolerance.hpp"
 
@@ -156,21 +157,44 @@ TEST(Small_BenchmarkHarness, ResultFromCallsCostsTheMedianAgainstOneSamplePeriod
     EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<double>(result.realtime_percent, 4.8, 4)));
 }
 
-// The unrecorded path reads the steady clock, so it is Medium until the harness takes a clock.
-TEST(Medium_BenchmarkHarness, TheUnrecordedPathRunsTheSameRepetitionsAsTheRecordedOne)
+TEST(Small_BenchmarkHarness, TheUnrecordedPathRunsTheSameRepetitionsAsTheRecordedOne)
 {
     int calls = 0;
+    SushiDSP::bench::StepNanosecondClock clock{kCallNanoseconds};
 
-    const SushiDSP::bench::Result result =
-        SushiDSP::bench::measure_unrecorded("steady", 1, kReferenceRate, [&] { ++calls; });
+    SushiDSP::bench::measure_unrecorded("stepped", 1, kReferenceRate, [&] { ++calls; }, clock);
 
     EXPECT_EQ(calls, static_cast<int>(kRepetitions));
+}
+
+TEST(Small_BenchmarkHarness, TheUnrecordedPathReportsOnePeriodPerActiveRepetition)
+{
+    SushiDSP::bench::StepNanosecondClock clock{kCallNanoseconds};
+
+    const SushiDSP::bench::Result result =
+        SushiDSP::bench::measure_unrecorded("stepped", 1, kReferenceRate, [] {}, clock);
+
     EXPECT_EQ(result.periods, SushiDSP::bench::K_ACTIVE_PERIODS);
 }
 
-TEST(Medium_BenchmarkHarness, TheUnrecordedPathRecordsNothing)
+// Every repetition spans one clock step, so the median is the step, and the jitter between equal repetitions is 0.
+TEST(Small_BenchmarkHarness, TheUnrecordedPathCostsEachRepetitionAtTheClockStep)
 {
-    const SushiDSP::bench::Result result = SushiDSP::bench::measure_unrecorded("steady", 1, kReferenceRate, [] {});
+    SushiDSP::bench::StepNanosecondClock clock{kCallNanoseconds};
+
+    const SushiDSP::bench::Result result =
+        SushiDSP::bench::measure_unrecorded("stepped", 1, kReferenceRate, [] {}, clock);
+
+    EXPECT_EQ(result.nanoseconds_per_sample, kCallNanoseconds);
+    EXPECT_EQ(result.jitter_nanoseconds, 0.0);
+}
+
+TEST(Small_BenchmarkHarness, TheUnrecordedPathRecordsNothing)
+{
+    SushiDSP::bench::StepNanosecondClock clock{kCallNanoseconds};
+
+    const SushiDSP::bench::Result result =
+        SushiDSP::bench::measure_unrecorded("stepped", 1, kReferenceRate, [] {}, clock);
 
     EXPECT_TRUE(result.record.empty());
 }

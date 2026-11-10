@@ -27,46 +27,37 @@
  * @author Mustafa Garip
  */
 
-#include <cstdint>
 #include <string>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/benchmark_harness/solver_counters.hpp>
+#include <SushiDSP/foundation/math/dk/in_memory_dk_counters.hpp>
 
 namespace
 {
-    /// @brief Declares a circuit whose counters are fixed.
-    struct FixedCounters
+    /// @brief Prints the counters and returns the line they wrote.
+    std::string printed_line(const SushiDSP::dk::InMemoryDkCounters& counters)
     {
-            std::uint64_t total_samples() const
-            {
-                return 2048;
-            }
-
-            std::uint64_t non_converged_samples() const
-            {
-                return 2;
-            }
-
-            unsigned maximum_iterations_seen() const
-            {
-                return 7;
-            }
-
-            std::uint64_t nan_fallback_samples() const
-            {
-                return 0;
-            }
-    };
+        testing::internal::CaptureStdout();
+        SushiDSP::bench::print_solver_counters(counters);
+        return testing::internal::GetCapturedStdout();
+    }
 } // namespace
 
+// 2 of 2048 solves is 0.09765625 percent, which prints as 0.0977.
 TEST(Small_SolverCounters, SolverCountersPrintsEveryCounterAndTheNonConvergedShare)
 {
-    testing::internal::CaptureStdout();
-    SushiDSP::bench::print_solver_counters(FixedCounters{});
-    const std::string line = testing::internal::GetCapturedStdout();
+    const std::string line = printed_line(SushiDSP::dk::InMemoryDkCounters{2048, 2, 7, 0});
 
     EXPECT_EQ(line, "  solver: 2048 solves, 2 non-converged (0.0977 %), 7 iterations worst case, "
+                    "0 NaN fallbacks\n");
+}
+
+TEST(Small_SolverCounters, SolverCountersPrintsAZeroShareForACircuitWithNoSolves)
+{
+    const std::string line = printed_line(SushiDSP::dk::InMemoryDkCounters{0, 0, 0, 0});
+
+    EXPECT_EQ(line, "  solver: 0 solves, 0 non-converged (0.0000 %), 0 iterations worst case, "
                     "0 NaN fallbacks\n");
 }

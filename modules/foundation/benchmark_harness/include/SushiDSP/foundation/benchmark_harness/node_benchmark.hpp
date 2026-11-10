@@ -37,14 +37,14 @@
 
 namespace SushiDSP::bench
 {
-    /// @brief Times one mono node's process() over one block of the reference tone.
-    /// @tparam Node A default-constructible AudioNode with one input and one output channel.
+    /// @brief Times one mono node's process() over one block of the reference tone, on a node
+    /// the caller built.
+    /// @param node The node to time; it is prepared here and outlives the call.
     /// @param name The row's name; it outlives the call.
     /// @param configure Called once with the prepared node, before the timing starts.
     template <typename Node, typename Configure>
-    Result measure_node(const char* name, Configure&& configure)
+    Result measure_node(Node& node, const char* name, Configure&& configure)
     {
-        Node node;
         node.prepare({K_SAMPLE_RATE, K_BLOCK_SIZE, 1});
         configure(node);
         const std::vector<float> input = reference_tone(K_BLOCK_SIZE);
@@ -57,5 +57,16 @@ namespace SushiDSP::bench
                            ProcessContext context{outputs, inputs, K_BLOCK_SIZE, 0.0};
                            node.process(context);
                        });
+    }
+
+    /// @brief Times one mono node's process() over one block of the reference tone.
+    /// @tparam Node A default-constructible AudioNode with one input and one output channel.
+    /// @param name The row's name; it outlives the call.
+    /// @param configure Called once with the prepared node, before the timing starts.
+    template <typename Node, typename Configure>
+    Result measure_node(const char* name, Configure&& configure)
+    {
+        Node node;
+        return measure_node(node, name, configure);
     }
 } // namespace SushiDSP::bench

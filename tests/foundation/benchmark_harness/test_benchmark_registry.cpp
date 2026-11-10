@@ -36,23 +36,44 @@
 
 namespace
 {
-    std::vector<std::string> g_ran;
+    using SushiDSP::bench::BenchmarkCase;
+    using SushiDSP::bench::BenchmarkRegistration;
 
-    const SushiDSP::bench::BenchmarkRegistration K_ZETA{"RegistryTestZeta",
-                                                        [] { g_ran.push_back("Zeta"); }};
-    const SushiDSP::bench::BenchmarkRegistration K_ALPHA{"RegistryTestAlpha",
-                                                         [] { g_ran.push_back("Alpha"); }};
+    /// @brief Builds a case list whose bodies append their group's letter to a log, Zeta added first.
+    class RegistryFixture
+    {
+        public:
+            RegistryFixture()
+                : zeta_(cases_, "Zeta", [this] { ran_.push_back("Zeta"); }),
+                  alpha_(cases_, "Alpha", [this] { ran_.push_back("Alpha"); })
+            {
+            }
+
+            const std::vector<BenchmarkCase>& cases() const
+            {
+                return cases_;
+            }
+
+            const std::vector<std::string>& ran() const
+            {
+                return ran_;
+            }
+
+        private:
+            std::vector<BenchmarkCase> cases_;
+            std::vector<std::string> ran_;
+            BenchmarkRegistration zeta_;
+            BenchmarkRegistration alpha_;
+    };
 } // namespace
 
-TEST(Small_BenchmarkRegistry, BenchmarkRegistryKeepsEveryRegisteredCase)
+TEST(Small_BenchmarkRegistry, BenchmarkRegistryKeepsEveryRegisteredCaseInRegistrationOrder)
 {
-    int found = 0;
-    for (const SushiDSP::bench::BenchmarkCase& item : SushiDSP::bench::registered_cases())
-    {
-        if (std::string(item.group).rfind("RegistryTest", 0) == 0)
-            ++found;
-    }
-    EXPECT_EQ(found, 2);
+    const RegistryFixture fixture;
+
+    ASSERT_EQ(fixture.cases().size(), 2u);
+    EXPECT_STREQ(fixture.cases()[0].group, "Zeta");
+    EXPECT_STREQ(fixture.cases()[1].group, "Alpha");
 }
 
 TEST(Small_BenchmarkRegistry, BenchmarkRegistrySelectsEveryGroupWithoutArguments)
@@ -70,10 +91,22 @@ TEST(Small_BenchmarkRegistry, BenchmarkRegistrySelectsAGroupThatHoldsAnArgument)
 
 TEST(Small_BenchmarkRegistry, BenchmarkRegistryRunsTheSelectedGroupsInNameOrder)
 {
-    g_ran.clear();
-    const char* argv[] = {"bench", "RegistryTest"};
-    const int ran = SushiDSP::bench::run_selected(2, argv);
+    RegistryFixture fixture;
+    const char* argv[] = {"bench"};
+
+    const int ran = SushiDSP::bench::run_selected(fixture.cases(), 1, argv);
 
     EXPECT_EQ(ran, 2);
-    EXPECT_EQ(g_ran, (std::vector<std::string>{"Alpha", "Zeta"}));
+    EXPECT_EQ(fixture.ran(), (std::vector<std::string>{"Alpha", "Zeta"}));
+}
+
+TEST(Small_BenchmarkRegistry, BenchmarkRegistryRunsOnlyTheGroupsAnArgumentSelects)
+{
+    RegistryFixture fixture;
+    const char* argv[] = {"bench", "Zet"};
+
+    const int ran = SushiDSP::bench::run_selected(fixture.cases(), 2, argv);
+
+    EXPECT_EQ(ran, 1);
+    EXPECT_EQ(fixture.ran(), (std::vector<std::string>{"Zeta"}));
 }

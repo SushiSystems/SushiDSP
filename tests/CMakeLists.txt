@@ -115,6 +115,7 @@ add_executable(sushidsp_tests
     foundation/math/dk/test_linear_port.cpp
     foundation/math/dk/test_conductance_port.cpp
     foundation/math/dk/test_poisonable_port.cpp
+    foundation/math/dk/test_in_memory_dk_counters.cpp
     foundation/math/test_halfband_coefficients.cpp
     # --- Unit tests written for the units that had none ---
     foundation/io/test_ir.cpp
@@ -232,6 +233,8 @@ add_executable(sushidsp_tests
     foundation/allocation_trap/test_allocation_trap.cpp
     foundation/benchmark_harness/test_benchmark_harness.cpp
     foundation/benchmark_harness/test_benchmark_registry.cpp
+    foundation/benchmark_harness/test_in_memory_nanosecond_clock.cpp
+    foundation/benchmark_harness/test_nanosecond_clock.cpp
     foundation/benchmark_harness/test_node_benchmark.cpp
     foundation/benchmark_harness/test_reference_tone.cpp
     foundation/benchmark_harness/test_solver_counters.cpp

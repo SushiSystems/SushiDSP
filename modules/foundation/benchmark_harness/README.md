@@ -22,7 +22,7 @@ with those figures. `K_SAMPLE_RATE` and `K_BLOCK_SIZE` are the rate and block ev
 costed at.
 
 When no session can start, `measure` falls back to `measure_unrecorded`, which times the same
-repetitions under the steady clock and records nothing. That happens in a build with
+repetitions under the steady clock and records nothing. It reads the time through a clock it is given, `SteadyNanosecondClock` by default (`nanosecond_clock.hpp`), so a test passes `StepNanosecondClock` (`in_memory_nanosecond_clock.hpp`), which moves a fixed step on every read. That happens in a build with
 `SD_ENABLE_PROFILER` off, and when another session already holds the process. A result without a
 record is not judged: `print_verdicts` says so and fails nothing.
 
@@ -43,7 +43,7 @@ snapshots use, so a case exercises the path the goldens hold.
 ## node_benchmark.hpp
 
 `measure_node` prepares a mono node, lets the caller set its knobs, and times `process()` over
-one block of the reference tone.
+one block of the reference tone. Both it and `profile_node` also take a node the caller built, for a node without a default constructor.
 
 ## solver_counters.hpp
 
@@ -57,4 +57,4 @@ never does.
 
 `BenchmarkRegistration` adds a named group of cases to `registered_cases()`. `run_selected` runs
 every group whose name holds one of the program's arguments, or every group when there is none,
-ordered by group name.
+ordered by group name. A registration and a run also take a case list of their own, so a test builds its list and leaves the process-wide one alone.

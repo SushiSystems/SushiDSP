@@ -21,6 +21,7 @@ Filters, FFT, convolution, resampling, oversampling and the scalar and nodal sol
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/dense_lu.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/dk_circuit.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/dk_netlist.hpp`
+- `modules/foundation/math/include/SushiDSP/foundation/math/dk/in_memory_dk_counters.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/linear_port.hpp`
 - `modules/foundation/math/include/SushiDSP/foundation/math/dk/poisonable_port.hpp`
 

@@ -1,6 +1,6 @@
 # Test review: plan
 
-**Status:** Open — in progress, run in parallel; T1 to T7, M2 and M4 are done, the other M jobs follow in table order
+**Status:** Open — in progress, run in parallel; T1 to T7, M2, M4, M5 and M6 are done, the other M jobs follow in table order
 
 Applies the verdicts of `REPORT.md`, in hierarchy order: the shared helpers, adapters and seams the
 rewrites need come first, then the defects the review found, then each module's tests. A module job
@@ -23,7 +23,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M3 | the tests of `cli` (11 files): 82 rewrite, 15 resize, 2 split, 2 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M4 | the tests of `foundation/allocation_trap` (1 file): 1 rewrite, 1 merge | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M5 | the tests of `foundation/audio_format` (2 files): 5 rewrite, 1 split, 2 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
-| M6 | the tests of `foundation/benchmark_harness` (6 files): 11 rewrite, 1 resize, 3 split | T1, T2, T3, T4, T5, T6, T7 | partial: harness and reference tone done; registry, node_benchmark, profiled_node and solver_counters wait on seams |
+| M6 | the tests of `foundation/benchmark_harness` (6 files): 11 rewrite, 1 resize, 3 split | T1, T2, T3, T4, T5, T6, T7 | done |
 | M7 | the tests of `foundation/circuit_blocks` (2 files): 6 rewrite, 2 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M8 | the tests of `foundation/circuits` (26 files): 81 rewrite, 2 resize, 5 split, 3 merge, 11 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M9 | the tests of `foundation/core` (23 files): 68 rewrite, 14 resize, 7 split, 5 merge, 25 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
@@ -69,9 +69,6 @@ The owner chooses inline or parallel mode.
 
 ## Resume note
 
-M2, M4, M5 are applied and M6 is partly applied, all syntax-checked (`clang -fsyntax-only` through
-`build/compile_commands.json`, with `-I tests`), not built or run. M6 leaves four files: `test_benchmark_registry.cpp`
-needs `run_selected` and `registered_cases` to take a case list; `test_node_benchmark.cpp` and `test_profiled_node.cpp` need
-an `InMemoryNode` that `measure_node<Node>` can default-construct; `test_solver_counters.cpp` needs a counters adapter
-beside `DkCircuit`. Each is a production seam no job above built. Resume at M7 and onward in table order;
-the other M jobs are untouched.
+M2, M4, M5 and M6 are applied, all syntax-checked (`clang -fsyntax-only` through
+`build/compile_commands.json`, with `-I tests`), not built or run. M6 used the owner's seams of
+2026-11-10 (REPORT decision 10). Resume at M7 and onward in table order; the other M jobs are untouched.

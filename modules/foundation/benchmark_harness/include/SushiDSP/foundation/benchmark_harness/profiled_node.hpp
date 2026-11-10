@@ -38,15 +38,14 @@
 
 namespace SushiDSP::bench
 {
-    /// @brief Processes one block of the reference tone through a prepared mono node, once per
-    /// period of the `bench.block` timeline, and returns the record.
-    /// @tparam Node A default-constructible AudioNode with one input and one output channel.
+    /// @brief Processes one block of the reference tone through a mono node the caller built, once
+    /// per period of the `bench.block` timeline, and returns the record.
+    /// @param node The node to run; it is prepared here and outlives the call.
     /// @param warmup The periods recorded and marked warm-up.
     /// @param active The periods recorded as active.
     template <typename Node>
-    profile::ProfiledRun profile_node(std::uint32_t warmup, std::uint32_t active)
+    profile::ProfiledRun profile_node(Node& node, std::uint32_t warmup, std::uint32_t active)
     {
-        Node node;
         node.prepare({K_SAMPLE_RATE, K_BLOCK_SIZE, 1});
         const std::vector<float> input = reference_tone(K_BLOCK_SIZE);
         std::vector<float> output(K_BLOCK_SIZE, 0.0f);
@@ -59,5 +58,17 @@ namespace SushiDSP::bench
                                                                 0.0};
                                          node.process(context);
                                      });
+    }
+
+    /// @brief Processes one block of the reference tone through a prepared mono node, once per
+    /// period of the `bench.block` timeline, and returns the record.
+    /// @tparam Node A default-constructible AudioNode with one input and one output channel.
+    /// @param warmup The periods recorded and marked warm-up.
+    /// @param active The periods recorded as active.
+    template <typename Node>
+    profile::ProfiledRun profile_node(std::uint32_t warmup, std::uint32_t active)
+    {
+        Node node;
+        return profile_node(node, warmup, active);
     }
 } // namespace SushiDSP::bench

@@ -57,8 +57,17 @@ namespace SushiDSP::bench
             /// @brief Registers one case.
             /// @param group A string literal naming the group.
             BenchmarkRegistration(const char* group, std::function<void()> body)
+                : BenchmarkRegistration(registered_cases(), group, std::move(body))
             {
-                registered_cases().push_back(BenchmarkCase{group, std::move(body)});
+            }
+
+            /// @brief Registers one case into @p cases in place of the process-wide list.
+            /// @param cases The list the case joins; it outlives the call.
+            /// @param group A string literal naming the group.
+            BenchmarkRegistration(std::vector<BenchmarkCase>& cases, const char* group,
+                                  std::function<void()> body)
+            {
+                cases.push_back(BenchmarkCase{group, std::move(body)});
             }
     };
 
@@ -76,12 +85,13 @@ namespace SushiDSP::bench
         return false;
     }
 
-    /// @brief Runs every selected case, ordered by group name so the table does not depend on
-    /// the order the files were linked in.
+    /// @brief Runs every selected case of @p registered, ordered by group name.
+    /// @param registered The cases to choose from; the list is not changed.
     /// @return The number of groups that ran.
-    inline int run_selected(int argc, const char* const* argv)
+    inline int run_selected(const std::vector<BenchmarkCase>& registered, int argc,
+                            const char* const* argv)
     {
-        std::vector<BenchmarkCase> cases = registered_cases();
+        std::vector<BenchmarkCase> cases = registered;
         std::stable_sort(cases.begin(), cases.end(),
                          [](const BenchmarkCase& left, const BenchmarkCase& right)
                          { return std::strcmp(left.group, right.group) < 0; });
@@ -94,5 +104,13 @@ namespace SushiDSP::bench
             ++ran;
         }
         return ran;
+    }
+
+    /// @brief Runs every selected case, ordered by group name so the table does not depend on
+    /// the order the files were linked in.
+    /// @return The number of groups that ran.
+    inline int run_selected(int argc, const char* const* argv)
+    {
+        return run_selected(registered_cases(), argc, argv);
     }
 } // namespace SushiDSP::bench

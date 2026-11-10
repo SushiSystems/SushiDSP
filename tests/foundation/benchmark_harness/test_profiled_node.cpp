@@ -27,64 +27,49 @@
  * @author Mustafa Garip
  */
 
-#include <cstdint>
-
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/benchmark_harness/profiled_node.hpp>
+#include <SushiDSP/foundation/core/in_memory_node.hpp>
 #include <SushiDSP/foundation/profile/profile.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 
 namespace
 {
-    /// @brief Declares a node that counts its blocks and zones each one.
-    class CountingNode final : public SushiDSP::AudioNode
+    constexpr std::uint32_t K_WARMUP = 2;
+    constexpr std::uint32_t K_ACTIVE = 4;
+
+    /// @brief Skips a test when the build carries no profiler, since a run then records nothing.
+    /// It gives each test a mono pass-through node that writes its calls into a record.
+    class Medium_ProfiledNode : public ::testing::Test
     {
-        public:
-            void prepare(const SushiDSP::PrepareInfo& info) override
+        protected:
+            void SetUp() override
             {
-                static_cast<void>(info);
+                if (!SushiDSP::profile::K_PROFILER_BUILT)
+                    GTEST_SKIP() << "this build records nothing";
             }
 
-            void process(SushiDSP::ProcessContext& context) override
-            {
-                SD_ZONE("test.counting");
-                ++blocks;
-                for (std::uint32_t i = 0; i < context.frames; ++i)
-                    context.outputs[0][i] = context.inputs[0][i];
-            }
-
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-
-            void set_parameter_for_control_thread(const char*, float) override
-            {
-
-            }
-
-            void reset() override
-            {
-
-            }
-
-            static inline int blocks = 0;
+            SushiDSP::InMemoryNodeRecord record;
+            SushiDSP::InMemoryNode node{SushiDSP::InMemoryNodeShape{}, SushiDSP::InMemoryNodeSignal{}, record};
     };
 } // namespace
 
-TEST(Medium_ProfiledNode, ProfileNodeProcessesOneBlockPerPeriodAndRecordsItsZone)
+TEST_F(Medium_ProfiledNode, ProfileNodeProcessesOneBlockPerWarmupAndActivePeriod)
 {
-    CountingNode::blocks = 0;
+    const SushiDSP::profile::ProfiledRun run = SushiDSP::bench::profile_node(node, K_WARMUP, K_ACTIVE);
 
-    const SushiDSP::profile::ProfiledRun run = SushiDSP::bench::profile_node<CountingNode>(2, 4);
+    ASSERT_TRUE(run.start.started());
+    EXPECT_EQ(record.process_calls, K_WARMUP + K_ACTIVE);
+    EXPECT_EQ(record.last_frames, SushiDSP::bench::K_BLOCK_SIZE);
+}
 
-    if (!run.start.started())
-        GTEST_SKIP() << "this build records nothing";
-    EXPECT_EQ(CountingNode::blocks, 6);
-    EXPECT_EQ(run.record.zone_calls("test.counting"), 4u);
+TEST_F(Medium_ProfiledNode, ProfileNodeRecordsTheWarmupAndActivePeriodsOfItsTimeline)
+{
+    const SushiDSP::profile::ProfiledRun run = SushiDSP::bench::profile_node(node, K_WARMUP, K_ACTIVE);
+
+    ASSERT_TRUE(run.start.started());
+    EXPECT_EQ(run.record.warmup_periods(), K_WARMUP);
+    EXPECT_EQ(run.record.active_periods(), K_ACTIVE);
+    EXPECT_EQ(run.record.summarise(SushiDSP::profile::names::K_BENCH_TIMELINE).periods, K_ACTIVE);
 }
