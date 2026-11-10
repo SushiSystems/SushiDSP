@@ -68,7 +68,7 @@ namespace
     /// The relative step limit of the circuit's solver as shipped: it stops once a step is below this times (1 + |v|).
     constexpr double K_SOLVER_STEP_TOLERANCE = 1e-9;
 
-    /// The absolute residual limit of the circuit's solver as shipped: it stops at once when the residual's largest entry, in volts for a DK port, is below this.
+    /// The absolute residual limit of the circuit's solver as shipped: it stops at once when the residual's largest entry, in volts for a DK port, is below this. The circuit output is v - r, so the output error is bounded by this in volts.
     constexpr double K_SOLVER_RESIDUAL_TOLERANCE = 1e-12;
 
     /// The sample rate of every circuit here unless a test names another.
@@ -387,14 +387,22 @@ namespace
     constexpr double K_THERMAL_VOLTAGE = 0.025864;
     constexpr int K_CLIPPER_SAMPLES = 2048;
 
+    /// @brief Holds what one clipper sweep measured.
+    struct ClipperSweep
+    {
+            bool prepared = false;
+            double worst_ratio = 0.0;
+            std::uint64_t non_converged = 0;
+    };
+
     /// @brief Steps the antiparallel-diode clipper over a rising sweep and returns the worst distance to the root.
     ///
-    /// |residual| / slope bounds the distance to the root to first order. After a step below K_SOLVER_STEP_TOLERANCE
-    /// (1 + |v|) Newton's error is at most f'' / (2 f') = 1 / (2 Vt) times that step squared; a residual below
-    /// K_SOLVER_RESIDUAL_TOLERANCE ends the solve at most that tolerance over the slope (at least 1) from the root.
-    /// @param prepared Receives whether the circuit prepared.
-    /// @return The largest ratio of an error to its bound over the sweep.
-    double worst_clipper_error_ratio(bool& prepared)
+    /// The output is v - r, with r the solver's residual in volts, so the error is bounded by the solver's
+    /// residual exit (1e-12 V) or by g'(w) step^2 / (2 Vt) after a full step. See
+    /// tests/foundation/math/dk/test_dk_circuit/README.md.
+    /// @return Whether the circuit prepared, the largest ratio of an error to its bound, and the number of
+    /// samples whose solve did not converge.
+    ClipperSweep measure_clipper_sweep()
     {
         SushiDSP::dk::DkNetlist<0, 2, 1, 1> netlist;
         netlist.node_count = 2;
@@ -405,7 +413,8 @@ namespace
         netlist.output(2, 0);
 
         SushiDSP::dk::DkCircuit<0, 2, 1, 1> circuit;
-        prepared = circuit.prepare(netlist, K_SAMPLE_RATE);
+        ClipperSweep sweep;
+        sweep.prepared = circuit.prepare(netlist, K_SAMPLE_RATE);
         AntiparallelDiodePort port{SushiDSP::SiliconDiode(K_SATURATION_CURRENT, 1.0, K_THERMAL_VOLTAGE)};
 
         auto residual = [&](double v, double source)
@@ -421,7 +430,6 @@ namespace
                    1.0;
         };
 
-        double worst = 0.0;
         for (int sample = 0; sample < K_CLIPPER_SAMPLES; ++sample)
         {
             const double position = static_cast<double>(sample) / (K_CLIPPER_SAMPLES - 1);
@@ -433,11 +441,13 @@ namespace
 
             const double step = K_SOLVER_STEP_TOLERANCE * (1.0 + std::fabs(outputs[0]));
             const double error = std::fabs(residual(outputs[0], source)) / slope(outputs[0]);
-            const double bound = step * step / (2.0 * K_THERMAL_VOLTAGE) + K_SOLVER_RESIDUAL_TOLERANCE / slope(outputs[0]) +
+            const double bound = K_SOLVER_RESIDUAL_TOLERANCE * (1.0 + K_SOLVER_RESIDUAL_TOLERANCE / (2.0 * K_THERMAL_VOLTAGE)) +
+                                 slope(outputs[0]) * step * step / (2.0 * K_THERMAL_VOLTAGE) +
                                  16.0 * kU * (std::fabs(source) + std::fabs(outputs[0]));
-            worst = std::max(worst, TestSupport::measure_error(error, 0.0, bound).ratio);
+            sweep.worst_ratio = std::max(sweep.worst_ratio, TestSupport::measure_error(error, 0.0, bound).ratio);
         }
-        return worst;
+        sweep.non_converged = circuit.non_converged_samples();
+        return sweep;
     }
 
     constexpr double K_TRACK_OHMS = 10000.0;
@@ -781,10 +791,10 @@ TEST(Small_DkCircuit, SeriesRlcPeakHasTheAnalogueMagnitude)
 TEST(Small_DkCircuit, DiodeClipperReachesTheTrueRootOfTheDiodeEquation)
 {
     // The oracle is the bisected root of the diode equation. See tests/foundation/math/dk/test_dk_circuit/README.md.
-    bool prepared = false;
-    const double worst = worst_clipper_error_ratio(prepared);
-    ASSERT_TRUE(prepared);
-    EXPECT_LE(worst, TestSupport::K_DEFAULT_THRESHOLD);
+    const ClipperSweep sweep = measure_clipper_sweep();
+    ASSERT_TRUE(sweep.prepared);
+    EXPECT_EQ(sweep.non_converged, 0u);
+    EXPECT_LE(sweep.worst_ratio, TestSupport::K_DEFAULT_THRESHOLD);
 }
 
 class Small_DkCircuitPotentiometer : public ::testing::TestWithParam<PotRow>
