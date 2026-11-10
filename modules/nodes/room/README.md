@@ -566,7 +566,7 @@ The modal field is read where that receiver stands. `ModalSolver::design` takes 
 kind: for the ears it evaluates psi at two points 8.5 cm to either side of `listener_position`,
 for the microphone at `microphone_position` in both ear gains, and the resonators, the count,
 the crossover and the level are the room's whatever the receiver
-(`MicrophoneReadsOnePointForBothEars`, `BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver`).
+(`MicrophoneReadsOnePointForBothEars`, `MicrophoneSetReadsTheModeAtTheMicrophoneForBothEars`).
 
 A microphone's port carries one signal: channel 0 of the early set, the tail read once, and
 the modal field at one point, at physical timing, held back by the decoder's partition so it

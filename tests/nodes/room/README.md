@@ -666,44 +666,50 @@ and the level are the room's, the same for both.
 
 ## `test_room_render_set.cpp`
 
-### `BuildRenderSetFillsEveryLayerForTheGarage`
+### `EarlyLayerIsTheSolversOrderFourSetForTheEars`
 
 `// The garage keeps 96 of the 129 order-4 images.`
 
 The early set is the solver's own at order 4: 129 images, of which the garage keeps the 96 that
 arrive before t_c = 5 \* 2.5 / 343 s, the 12.5 m the shortest dimension allows.
 
-### `BuildRenderSetPutsTheDirectPathAtItsPropagationDelay`
+### `DirectPathIsDelayedByItsPropagationTime`
 
 `// 2.596151 m is 363 frames and a gain of 0.385186.`
 
 The source (1.5, 2.0, 0.5) and the listener (4.0, 2.0, 1.2) are sqrt(2.5^2 + 0.7^2) = sqrt(6.74)
 = 2.596151 m apart: round(2.596151 / 343 \* 48000) = round(363.31) = 363 frames and 1 / 2.596151
-= 0.385186.
+= 0.385186. Each figure is held to half a unit of its last digit, and the gain to the float
+roundoff as well.
 
-### `BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone`
+### `MicrophoneDirectPathIsDelayedByItsPropagationTime`
 
 `// 0.1 m is 14 frames and a gain of 10.`
 
 The microphone sits 0.1 m from the source: round(0.1 / 343 \* 48000) = round(13.99) = 14 frames
 and a gain of 10.
 
-### `BuildRenderSetTakesTheDirectPairFromTheHrtfSet`
+### `WoodworthDelayOfTheFallbackHeadAtNinetyDegreesIsTheWorkedOutFigure`
 
 `// The interaural delay is 0.0006558 s, 31.48 frames.`
 
 A source one metre to the listener's left, at ear height, sits at 90 degrees azimuth on the
 spherical head: Woodworth's (a / c) (theta + sin theta) with a = 0.0875 m and theta = pi / 2 is
-0.0006558 s, 31.48 frames, and the right ear is the later one.
+0.0006558 s, 31.48 frames, and the right ear is the later one. The set's delay is held within 0.1
+frame of it, a characterised figure.
 
-### `BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver`
+### `MicrophoneSetReadsTheModeAtTheMicrophoneForBothEars`
 
 `// The modal field is read at the set's receiver.`
 
 The modal field is read where the set's geometric receiver stands: a microphone set carries psi
 at microphone_position in both ear gains, an ears set the solver's two ears 8.5 cm to either
 side of listener_position, so a listener at (5.4, 3.4, 2.0) facing +x reads psi at y = 3.485 and
-y = 3.315.
+y = 3.315. The garage's first modes are (1, 0, 0), (0, 1, 0) and the fifth, (0, 0, 1); their
+shape is the product of cos(pi n x / L) over the axes. With the microphone at (1.0, 0.5, 0.5)
+that is cos(pi / 6) = 0.8660254, cos(pi / 8) = 0.9238795 and cos(pi / 5) = 0.8090170. The ears
+read cos(0.9 pi) = -0.9510565 along x, cos(pi 3.485 / 4) = -0.9193071 and cos(pi 3.315 / 4) =
+-0.8587364 along y, and cos(0.8 pi) = -0.8090170 along z.
 
 ## `test_spherical_head_hrtf.cpp`
 

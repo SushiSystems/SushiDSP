@@ -31,6 +31,7 @@
 
 #include <array>
 #include <memory>
+#include <type_traits>
 
 #include <SushiDSP/nodes/room/early_tap_set.hpp>
 #include <SushiDSP/nodes/room/fdn_design.hpp>
@@ -88,6 +89,9 @@ namespace SushiDSP::room
             /// @brief Names the listener the taps, the tail and the direct path are encoded for.
             ListenerKind listener;
     };
+
+    static_assert(std::is_trivially_copyable_v<RoomRenderSet>,
+                  "a render set crosses to the audio thread as plain coefficients");
 
     /// @brief Holds what a set takes from the room alone, whoever stands in it: the tail's
     /// network and the modal resonators. Control thread.
