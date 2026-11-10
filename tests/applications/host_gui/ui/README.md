@@ -2,14 +2,14 @@
 
 ## `test_panel_library.cpp`
 
-### `PanelLibraryReturnsAHandAuthoredPanelForEveryAmplifier`
+### `PanelLibraryReturnsAHandAuthoredPanelForTheAmplifier`
 
 `// The registry says which products are amplifiers.`
 
 The registry is what says which products are amplifiers, so adding one does not mean remembering
 to name it here.
 
-### `PanelLibraryGivesEveryRegisteredNodeAPanelWithAControlPerParameter`
+### `PanelLibraryGivesTheNodeAPanelWithAControlPerParameter`
 
 `// Every parameter of every node has a control.`
 
