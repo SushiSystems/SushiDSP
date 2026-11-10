@@ -32,6 +32,24 @@
 #include <SushiDSP/nodes/room/frame_delay.hpp>
 
 #include <array>
+#include <cstdint>
+
+namespace
+{
+    constexpr std::uint32_t K_DELAY = 3u;
+    constexpr std::uint32_t K_BLOCK = 4u;
+
+    using Block = std::array<float, K_BLOCK>;
+
+    /// @brief Returns a delay prepared for K_DELAY frames and blocks of K_BLOCK frames, line cleared.
+    SushiDSP::room::FrameDelay make_delay()
+    {
+        SushiDSP::room::FrameDelay delay;
+        delay.prepare(K_DELAY, K_BLOCK);
+        delay.reset();
+        return delay;
+    }
+} // namespace
 
 TEST(Small_FrameDelay, DelaysAnImpulseByItsFrameCount)
 {
@@ -49,18 +67,38 @@ TEST(Small_FrameDelay, DelaysAnImpulseByItsFrameCount)
 
 TEST(Small_FrameDelay, ResetForgetsThePreviousBlock)
 {
-    SushiDSP::room::FrameDelay delay;
-    delay.prepare(3u, 8u);
+    SushiDSP::room::FrameDelay delay = make_delay();
+    const Block loud{1.0f, 1.0f, 1.0f, 1.0f};
+    const Block silence{};
+    Block output{};
+    delay.process(loud.data(), output.data(), K_BLOCK);
     delay.reset();
-    std::array<float, 8> loud{};
-    loud.fill(1.0f);
-    std::array<float, 8> output{};
-    delay.process(loud.data(), output.data(), 8u);
-    delay.reset();
-    std::array<float, 8> silence{};
-    delay.process(silence.data(), output.data(), 8u);
-    for (float sample : output)
-    {
-        EXPECT_FLOAT_EQ(sample, 0.0f);
-    }
+
+    delay.process(silence.data(), output.data(), K_BLOCK);
+
+    EXPECT_EQ(output, silence);
+}
+
+TEST(Small_FrameDelay, TheDelayCarriesAcrossBlockBoundaries)
+{
+    SushiDSP::room::FrameDelay delay = make_delay();
+    const Block first{1.0f, 2.0f, 3.0f, 4.0f};
+    const Block silence{};
+    Block output{};
+
+    delay.process(first.data(), output.data(), K_BLOCK);
+    EXPECT_EQ(output, (Block{0.0f, 0.0f, 0.0f, 1.0f}));
+
+    delay.process(silence.data(), output.data(), K_BLOCK);
+    EXPECT_EQ(output, (Block{2.0f, 3.0f, 4.0f, 0.0f}));
+}
+
+TEST(Small_FrameDelay, InputAndOutputMayAlias)
+{
+    SushiDSP::room::FrameDelay delay = make_delay();
+    Block block{1.0f, 2.0f, 3.0f, 4.0f};
+
+    delay.process(block.data(), block.data(), K_BLOCK);
+
+    EXPECT_EQ(block, (Block{0.0f, 0.0f, 0.0f, 1.0f}));
 }
