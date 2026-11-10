@@ -28,8 +28,26 @@ def cmake_tier_order(text: str) -> tuple[str, ...]:
     return tuple(match.group(1).split())
 
 
+class CmakeTierOrderTest(unittest.TestCase):
+    """Reads the tier list out of the text of the CMake table."""
+
+    K_TEST_SIZE = "small"
+
+    def test_the_list_is_read_in_the_order_it_is_written(self) -> None:
+        """The names between the parentheses come back lowest first."""
+        text = "# tiers\nset(SUSHIDSP_TIER_ORDER\n    foundation\n    nodes\n    catalog)\n"
+        self.assertEqual(cmake_tier_order(text), ("foundation", "nodes", "catalog"))
+
+    def test_a_table_without_the_list_is_refused(self) -> None:
+        """A text that holds no SUSHIDSP_TIER_ORDER list raises."""
+        with self.assertRaises(AssertionError):
+            cmake_tier_order("set(OTHER a b)\n")
+
+
 class LayeringTableTest(unittest.TestCase):
     """Pins the tier order to one value in two places."""
+
+    K_TEST_SIZE = "medium"
 
     def test_checker_order_matches_cmake_table(self) -> None:
         """The checker and the CMake table name the same tiers in the same order."""

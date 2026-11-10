@@ -13,19 +13,19 @@ from sushidsp.cli import app
 from sushidsp.services.project import Sanitizer, sanitizer_defines
 
 
-pytestmark = pytest.mark.medium
-
-
+@pytest.mark.small
 def test_a_sanitizer_becomes_its_cache_variable():
     assert sanitizer_defines(Sanitizer.address) == ["SUSHIDSP_SANITIZE=address"]
     assert sanitizer_defines(None) == []
 
 
+@pytest.mark.medium
 def test_the_suite_option_is_gone():
     result = CliRunner().invoke(app, ["test", "--suite", "unit"])
     assert result.exit_code != 0
 
 
+@pytest.mark.medium
 def test_test_command_passes_each_label(project):
     project.configure_tree("Debug")
 
@@ -40,6 +40,7 @@ def test_test_command_passes_each_label(project):
                for part in command)
 
 
+@pytest.mark.medium
 def test_bench_command_passes_its_groups(project):
     benchmark = project.plant_executable("sushidsp_bench", "bench", build_type="Release")
 

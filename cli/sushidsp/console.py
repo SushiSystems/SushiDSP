@@ -16,6 +16,11 @@ from .config import config_dir
 _lazy = LazyConsole(config_dir)
 
 
+def wired() -> LazyConsole:
+    """Return the lazy console this module prints through, built or not."""
+    return _lazy
+
+
 def current():
     """Return the sushicore Console this run prints through, building it on first use."""
     return _lazy.get()

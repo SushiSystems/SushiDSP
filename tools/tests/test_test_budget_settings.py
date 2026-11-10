@@ -58,22 +58,56 @@ def differences(table: dict[str, int], constants: dict[str, int]) -> list[str]:
             for key in keys if table.get(key) != constants.get(key)]
 
 
-class TestBudgetSettingsTest(unittest.TestCase):
-    """Reads the real skill when the repository has one, and sample tables otherwise."""
+class SkillBudgetTableTest(unittest.TestCase):
+    """Reads the real skill; a repository without one skips the class."""
+
+    K_TEST_SIZE = "small"
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        """Skips every test when this tree holds no skills/ folder."""
+        if not K_SKILL.is_file():
+            raise unittest.SkipTest("this tree holds no skills/ folder")
 
     def test_the_skill_table_matches_the_settings(self) -> None:
-        if not K_SKILL.is_file():
-            self.skipTest("this tree holds no skills/ folder")
-        self.assertEqual(differences(read_budget(K_SKILL.read_text(encoding="utf-8")), settings.K_TEST_BUDGET), [])
+        """Each row of the skill's Budget table equals its constant in settings.py."""
+        table = read_budget(K_SKILL.read_text(encoding="utf-8"))
+        self.assertEqual(differences(table, settings.K_TEST_BUDGET), [])
 
-    def test_reads_a_number_with_a_thousands_space_and_a_trailing_note(self) -> None:
-        text = ("## Budget\n\n| Limit | Value |\n| --- | --- |\n"
-                "| The whole `large` tier of a repository | 1 800 s |\n"
-                "| A second test program in one module, added by one commit | 0 without the owner |\n"
-                "| A row no key names | 5 |\n\n## Other\n\n| A `small` test | 99 s |\n")
-        self.assertEqual(read_budget(text), {"large_tier_s": 1800, "second_program": 0})
 
-    def test_names_each_key_that_differs(self) -> None:
+class ReadBudgetTest(unittest.TestCase):
+    """Reads sample tables."""
+
+    K_TEST_SIZE = "small"
+    K_TABLE = ("## Budget\n\n| Limit | Value |\n| --- | --- |\n"
+               "| The whole `large` tier of a repository | 1 800 s |\n"
+               "| A second test program in one module, added by one commit | 0 without the owner |\n"
+               "| A row no key names | 5 |\n\n## Other\n\n| A `small` test | 99 s |\n")
+
+    def test_a_number_with_a_thousands_space_is_read_whole(self) -> None:
+        """1 800 s reads as 1800."""
+        self.assertEqual(read_budget(self.K_TABLE)["large_tier_s"], 1800)
+
+    def test_a_trailing_note_is_dropped(self) -> None:
+        """`0 without the owner` reads as 0."""
+        self.assertEqual(read_budget(self.K_TABLE)["second_program"], 0)
+
+    def test_a_row_no_key_names_is_ignored(self) -> None:
+        """Only the rows of the label map come back."""
+        self.assertEqual(set(read_budget(self.K_TABLE)), {"large_tier_s", "second_program"})
+
+    def test_a_row_outside_the_budget_heading_is_ignored(self) -> None:
+        """The `small` row under `## Other` is not read."""
+        self.assertNotIn("small_test_s", read_budget(self.K_TABLE))
+
+
+class DifferencesTest(unittest.TestCase):
+    """Compares a table with the constants."""
+
+    K_TEST_SIZE = "small"
+
+    def test_each_key_that_differs_is_named_in_sorted_order(self) -> None:
+        """A missing side reads None."""
         table = {"small_test_s": 1, "medium_test_s": 10}
         constants = {"small_test_s": 2, "medium_test_s": 10, "large_test_s": 120}
         self.assertEqual(differences(table, constants), [
@@ -81,7 +115,14 @@ class TestBudgetSettingsTest(unittest.TestCase):
             "small_test_s: the skill says 1, settings.py says 2",
         ])
 
+
+class LabelMapTest(unittest.TestCase):
+    """Compares the label map with the constants."""
+
+    K_TEST_SIZE = "small"
+
     def test_every_row_of_the_table_has_a_constant(self) -> None:
+        """The label map and K_TEST_BUDGET name the same keys."""
         self.assertEqual(set(K_LABELS.values()), set(settings.K_TEST_BUDGET))
 
 

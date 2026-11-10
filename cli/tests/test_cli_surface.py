@@ -22,8 +22,6 @@ from sushidsp import cli
 from sushidsp.cli import app
 
 
-pytestmark = pytest.mark.medium
-
 K_DISTRIBUTION = "sushidsp-cli"
 K_SUBCOMMANDS = ["docs bundle"]
 K_SUSHICORE_GROUPS = ("backlog", "design")
@@ -49,6 +47,7 @@ def _visible_commands() -> list[str]:
     return sorted(name for name, command in group.commands.items() if not command.hidden)
 
 
+@pytest.mark.medium
 def test_main_reports_a_malformed_config_as_one_line_and_exit_one(tmp_path):
     """A cli/config.toml that is not TOML ends in one line on stderr and exit code 1."""
     (tmp_path / "CMakeLists.txt").write_text("project(x)\n", encoding="utf-8")
@@ -65,27 +64,57 @@ def test_main_reports_a_malformed_config_as_one_line_and_exit_one(tmp_path):
     assert line.startswith("sd: ") and "config.toml" in line
 
 
+@pytest.mark.medium
 def test_version_prints_the_distribution_and_exits_zero():
-    """--version prints the distribution name with its version and runs no command."""
+    """--version prints `sushidsp-cli` and a version, and runs no command."""
     result = CliRunner().invoke(app, ["--version"])
+
     assert result.exit_code == 0
-    assert result.output.strip() == version_line(K_DISTRIBUTION)
+    name, version = result.output.split()
+    assert name == "sushidsp-cli" and version == version_line(K_DISTRIBUTION).split()[1]
 
 
-def test_describe_lists_every_visible_command_and_no_hidden_one():
-    """--describe names exactly the commands the help lists, so no old spelling."""
+def _described() -> dict:
+    """Returns the document `sd --describe` prints."""
     result = CliRunner().invoke(app, ["--describe"])
     assert result.exit_code == 0
-    document = json.loads(result.output)
-    assert document["program"] == "sd"
-    own = [command["name"] for command in document["commands"]
-           if command["name"].split()[0] not in K_SUSHICORE_GROUPS]
-    assert own == sorted(
-        [name for name in _visible_commands() if name not in K_SUSHICORE_GROUPS] + K_SUBCOMMANDS)
+    return json.loads(result.output)
+
+
+def _described_names() -> list[str]:
+    """Returns the command names `sd --describe` lists, without sushicore's own groups."""
+    return [command["name"] for command in _described()["commands"]
+            if command["name"].split()[0] not in K_SUSHICORE_GROUPS]
+
+
+@pytest.mark.medium
+def test_describe_names_the_program_sd():
+    """--describe names the program `sd`."""
+    assert _described()["program"] == "sd"
+
+
+@pytest.mark.medium
+def test_describe_lists_the_visible_commands_and_the_bundle_subcommand():
+    """--describe names the visible commands plus `docs bundle`, nothing else."""
+    own_visible = [name for name in _visible_commands() if name not in K_SUSHICORE_GROUPS]
+
+    assert _described_names() == sorted(own_visible + K_SUBCOMMANDS)
+
+
+@pytest.mark.medium
+def test_the_old_spelling_is_hidden_from_the_command_list():
+    """`doxygen` answers but is not listed."""
     assert "doxygen" not in _visible_commands()
+    assert "doxygen" in typer.main.get_command(app).commands
+
+
+@pytest.mark.medium
+def test_host_and_run_are_listed():
+    """Both the host command and the generic runner are visible."""
     assert {"host", "run"} <= set(_visible_commands())
 
 
+@pytest.mark.medium
 def test_docs_bundle_is_a_subcommand_of_docs_and_asks_for_a_release():
     """`sd docs bundle` exits 2 and names --release when it is given none."""
     missing = CliRunner().invoke(app, ["docs", "bundle"])
@@ -93,6 +122,7 @@ def test_docs_bundle_is_a_subcommand_of_docs_and_asks_for_a_release():
     assert "--release" in K_ANSI_ESCAPE.sub("", missing.output)
 
 
+@pytest.mark.small
 def test_the_command_set_is_the_documented_one():
     """sd answers to the fourteen commands its guide describes and sushicore's two groups."""
     assert _visible_commands() == sorted([
@@ -100,6 +130,7 @@ def test_the_command_set_is_the_documented_one():
         "config", "env", "setup", "doctor", "link", "unlink", *K_SUSHICORE_GROUPS])
 
 
+@pytest.mark.medium
 def test_config_and_env_come_from_the_shared_declarations():
     """config and env are the commands sushicore declares once for every CLI."""
     group = typer.main.get_command(app)
@@ -107,6 +138,7 @@ def test_config_and_env_come_from_the_shared_declarations():
         assert group.commands[name].callback.__module__ == "sushicore.diag_commands"
 
 
+@pytest.mark.medium
 def test_clean_removes_the_tree_it_names(project):
     """sd clean removes the tree of the type and the sanitizer, or build/ whole with --all."""
     default = project.configure_tree("Debug")
@@ -122,6 +154,7 @@ def test_clean_removes_the_tree_it_names(project):
     assert not (project.root / "build").exists()
 
 
+@pytest.mark.medium
 def test_build_hands_the_jobs_and_the_report_flag_to_the_project_service(project):
     """sd build -j and --report reach the service; without them it gets none and no report."""
     project.configure_tree("Debug")
@@ -138,6 +171,7 @@ def test_build_hands_the_jobs_and_the_report_flag_to_the_project_service(project
     assert [text for text in project.console.texts("info") if text.startswith("Report: ")]
 
 
+@pytest.mark.medium
 def test_test_hands_the_filter_to_the_project_service(project):
     """sd test -f passes its regex through, and no filter when the flag is absent."""
     project.configure_tree("Debug")
@@ -158,6 +192,7 @@ def _launches(project) -> list[list[str]]:
             if not {"-S", "--build", "-R", "-L"} & set(command)]
 
 
+@pytest.mark.medium
 def test_host_builds_and_launches_with_the_arguments_after_the_separator(project):
     """sd host hands the type and everything after -- to the service and exits with its code."""
     project.configure_tree("Release")
@@ -170,6 +205,7 @@ def test_host_builds_and_launches_with_the_arguments_after_the_separator(project
     assert _launches(project) == [[str(host), "--device", "0"]]
 
 
+@pytest.mark.medium
 def test_host_no_run_asks_the_service_not_to_launch(project):
     """sd host --no-run builds only."""
     project.plant_host_gui()
@@ -178,6 +214,7 @@ def test_host_no_run_asks_the_service_not_to_launch(project):
     assert _launches(project) == []
 
 
+@pytest.mark.medium
 def test_run_with_a_target_runs_that_executable_and_forwards_arguments(project):
     """sd run TARGET reaches the generic runner, never the host command."""
     exe = project.plant_executable("sushidsp_tests", "bin")
@@ -189,6 +226,7 @@ def test_run_with_a_target_runs_that_executable_and_forwards_arguments(project):
     assert project.commands == [[str(exe), "--gtest_shuffle"]]
 
 
+@pytest.mark.medium
 def test_bare_run_does_what_host_does(project):
     """sd run with no target builds and launches the host GUI, with the type it was given."""
     project.configure_tree("Release")
@@ -200,6 +238,7 @@ def test_bare_run_does_what_host_does(project):
     assert _launches(project) == [[str(host)]]
 
 
+@pytest.mark.medium
 def test_run_with_only_forwarded_arguments_is_the_old_host_spelling(project):
     """sd run -- ARGS, the old way to pass arguments to the host GUI, still launches it with them."""
     project.configure_tree("Debug")
@@ -212,6 +251,7 @@ def test_run_with_only_forwarded_arguments_is_the_old_host_spelling(project):
     assert _launches(project) == [[str(host), "--device", "0"]]
 
 
+@pytest.mark.medium
 def test_run_with_a_target_looks_in_the_tree_of_the_type(project):
     """--type beside a target picks the tree the executable is run from."""
     exe = project.plant_executable("sushidsp_tests", "bin", build_type="Release")
@@ -246,6 +286,7 @@ def _doxyfile_value(key: str, default: str) -> str:
     return default
 
 
+@pytest.mark.medium
 def test_docs_bundle_writes_the_archive_of_the_checkout_it_runs_in(tmp_path, monkeypatch):
     """Writes the archive and its digest file at the checkout's root and reports both lines."""
     _published_checkout(tmp_path)
@@ -259,6 +300,7 @@ def test_docs_bundle_writes_the_archive_of_the_checkout_it_runs_in(tmp_path, mon
     assert "sha256 " in result.output
 
 
+@pytest.mark.medium
 def test_the_api_source_reads_the_xml_doxygen_writes_under_the_site_folder(
         tmp_path, monkeypatch):
     """Names `<OUTPUT_DIRECTORY>/<XML_OUTPUT>` of the Doxyfile, below the repository root."""

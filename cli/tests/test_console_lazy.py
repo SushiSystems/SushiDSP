@@ -9,60 +9,114 @@ The failure these tests pin is in cli/README.md, "tests/test_console_lazy.py".
 
 from __future__ import annotations
 
-import importlib
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
+import sushicore
+from rich.console import Console as RichConsole
+from sushicore.cli_console import LazyConsole
+
+from sushidsp import console as console_module
+
+K_REPOSITORY = Path(__file__).resolve().parents[2]
+K_IMPORT_PATH = os.pathsep.join([str(Path(console_module.__file__).resolve().parents[1]),
+                                 str(Path(sushicore.__file__).resolve().parents[1])])
 
 
-pytestmark = pytest.mark.medium
+def _outside_a_checkout() -> Path:
+    """Returns a folder with no CMakeLists.txt above it."""
+    raise SystemExit("Not inside a SushiDSP project")
 
 
-def _fresh_console_module():
-    """Import (or re-import) sushidsp.console with a clean module state."""
-    import sushidsp.console as console_mod
-    importlib.reload(console_mod)
-    return console_mod
+@pytest.mark.small
+def test_the_module_wires_a_lazy_console():
+    """The module prints through a LazyConsole sushicore owns."""
+    assert isinstance(console_module.wired(), LazyConsole)
 
 
-def test_import_does_not_build_console():
-    """Importing the module must not materialise the console."""
-    console_mod = _fresh_console_module()
-    assert console_mod._lazy.built is False
-
-
-def test_import_outside_project_does_not_raise(monkeypatch, tmp_path):
-    """Simulate running outside a checkout: import + reload must not SystemExit."""
-    monkeypatch.chdir(tmp_path)
-    _fresh_console_module()
-
-
-def test_output_helper_falls_back_outside_project(monkeypatch, tmp_path):
-    """console.info(...) outside a project builds a config-less console, no crash."""
-    monkeypatch.chdir(tmp_path)
-    console_mod = _fresh_console_module()
-
-    # No project means no config files to layer -- and, crucially, no crash.
-    assert list(console_mod._lazy.sources()) == []
-
-    console_mod.info("hello from outside a checkout")
-    assert console_mod._lazy.built is True
-
-
-def test_sources_inside_project_are_this_repos_config(monkeypatch):
-    """Inside a checkout the console layers this CLI's own two config files."""
-    console_mod = _fresh_console_module()
-    names = [p.name for p in console_mod._lazy.sources()]
-    assert names == ["config.toml", "config.local.toml"]
-
-
-def test_console_attribute_resolves(monkeypatch, tmp_path):
-    """The raw Rich `console` attribute resolves lazily too."""
-    monkeypatch.chdir(tmp_path)
-    console_mod = _fresh_console_module()
-    assert console_mod.console is not None
-
-
-def test_unknown_attribute_raises_attribute_error():
-    console_mod = _fresh_console_module()
+@pytest.mark.small
+def test_a_module_attribute_the_console_lacks_raises_attribute_error():
+    """An unknown name on the module raises AttributeError without building the console."""
     with pytest.raises(AttributeError):
-        _ = console_mod.does_not_exist
+        getattr(console_module, "does_not_exist")
+
+
+@pytest.mark.small
+def test_a_console_not_yet_used_is_not_built():
+    """A fresh lazy console builds nothing, and asks nothing of its config folder."""
+    asked: list[str] = []
+
+    def resolve() -> Path:
+        asked.append("asked")
+        return Path("unused")
+
+    assert not LazyConsole(resolve).built
+    assert asked == []
+
+
+@pytest.mark.small
+def test_a_console_outside_a_checkout_has_no_config_sources():
+    """A config folder that raises SystemExit leaves the sources empty instead of failing."""
+    assert list(LazyConsole(_outside_a_checkout).sources()) == []
+
+
+@pytest.mark.small
+def test_a_console_outside_a_checkout_prints_without_failing():
+    """The first print outside a checkout builds a console with no sources and does not raise."""
+    lazy = LazyConsole(_outside_a_checkout)
+
+    lazy.attribute("info")("hello from outside a checkout")
+
+    assert lazy.built
+
+
+@pytest.mark.small
+def test_the_raw_console_attribute_resolves_to_a_rich_console():
+    """The `console` attribute resolves lazily to the Rich console."""
+    assert isinstance(LazyConsole(_outside_a_checkout).attribute("console"), RichConsole)
+
+
+@pytest.mark.small
+def test_an_attribute_the_console_lacks_raises_attribute_error():
+    """The lazy console raises AttributeError for a name it does not carry."""
+    with pytest.raises(AttributeError):
+        LazyConsole(_outside_a_checkout).attribute("does_not_exist")
+
+
+@pytest.mark.medium
+def test_importing_the_module_does_not_build_the_console():
+    """A fresh interpreter that only imports the module has not built the console."""
+    script = "from sushidsp import console; print(console.wired().built)"
+
+    finished = subprocess.run([sys.executable, "-c", script], cwd=K_REPOSITORY,
+                              env={**os.environ, "PYTHONPATH": K_IMPORT_PATH},
+                              capture_output=True, text=True, check=False)
+
+    assert finished.stdout.split() == ["False"], finished.stderr
+
+
+@pytest.mark.medium
+def test_importing_the_module_outside_a_checkout_does_not_raise(tmp_path):
+    """A fresh interpreter outside a checkout imports the module and prints through it."""
+    script = "from sushidsp import console; console.info('outside'); print(console.wired().built)"
+
+    finished = subprocess.run([sys.executable, "-c", script], cwd=tmp_path,
+                              env={**os.environ, "PYTHONPATH": K_IMPORT_PATH},
+                              capture_output=True, text=True, check=False)
+
+    assert finished.returncode == 0, finished.stderr
+    assert finished.stdout.split()[-1] == "True"
+
+
+@pytest.mark.medium
+def test_the_sources_inside_a_checkout_are_this_repositorys_config(monkeypatch):
+    """Inside a checkout the wired console layers this CLI's own two config files."""
+    monkeypatch.chdir(K_REPOSITORY)
+
+    sources = list(console_module.wired().sources())
+
+    assert sources == [K_REPOSITORY / "cli" / "config.toml",
+                       K_REPOSITORY / "cli" / "config.local.toml"]

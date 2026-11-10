@@ -86,6 +86,15 @@ environment and needs the reverse map.
 default, which on Windows is Visual Studio's multi-config generator. When a compiler is found,
 `resolved_generator()` chooses the generator.
 
+### host.py
+
+The `Host` port is how `sd` reads the machine when it picks a toolchain: `environment()` (a copy),
+`which(name)`, `is_file(path)`, `provision_roots()` and `workspace_home()`. `host_system.py` answers
+it from `os.environ`, `shutil.which`, the disk and sushicore; `host_memory.py` answers it from its
+fields, for tests. `Config.resolved_compiler`, `bundled_clang`, `compiler_source`, `resolved_ninja`,
+`resolved_generator` and `is_multi_config` take a `host`; none means the system one, built by
+`config.system_host()`.
+
 ### console.py
 
 `console.py` is a thin wrapper around sushicore. The theme, icon and renderer logic and its
@@ -127,6 +136,9 @@ in the tree, and `sd run`, `sd host` and `sd test` read the file, so a program s
 same folders the build linked.
 
 ### tests/test_console_lazy.py
+
+`console.wired()` returns the lazy console the module prints through, so a test reads its public
+surface (`built`, `sources()`) instead of a private name.
 
 These are regression tests for the lazy console. `console.py` once built the console at import
 time, which called `config_dir()`, then `find_project_root()`, and raised `SystemExit` outside

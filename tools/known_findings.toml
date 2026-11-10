@@ -236,16 +236,3 @@ path = "modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_
 count = 1
 backlog = "RW-82"
 
-[[finding]]
-checker = "testing/check_test_sizes.py"
-rule = "rule_unsized_python_test"
-path = "tools/tests/test_layering_table.py"
-count = 1
-backlog = "RW-82"
-
-[[finding]]
-checker = "testing/check_test_sizes.py"
-rule = "rule_unsized_python_test"
-path = "tools/tests/test_test_budget_settings.py"
-count = 1
-backlog = "RW-82"

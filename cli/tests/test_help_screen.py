@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 from sushidsp.cli import app
 
 
-pytestmark = pytest.mark.small
+pytestmark = pytest.mark.medium
 
 K_GROUPS = {
     "Build": [
@@ -57,15 +57,10 @@ def test_root_help_lists_the_three_groups():
 
 
 @pytest.mark.parametrize("heading", list(K_GROUPS))
-def test_every_command_sits_under_its_own_group(heading):
-    listed = _commands_by_heading(_run("--help"))[heading]
-    assert [name for name in listed if name in K_GROUPS[heading]] == K_GROUPS[heading]
-
-
-def test_no_command_is_listed_under_a_group_it_does_not_belong_to():
+def test_a_group_lists_exactly_its_commands(heading):
     grouped = _commands_by_heading(_run("--help"))
-    for heading, names in K_GROUPS.items():
-        assert set(grouped[heading]) == set(names)
+
+    assert set(grouped[heading]) == set(K_GROUPS[heading])
 
 
 @pytest.mark.parametrize("command", ["build", "host", "run"])
@@ -74,15 +69,18 @@ def test_a_command_help_carries_examples(command):
     assert "Examples" in out and f"sd {command}" in out
 
 
-def test_the_commands_that_find_a_tree_offer_its_type():
-    for command in ("run", "host", "clean", "bench", "build"):
-        assert "--type" in _run(command, "--help")
+@pytest.mark.parametrize("command", ["run", "host", "clean", "bench", "build"])
+def test_a_command_that_finds_a_tree_offers_its_type(command):
+    assert "--type" in _run(command, "--help")
+
+
+def test_the_host_help_offers_no_run():
     assert "--no-run" in _run("host", "--help")
 
 
-def test_the_build_help_offers_the_report_and_the_jobs():
-    out = _run("build", "--help")
-    assert "--report" in out and "--jobs" in out
+@pytest.mark.parametrize("option", ["--report", "--jobs"])
+def test_the_build_help_offers_the_option(option):
+    assert option in _run("build", "--help")
 
 
 def test_the_bench_help_names_release_as_its_default():

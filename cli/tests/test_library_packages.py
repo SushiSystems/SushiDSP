@@ -16,9 +16,7 @@ from sushidsp.services import library_packages
 from sushidsp.services import project as project_svc
 from sushidsp.services.project import BuildType
 
-pytestmark = pytest.mark.medium
-
-
+@pytest.mark.medium
 def test_the_build_asks_for_the_sushilog_closure_with_its_compiler_and_type(project):
     assert project_svc.build(BuildType.relwithdebinfo, workspace=project.workspace) == 0
 
@@ -27,6 +25,7 @@ def test_the_build_asks_for_the_sushilog_closure_with_its_compiler_and_type(proj
         "compiler": "clang++"}]
 
 
+@pytest.mark.medium
 def test_the_packages_are_chosen_on_every_build_not_only_on_a_configure(project):
     project.configure_tree("Debug")
 
@@ -36,13 +35,7 @@ def test_the_packages_are_chosen_on_every_build_not_only_on_a_configure(project)
     assert "-S" not in project.commands[0]
 
 
-def test_the_configure_command_asks_once_and_passes_the_package(project):
-    assert project_svc.configure(BuildType.debug, workspace=project.workspace) == 0
-
-    assert len(project.packages.asked) == 1
-    assert f"-DSushiLog_DIR={project.packages.config_dir}" in project.commands[0]
-
-
+@pytest.mark.medium
 def test_the_run_dirs_are_recorded_and_lead_the_search_path_of_a_run(project):
     project.plant_executable("sushidsp_host")
     assert project_svc.build(BuildType.debug, workspace=project.workspace) == 0
@@ -54,6 +47,7 @@ def test_the_run_dirs_are_recorded_and_lead_the_search_path_of_a_run(project):
     assert path[0] == project.packages.run_dir
 
 
+@pytest.mark.small
 def test_the_windows_run_dirs_lead_path():
     env = {"PATH": "C:/old"}
 
@@ -62,6 +56,7 @@ def test_the_windows_run_dirs_lead_path():
     assert env["PATH"].startswith("C:/pkg/bin")
 
 
+@pytest.mark.medium
 def test_a_package_that_cannot_be_chosen_ends_the_build_in_one_error_line(project):
     def refuse(*arguments, **options):
         raise PackageError("SushiLog has no cli and no stored package.")

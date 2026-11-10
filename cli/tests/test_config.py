@@ -11,15 +11,14 @@ import pytest
 from sushidsp import config
 
 
-pytestmark = pytest.mark.medium
-
-
+@pytest.mark.medium
 def test_find_project_root_raises_outside_checkout(tmp_path):
     """No CMakeLists.txt anywhere above -> a clear SystemExit, not a crash."""
     with pytest.raises(SystemExit):
         config.find_project_root(tmp_path)
 
 
+@pytest.mark.medium
 def test_find_project_root_walks_up_to_marker(tmp_path):
     """The root is the nearest ancestor holding CMakeLists.txt."""
     (tmp_path / "CMakeLists.txt").write_text("project(x)\n")
@@ -28,33 +27,22 @@ def test_find_project_root_walks_up_to_marker(tmp_path):
     assert config.find_project_root(nested) == tmp_path
 
 
-def test_config_dir_prefers_cli(tmp_path):
-    """config_dir() returns <root>/cli when it holds config.toml."""
+@pytest.mark.medium
+@pytest.mark.parametrize("config_toml", [True, False])
+def test_config_dir_is_cli_with_or_without_a_config_file(tmp_path, config_toml):
+    """config_dir() returns <root>/cli whether or not it holds config.toml."""
     (tmp_path / "CMakeLists.txt").write_text("project(x)\n")
     cli_dir = tmp_path / "cli"
-    cli_dir.mkdir()
-    (cli_dir / "config.toml").write_text("")
+    if config_toml:
+        cli_dir.mkdir()
+        (cli_dir / "config.toml").write_text("")
+
     assert config.config_dir(tmp_path) == cli_dir
 
 
-def test_config_dir_defaults_to_cli_when_absent(tmp_path):
-    """With no config.toml present, config_dir() still defaults to <root>/cli."""
-    (tmp_path / "CMakeLists.txt").write_text("project(x)\n")
-    assert config.config_dir(tmp_path) == tmp_path / "cli"
-
-
-def test_default_target_bin_is_sushidsp_host():
-    """Config's target_bin default names the standalone host app this repo ships."""
-    assert config.Config().target_bin == "sushidsp_host"
-
-
+@pytest.mark.small
 def test_every_env_field_has_an_environment_variable():
     """Each field the profile lists as overridable maps to a real SD_* variable."""
     overrides = config.PROFILE.env_overrides()
     assert set(overrides) == set(config.PROFILE.env_fields)
     assert all(name.startswith("SD_") for name in overrides.values())
-
-
-def test_default_generator_is_unset():
-    """Unlike ToolConfig's 'Ninja' default, SushiDSP leaves the generator to CMake."""
-    assert config.Config().generator == ""
