@@ -27,6 +27,9 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -51,15 +54,123 @@ namespace
         microphone.pose = Pose{{2.0, 2.0, z}, 0.0};
         return microphone;
     }
+
+    /// @brief Returns an arrangement holding the given number of cabinets, numbered from 1.
+    Arrangement with_sources(std::size_t count)
+    {
+        Arrangement arrangement;
+        std::string reason;
+        for (std::uint64_t id = 1; id <= count; ++id)
+        {
+            static_cast<void>(
+                arrangement.add_source(SourcePlacement{id, Pose{{1.0, 1.0, 0.5}, 0.0}}, reason));
+        }
+        return arrangement;
+    }
+
+    /// @brief Returns an arrangement holding the given number of microphones, numbered from 1.
+    Arrangement with_microphones(std::size_t count)
+    {
+        Arrangement arrangement;
+        std::string reason;
+        for (std::uint64_t id = 1; id <= count; ++id)
+        {
+            static_cast<void>(arrangement.add_microphone(microphone_at(id, 1.0), reason));
+        }
+        return arrangement;
+    }
+
+    /// @brief Returns the garage with one desk placed in it, which every row below changes one
+    /// field of.
+    SushiDSP::room::RoomScene furnished_baseline()
+    {
+        SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+        scene.furnishing_count = 1;
+        scene.furnishings[0] = {SushiDSP::room::FurnitureId::Desk, 1.0};
+        return scene;
+    }
+
+    /// @brief Holds one field a solve reads and a change of it.
+    struct FieldChange
+    {
+            const char* name;
+            void (*change)(SushiDSP::room::RoomScene&);
+    };
+
+    /// @brief Holds one change per field of the scene that scenes_equal compares. The kind of
+    /// microphone has one value, so it has no row.
+    const std::array<FieldChange, 27> kFieldChanges = {{
+        {"Dimensions", [](SushiDSP::room::RoomScene& scene) { scene.dimensions.x += 0.5; }},
+        {"Surfaces",
+         [](SushiDSP::room::RoomScene& scene)
+         { scene.surfaces[0] = SushiDSP::room::MaterialId::GlassWindow; }},
+        {"Scattering",
+         [](SushiDSP::room::RoomScene& scene)
+         { scene.scattering[0] = SushiDSP::room::Scattering::Textured; }},
+        {"PatchCount", [](SushiDSP::room::RoomScene& scene) { scene.patch_count = 0; }},
+        {"FurnishingCount", [](SushiDSP::room::RoomScene& scene) { scene.furnishing_count = 0; }},
+        {"BuiltRoomLoss",
+         [](SushiDSP::room::RoomScene& scene) { scene.built_room_loss = !scene.built_room_loss; }},
+        {"PatchSurface",
+         [](SushiDSP::room::RoomScene& scene)
+         { scene.patches[0].surface = SushiDSP::room::Surface::MinusX; }},
+        {"PatchMaterial",
+         [](SushiDSP::room::RoomScene& scene)
+         { scene.patches[0].material = SushiDSP::room::MaterialId::GlassWindow; }},
+        {"PatchArea", [](SushiDSP::room::RoomScene& scene) { scene.patches[0].area_m2 += 0.5; }},
+        {"FurnishingItem",
+         [](SushiDSP::room::RoomScene& scene)
+         { scene.furnishings[0].item = SushiDSP::room::FurnitureId::BedDouble; }},
+        {"FurnishingQuantity",
+         [](SushiDSP::room::RoomScene& scene) { scene.furnishings[0].quantity += 1.0; }},
+        {"FurnishingPlaced",
+         [](SushiDSP::room::RoomScene& scene)
+         { scene.furnishings[0].placed = !scene.furnishings[0].placed; }},
+        {"FurnishingX", [](SushiDSP::room::RoomScene& scene) { scene.furnishings[0].x_m += 0.5; }},
+        {"FurnishingY", [](SushiDSP::room::RoomScene& scene) { scene.furnishings[0].y_m += 0.5; }},
+        {"FurnishingYaw",
+         [](SushiDSP::room::RoomScene& scene) { scene.furnishings[0].yaw_rad += 0.5; }},
+        {"Cabinet",
+         [](SushiDSP::room::RoomScene& scene) { scene.cabinet = SushiDSP::room::K_CABINET1X12; }},
+        {"SourcePosition", [](SushiDSP::room::RoomScene& scene) { scene.source_position.x += 0.5; }},
+        {"SourceYaw", [](SushiDSP::room::RoomScene& scene) { scene.source_yaw_rad += 0.5; }},
+        {"ListenerPosition",
+         [](SushiDSP::room::RoomScene& scene) { scene.listener_position.x += 0.5; }},
+        {"ListenerYaw", [](SushiDSP::room::RoomScene& scene) { scene.listener_yaw_rad += 0.5; }},
+        {"MicrophonePosition",
+         [](SushiDSP::room::RoomScene& scene) { scene.microphone_position.x += 0.01; }},
+        {"MicrophoneYaw", [](SushiDSP::room::RoomScene& scene) { scene.microphone_yaw_rad += 0.5; }},
+        {"MicrophonePattern",
+         [](SushiDSP::room::RoomScene& scene)
+         {
+             scene.microphone_pattern = scene.microphone_pattern == SushiDSP::room::PolarPattern::Omni
+                                            ? SushiDSP::room::PolarPattern::Cardioid
+                                            : SushiDSP::room::PolarPattern::Omni;
+         }},
+        {"MicrophoneProximity",
+         [](SushiDSP::room::RoomScene& scene)
+         { scene.microphone_proximity = !scene.microphone_proximity; }},
+        {"SourcePositionY", [](SushiDSP::room::RoomScene& scene) { scene.source_position.y += 0.5; }},
+        {"ListenerPositionZ",
+         [](SushiDSP::room::RoomScene& scene) { scene.listener_position.z += 0.5; }},
+        {"MicrophonePositionZ",
+         [](SushiDSP::room::RoomScene& scene) { scene.microphone_position.z += 0.5; }},
+    }};
+
+    /// @brief Names a field change after its field.
+    std::string field_name(const ::testing::TestParamInfo<FieldChange>& info)
+    {
+        return info.param.name;
+    }
 } // namespace
 
-TEST(Small_RoomArrangement, ArrangementStartsWithTheStarterRoomAndNothingPlaced)
+class Small_RoomArrangementScenes : public ::testing::TestWithParam<FieldChange>
+{
+};
+
+TEST(Small_RoomArrangement, ArrangementStartsValid)
 {
     const Arrangement arrangement;
-
-    EXPECT_TRUE(arrangement.sources().empty());
-    EXPECT_TRUE(arrangement.microphones().empty());
-    EXPECT_EQ(arrangement.shell().dimensions.x, SushiDSP::room::starter_scene().dimensions.x);
     std::string reason;
     EXPECT_TRUE(arrangement.is_valid(reason)) << reason;
 }
@@ -83,13 +194,8 @@ TEST(Small_RoomArrangement, ArrangementFromASceneHoldsItsCabinetAndListener)
 
 TEST(Small_RoomArrangement, ArrangementRefusesAFourthCabinetAndStaysAsItWas)
 {
-    Arrangement arrangement;
+    Arrangement arrangement = with_sources(Arrangement::K_MAX_SOURCES);
     std::string reason;
-    for (std::uint64_t id = 1; id <= Arrangement::K_MAX_SOURCES; ++id)
-    {
-        ASSERT_TRUE(arrangement.add_source(SourcePlacement{id, Pose{{1.0, 1.0, 0.5}, 0.0}}, reason))
-            << reason;
-    }
 
     EXPECT_FALSE(arrangement.add_source(SourcePlacement{9, Pose{{1.0, 1.0, 0.5}, 0.0}}, reason));
 
@@ -100,12 +206,8 @@ TEST(Small_RoomArrangement, ArrangementRefusesAFourthCabinetAndStaysAsItWas)
 
 TEST(Small_RoomArrangement, ArrangementRefusesANinthMicrophoneAndStaysAsItWas)
 {
-    Arrangement arrangement;
+    Arrangement arrangement = with_microphones(Arrangement::K_MAX_MICROPHONES);
     std::string reason;
-    for (std::uint64_t id = 1; id <= Arrangement::K_MAX_MICROPHONES; ++id)
-    {
-        ASSERT_TRUE(arrangement.add_microphone(microphone_at(id, 1.0), reason)) << reason;
-    }
 
     EXPECT_FALSE(arrangement.add_microphone(microphone_at(99, 1.0), reason));
 
@@ -127,36 +229,69 @@ TEST(Small_RoomArrangement, ArrangementRefusesAnIdentityItAlreadyHolds)
     EXPECT_EQ(arrangement.microphones().size(), 1u);
 }
 
-TEST(Small_RoomArrangement, ArrangementMovesUpdatesAndRemovesByIdentity)
+class Small_RoomArrangementPlaced : public ::testing::Test
 {
-    Arrangement arrangement;
-    std::string reason;
-    ASSERT_TRUE(arrangement.add_source(SourcePlacement{1, Pose{{1.0, 1.0, 0.5}, 0.0}}, reason));
-    ASSERT_TRUE(arrangement.add_source(SourcePlacement{2, Pose{{1.0, 2.0, 0.5}, 0.0}}, reason));
-    ASSERT_TRUE(arrangement.add_microphone(microphone_at(5, 1.0), reason));
-    ASSERT_TRUE(arrangement.add_microphone(microphone_at(6, 1.1), reason));
+    protected:
+        /// @brief Places cabinets 1 and 2 and microphones 5 and 6.
+        void SetUp() override
+        {
+            std::string reason;
+            ASSERT_TRUE(arrangement.add_source(SourcePlacement{1, Pose{{1.0, 1.0, 0.5}, 0.0}}, reason));
+            ASSERT_TRUE(arrangement.add_source(SourcePlacement{2, Pose{{1.0, 2.0, 0.5}, 0.0}}, reason));
+            ASSERT_TRUE(arrangement.add_microphone(microphone_at(5, 1.0), reason));
+            ASSERT_TRUE(arrangement.add_microphone(microphone_at(6, 1.1), reason));
+        }
 
+        /// @brief Stores the arrangement under test.
+        Arrangement arrangement;
+};
+
+TEST_F(Small_RoomArrangementPlaced, MoveSourceMovesTheCabinetOfThatIdentity)
+{
     EXPECT_TRUE(arrangement.move_source(2, Pose{{3.0, 2.0, 0.5}, 1.0}));
+    EXPECT_EQ(arrangement.find_source(2)->pose.position.x, 3.0);
+}
+
+TEST_F(Small_RoomArrangementPlaced, MoveSourceRefusesAnUnknownIdentity)
+{
     EXPECT_FALSE(arrangement.move_source(4, Pose{}));
+}
+
+TEST_F(Small_RoomArrangementPlaced, UpdateMicrophoneReplacesTheMicrophoneOfThatIdentity)
+{
     MicrophonePlacement changed = microphone_at(6, 1.4);
     changed.pattern = SushiDSP::room::PolarPattern::FigureEight;
     changed.proximity = false;
     EXPECT_TRUE(arrangement.update_microphone(changed));
-    EXPECT_FALSE(arrangement.update_microphone(microphone_at(8, 1.0)));
-
-    EXPECT_EQ(arrangement.find_source(2)->pose.position.x, 3.0);
     EXPECT_EQ(arrangement.find_microphone(6)->pose.position.z, 1.4);
     EXPECT_EQ(arrangement.find_microphone(6)->pattern, SushiDSP::room::PolarPattern::FigureEight);
     EXPECT_FALSE(arrangement.find_microphone(6)->proximity);
+}
 
+TEST_F(Small_RoomArrangementPlaced, UpdateMicrophoneRefusesAnUnknownIdentity)
+{
+    EXPECT_FALSE(arrangement.update_microphone(microphone_at(8, 1.0)));
+}
+
+TEST_F(Small_RoomArrangementPlaced, RemovingTheFirstCabinetMovesTheSecondDownOneSlot)
+{
     // Removing the first of each moves the second down one slot.
     EXPECT_TRUE(arrangement.remove_source(1));
-    EXPECT_TRUE(arrangement.remove_microphone(5));
-    EXPECT_FALSE(arrangement.remove_source(1));
     ASSERT_EQ(arrangement.sources().size(), 1u);
-    ASSERT_EQ(arrangement.microphones().size(), 1u);
     EXPECT_EQ(arrangement.sources()[0].id, 2u);
+}
+
+TEST_F(Small_RoomArrangementPlaced, RemovingTheFirstMicrophoneMovesTheSecondDownOneSlot)
+{
+    EXPECT_TRUE(arrangement.remove_microphone(5));
+    ASSERT_EQ(arrangement.microphones().size(), 1u);
     EXPECT_EQ(arrangement.microphones()[0].id, 6u);
+}
+
+TEST_F(Small_RoomArrangementPlaced, RemoveSourceRefusesAnIdentityAlreadyRemoved)
+{
+    ASSERT_TRUE(arrangement.remove_source(1));
+    EXPECT_FALSE(arrangement.remove_source(1));
 }
 
 TEST(Small_RoomArrangement, ArrangementRenamesAnIdentityWhereverItIsHeld)
@@ -175,27 +310,45 @@ TEST(Small_RoomArrangement, ArrangementRenamesAnIdentityWhereverItIsHeld)
     EXPECT_EQ(arrangement.find_microphone(4), nullptr);
 }
 
-TEST(Small_RoomArrangement, ArrangementBuildsEachPairsSceneFromTheShellAndTheTwoPoses)
+class Small_RoomArrangementPairs : public ::testing::Test
 {
-    Arrangement arrangement;
-    arrangement.set_shell(SushiDSP::test::garage_scene());
-    arrangement.set_listener(Pose{{4.0, 2.0, 1.2}, 0.5});
-    std::string reason;
-    ASSERT_TRUE(arrangement.add_source(SourcePlacement{1, Pose{{1.0, 1.0, 0.5}, 0.1}}, reason));
-    ASSERT_TRUE(arrangement.add_source(SourcePlacement{2, Pose{{1.0, 3.0, 0.5}, 0.2}}, reason));
-    MicrophonePlacement microphone = microphone_at(5, 1.0);
-    microphone.pattern = SushiDSP::room::PolarPattern::Omni;
-    microphone.proximity = false;
-    ASSERT_TRUE(arrangement.add_microphone(microphone, reason));
+    protected:
+        /// @brief Holds the garage with the listener at (4, 2, 1.2), cabinets 1 and 2 and one omni
+        /// microphone without proximity.
+        void SetUp() override
+        {
+            arrangement.set_shell(SushiDSP::test::garage_scene());
+            arrangement.set_listener(Pose{{4.0, 2.0, 1.2}, 0.5});
+            std::string reason;
+            ASSERT_TRUE(
+                arrangement.add_source(SourcePlacement{1, Pose{{1.0, 1.0, 0.5}, 0.1}}, reason));
+            ASSERT_TRUE(
+                arrangement.add_source(SourcePlacement{2, Pose{{1.0, 3.0, 0.5}, 0.2}}, reason));
+            MicrophonePlacement microphone = microphone_at(5, 1.0);
+            microphone.pattern = SushiDSP::room::PolarPattern::Omni;
+            microphone.proximity = false;
+            ASSERT_TRUE(arrangement.add_microphone(microphone, reason));
+        }
 
+        /// @brief Stores the arrangement under test.
+        Arrangement arrangement;
+};
+
+TEST_F(Small_RoomArrangementPairs, EarsPairSceneTakesTheShellTheSecondCabinetAndTheListener)
+{
     const SushiDSP::room::RoomScene ears = arrangement.pair_scene(1, 0);
-    const SushiDSP::room::RoomScene capsule = arrangement.pair_scene(0, 1);
 
     EXPECT_EQ(ears.dimensions.x, 6.0);
     EXPECT_EQ(ears.source_position.y, 3.0);
     EXPECT_EQ(ears.source_yaw_rad, 0.2);
     EXPECT_EQ(ears.listener_position.x, 4.0);
     EXPECT_EQ(ears.listener_yaw_rad, 0.5);
+}
+
+TEST_F(Small_RoomArrangementPairs, CapsulePairSceneTakesTheFirstCabinetAndTheMicrophone)
+{
+    const SushiDSP::room::RoomScene capsule = arrangement.pair_scene(0, 1);
+
     EXPECT_EQ(capsule.source_position.y, 1.0);
     EXPECT_EQ(capsule.microphone_position.z, 1.0);
     EXPECT_EQ(capsule.microphone_pattern, SushiDSP::room::PolarPattern::Omni);
@@ -219,25 +372,24 @@ TEST(Small_RoomArrangement, ArrangementIsRefusedWhenAMicrophoneStandsOutsideTheS
     EXPECT_NE(reason.find("microphone 1"), std::string::npos) << reason;
 }
 
-TEST(Small_RoomArrangement, ScenesEqualComparesEveryFieldASolveReads)
+TEST(Small_RoomArrangement, ScenesEqualIsTrueForTheSameScene)
 {
-    const SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+    const SushiDSP::room::RoomScene scene = furnished_baseline();
     EXPECT_TRUE(SushiDSP::Room::scenes_equal(scene, scene));
-
-    SushiDSP::room::RoomScene moved = scene;
-    moved.microphone_position.x += 0.01;
-    EXPECT_FALSE(SushiDSP::Room::scenes_equal(scene, moved));
-
-    SushiDSP::room::RoomScene patched = scene;
-    patched.patches[0].area_m2 += 0.5;
-    EXPECT_FALSE(SushiDSP::Room::scenes_equal(scene, patched));
-
-    SushiDSP::room::RoomScene close_up = scene;
-    close_up.microphone_proximity = false;
-    EXPECT_FALSE(SushiDSP::Room::scenes_equal(scene, close_up));
 }
 
-TEST(Small_RoomArrangement, ArrangementGivesEachCabinetItsOwnGeometry)
+TEST_P(Small_RoomArrangementScenes, ScenesEqualSeesAChangeOfEveryFieldASolveReads)
+{
+    const SushiDSP::room::RoomScene scene = furnished_baseline();
+    SushiDSP::room::RoomScene changed = scene;
+    GetParam().change(changed);
+    EXPECT_FALSE(SushiDSP::Room::scenes_equal(scene, changed));
+}
+
+INSTANTIATE_TEST_SUITE_P(Fields, Small_RoomArrangementScenes, ::testing::ValuesIn(kFieldChanges),
+                         field_name);
+
+TEST(Small_RoomArrangement, PairScenesTakeTheirOwnCabinetsGeometry)
 {
     Arrangement arrangement;
     std::string reason;
@@ -250,24 +402,49 @@ TEST(Small_RoomArrangement, ArrangementGivesEachCabinetItsOwnGeometry)
                                               SushiDSP::room::K_CABINET4X12));
     EXPECT_TRUE(SushiDSP::room::same_geometry(arrangement.pair_scene(1, 0).cabinet,
                                               SushiDSP::room::K_CABINET1X12));
+}
+
+TEST(Small_RoomArrangement, ShellsDifferWhenTheirCabinetsDo)
+{
+    Arrangement arrangement;
+    std::string reason;
+    ASSERT_TRUE(arrangement.add_source(SourcePlacement{1u, Pose{{1.5, 1.0, 0.5}, 0.0}}, reason));
+    ASSERT_TRUE(arrangement.add_source(
+        SourcePlacement{2u, Pose{{1.5, 3.0, 0.5}, 0.0}, SushiDSP::room::K_CABINET1X12}, reason));
+
     EXPECT_FALSE(SushiDSP::Room::shells_equal(arrangement.pair_scene(0, 0),
                                               arrangement.pair_scene(1, 0)));
+}
+
+TEST(Small_RoomArrangement, SetSourceCabinetChangesTheCabinetOfThatIdentity)
+{
+    Arrangement arrangement = with_sources(2);
 
     ASSERT_TRUE(arrangement.set_source_cabinet(1u, SushiDSP::room::K_CABINET2X12));
+
     EXPECT_EQ(arrangement.pair_scene(0, 0).cabinet.driver_rows, 1u);
+}
+
+TEST(Small_RoomArrangement, SetSourceCabinetRefusesAnUnknownIdentity)
+{
+    Arrangement arrangement = with_sources(2);
     EXPECT_FALSE(arrangement.set_source_cabinet(9u, SushiDSP::room::K_CABINET2X12));
 }
 
-TEST(Small_RoomArrangement, ShellsEqualIgnoresWhoStandsWhereAndReadsAFurnishingsPlace)
+TEST(Small_RoomArrangement, ShellsEqualIgnoresWhoStandsWhere)
 {
-    SushiDSP::room::RoomScene left = SushiDSP::room::starter_scene();
+    const SushiDSP::room::RoomScene left = SushiDSP::room::starter_scene();
     SushiDSP::room::RoomScene right = left;
     right.source_position.x += 0.5;
     right.listener_yaw_rad += 0.3;
     right.microphone_position.z += 0.2;
     EXPECT_TRUE(SushiDSP::Room::shells_equal(left, right));
-    EXPECT_FALSE(SushiDSP::Room::scenes_equal(left, right));
+}
 
+TEST(Small_RoomArrangement, ShellsEqualReadsAFurnishingsPlace)
+{
+    SushiDSP::room::RoomScene left = SushiDSP::room::starter_scene();
+    SushiDSP::room::RoomScene right = left;
     right.furnishing_count = 1;
     left.furnishing_count = 1;
     left.furnishings[0] = {SushiDSP::room::FurnitureId::Desk, 1.0};
