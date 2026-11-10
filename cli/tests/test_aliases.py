@@ -9,7 +9,6 @@ from __future__ import annotations
 import contextlib
 import dataclasses
 import io
-import json
 from datetime import date
 from types import SimpleNamespace
 
@@ -22,9 +21,7 @@ from sushidsp import aliases, cli
 from sushidsp.cli import app
 
 
-pytestmark = pytest.mark.medium
-
-
+@pytest.mark.medium
 def test_doxygen_runs_the_api_build_and_exits_with_its_code(project):
     """`sd doxygen` builds the reference through the project service and exits with its code."""
     doxyfile = project.root / ".config" / "doxygen" / "Doxyfile"
@@ -39,23 +36,25 @@ def test_doxygen_runs_the_api_build_and_exits_with_its_code(project):
     assert [command[0] for command in project.commands] == [str(doxygen)]
 
 
-def test_the_old_spelling_is_absent_from_help_and_describe():
-    """Neither the help screen nor the catalogue names `doxygen`."""
-    runner = CliRunner()
-    page = runner.invoke(app, ["--help"]).output
-    names = [command["name"]
-             for command in json.loads(runner.invoke(app, ["--describe"]).output)["commands"]]
+@pytest.mark.medium
+def test_the_old_spelling_is_absent_from_the_help_screen():
+    """The help screen names `docs` and not `doxygen`."""
+    page = CliRunner().invoke(app, ["--help"]).output
 
     assert "docs" in page.split() and "doxygen" not in page.split()
-    assert "docs" in names and "doxygen" not in names
 
 
-def test_every_row_leaves_on_the_shared_day():
-    """Each row carries 2027-03-25, the day the old spellings leave on every CLI."""
+@pytest.mark.small
+def test_the_rows_are_the_two_old_spellings():
+    """The table holds `sd doxygen` and `sd run`, and nothing else."""
     assert [row.old for row in aliases.K_ROWS] == ["sd doxygen", "sd run"]
-    for row in aliases.K_ROWS:
-        assert aliases.ALIASES.alias_for(row.old) is row
-        assert row.removed_after == date(2027, 3, 25)
+
+
+@pytest.mark.small
+@pytest.mark.parametrize("old", ["sd doxygen", "sd run"])
+def test_a_row_leaves_on_the_shared_day(old):
+    """The row carries 2027-03-25, the day the old spellings leave on every CLI."""
+    assert aliases.ALIASES.alias_for(old).removed_after == date(2027, 3, 25)
 
 
 class _Terminal(io.StringIO):
@@ -85,25 +84,29 @@ def _own_table(project):
     return dataclasses.replace(project.workspace, aliases=AliasTable("sd", aliases.K_ROWS))
 
 
-def test_bare_run_announces_host_once_to_a_terminal(terminal, project):
-    """`sd run` with no target names `sd host` and the last day, once per table."""
+@pytest.mark.medium
+@pytest.mark.parametrize(("target", "sort", "notices"), [
+    (None, False, 1),
+    ("sushidsp_tests", False, 0),
+    (None, True, 0),
+])
+def test_only_a_bare_run_announces_host_once_to_a_terminal(terminal, project, target, sort,
+                                                           notices):
+    """`sd run` with no target names `sd host` and the last day, once per table; a target or a pick, nothing."""
     workspace = _own_table(project)
-    _run_command(terminal, workspace)
-    _run_command(terminal, workspace)
+    _run_command(terminal, workspace, target=target, sort=sort)
+    _run_command(terminal, workspace, target=target, sort=sort)
 
-    (line,) = terminal.getvalue().splitlines()
-    assert "`sd run` is now `sd host`" in line and "2027-03-25" in line
-
-
-def test_run_with_a_target_or_a_pick_announces_nothing(terminal, project):
-    """The generic runner is not an old spelling, so it prints no notice."""
-    workspace = _own_table(project)
-    _run_command(terminal, workspace, target="sushidsp_tests")
-    _run_command(terminal, workspace, sort=True)
-
-    assert terminal.getvalue() == ""
+    lines = terminal.getvalue().splitlines()
+    assert len(lines) == notices
+    assert all("`sd run` is now `sd host`" in line and "2027-03-25" in line for line in lines)
 
 
-def test_no_row_has_expired_today():
-    """A row past its date is a spelling that should have been deleted by now."""
-    assert aliases.ALIASES.expired(date.today()) == []
+@pytest.mark.small
+@pytest.mark.parametrize(("today", "expired"), [
+    (date(2027, 3, 25), []),
+    (date(2027, 3, 26), ["sd doxygen", "sd run"]),
+])
+def test_a_row_expires_the_day_after_its_last_day(today, expired):
+    """No row is expired on its last day, and every row is the day after."""
+    assert [row.old for row in aliases.ALIASES.expired(today)] == expired

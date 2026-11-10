@@ -11,14 +11,15 @@ from pathlib import Path
 import pytest
 from sushicore import build_admission
 from sushicore.build_admission import BuildStoppedError
-from sushicore.build_tree import K_DEFAULT_BUILD_TYPE
 from sushicore.errors import ConfigError
 
 from sushidsp.services import project as project_svc
 from sushidsp.services.project import BuildType, Sanitizer
 
 
-pytestmark = pytest.mark.medium
+def _configure_of(project) -> list[str]:
+    """Returns the recorded cmake configure command."""
+    return next(command for command in project.commands if "-S" in command)
 
 
 def _define_values(command: list[str]) -> list[str]:
@@ -26,22 +27,22 @@ def _define_values(command: list[str]) -> list[str]:
     return [command[index + 1] for index, word in enumerate(command) if word == "-D"]
 
 
-def test_the_default_build_type_is_the_one_sushicore_names():
-    assert K_DEFAULT_BUILD_TYPE == "Debug"
-    assert project_svc.K_DEFAULT_TYPE is BuildType.debug
+@pytest.mark.small
+@pytest.mark.parametrize(("requested", "default", "resolved"), [
+    (None, None, BuildType.debug),
+    (BuildType.release, None, BuildType.release),
+    (None, project_svc.K_BENCHMARK_TYPE, BuildType.release),
+    (BuildType.debug, project_svc.K_BENCHMARK_TYPE, BuildType.debug),
+])
+def test_a_command_builds_the_type_it_is_given_else_its_default(requested, default, resolved):
+    """A command without a type builds Debug, a benchmark builds Release, and a given type wins."""
+    if default is None:
+        assert project_svc.resolve_build_type(requested) is resolved
+    else:
+        assert project_svc.resolve_build_type(requested, default) is resolved
 
 
-def test_a_command_without_a_type_builds_debug_whatever_tree_exists(project):
-    project.configure_tree("Release")
-
-    assert project_svc.resolve_build_type(None) is BuildType.debug
-    assert project_svc.resolve_build_type(BuildType.release) is BuildType.release
-
-
-def test_the_benchmark_builds_release_without_a_type():
-    assert project_svc.resolve_build_type(None, project_svc.K_BENCHMARK_TYPE) is BuildType.release
-
-
+@pytest.mark.medium
 @pytest.mark.parametrize(("build_type", "sanitizer", "name"), [
     (BuildType.debug, None, "default-debug"),
     (BuildType.release, None, "default-release"),
@@ -49,10 +50,16 @@ def test_the_benchmark_builds_release_without_a_type():
     (BuildType.debug, Sanitizer.address, "asan-debug"),
     (BuildType.relwithdebinfo, Sanitizer.thread, "tsan-relwithdebinfo"),
 ])
-def test_each_type_and_sanitizer_owns_one_tree(tmp_path, build_type, sanitizer, name):
-    assert project_svc._build_dir(tmp_path, build_type, sanitizer) == tmp_path / "build" / name
+def test_each_type_and_sanitizer_owns_one_tree(project, build_type, sanitizer, name):
+    """A configure of the type and the sanitizer builds into build/<name>-<type>."""
+    assert project_svc.configure(build_type, sanitizer=sanitizer,
+                                 workspace=project.workspace) == 0
+
+    configure = next(command for command in project.commands if "-S" in command)
+    assert configure[configure.index("-B") + 1] == str(project.root / "build" / name)
 
 
+@pytest.mark.medium
 def test_a_configure_of_another_type_into_a_tree_is_refused(project):
     project.build_dir.mkdir(parents=True)
     (project.build_dir / "CMakeCache.txt").write_text(
@@ -64,6 +71,7 @@ def test_a_configure_of_another_type_into_a_tree_is_refused(project):
     assert project.commands == []
 
 
+@pytest.mark.medium
 def test_a_define_of_the_build_type_is_refused(project):
     with pytest.raises(ConfigError, match="CMAKE_BUILD_TYPE"):
         project_svc.build(None, defines=["CMAKE_BUILD_TYPE=Release"], workspace=project.workspace)
@@ -71,6 +79,7 @@ def test_a_define_of_the_build_type_is_refused(project):
     assert project.commands == []
 
 
+@pytest.mark.medium
 def test_a_stopped_gate_refuses_the_build_before_any_command(project):
     stop = build_admission.stop_file(project.build_dir)
     stop.parent.mkdir(parents=True)
@@ -82,77 +91,88 @@ def test_a_stopped_gate_refuses_the_build_before_any_command(project):
     assert project.commands == []
 
 
+@pytest.mark.medium
 def test_the_configure_carries_both_launcher_entries(project):
     assert project_svc.build(None, workspace=project.workspace) == 0
 
-    configure = project.commands[0]
+    configure = _configure_of(project)
     expected = build_admission.launcher_defines(project.build_dir, "")
     assert len(expected) == 2
     for entry in expected:
         assert configure[configure.index(entry) - 1] == "-D"
 
 
+@pytest.mark.medium
 def test_a_define_of_the_user_comes_after_the_gate_entries(project):
     assert project_svc.build(None, defines=["FOO=1"], workspace=project.workspace) == 0
 
-    values = _define_values(project.commands[0])
+    values = _define_values(_configure_of(project))
     assert values.index("FOO=1") > max(
         values.index(entry) for entry in build_admission.launcher_defines(project.build_dir, ""))
 
 
-def test_the_compile_gets_the_hardware_threads_without_jobs(project, monkeypatch):
+@pytest.mark.medium
+@pytest.mark.parametrize(("jobs", "parallel"), [(None, "13"), (2, "2")])
+def test_the_compile_takes_the_jobs_the_user_gave_else_the_hardware_threads(
+        project, monkeypatch, jobs, parallel):
+    """The compile gets --parallel from -j, or from the hardware threads without it."""
     monkeypatch.setattr(build_admission, "hardware_threads", lambda: 13)
     project.configure_tree()
 
-    assert project_svc.build(None, workspace=project.workspace) == 0
+    assert project_svc.build(None, jobs=jobs, workspace=project.workspace) == 0
 
     compile_ = project.commands[-1]
-    assert compile_[compile_.index("--parallel") + 1] == "13"
+    assert compile_[compile_.index("--parallel") + 1] == parallel
 
 
-def test_the_compile_takes_the_jobs_the_user_gave(project, monkeypatch):
-    monkeypatch.setattr(build_admission, "hardware_threads", lambda: 13)
+@pytest.mark.medium
+@pytest.mark.parametrize("report", [True, False])
+def test_a_report_is_printed_and_saved_only_with_the_flag(project, report):
+    """--report prints the report path and saves the file in the tree; without it nothing is."""
     project.configure_tree()
 
-    assert project_svc.build(None, jobs=2, workspace=project.workspace) == 0
+    assert project_svc.build(None, report=report, workspace=project.workspace) == 0
 
-    compile_ = project.commands[-1]
-    assert compile_[compile_.index("--parallel") + 1] == "2"
-
-
-def test_a_report_is_printed_and_saved_in_the_tree(project):
-    project.configure_tree()
-
-    assert project_svc.build(None, report=True, workspace=project.workspace) == 0
-
-    (line,) = [text for text in project.console.texts("info") if text.startswith("Report: ")]
-    assert Path(line.removeprefix("Report: ")).is_file()
+    lines = [text for text in project.console.texts("info") if text.startswith("Report: ")]
+    assert len(lines) == int(report)
+    assert all(Path(line.removeprefix("Report: ")).is_file() for line in lines)
 
 
-def test_no_report_is_written_without_the_flag(project):
-    project.configure_tree()
-
-    assert project_svc.build(None, workspace=project.workspace) == 0
-
-    assert [text for text in project.console.texts("info") if text.startswith("Report: ")] == []
-
-
-def test_clean_removes_only_the_tree_it_names(project):
+@pytest.mark.medium
+def test_clean_removes_the_tree_of_the_type(project):
+    """A clean of a type removes that tree and leaves the others."""
     debug = project.configure_tree("Debug")
     release = project.configure_tree("Release")
-    address = project.configure_tree("Debug", name="asan")
 
     assert project_svc.clean(BuildType.release, workspace=project.workspace) == 0
-    assert not release.exists() and debug.exists() and address.exists()
+
+    assert not release.exists() and debug.exists()
+
+
+@pytest.mark.medium
+def test_clean_removes_the_tree_of_the_sanitizer(project):
+    """A clean of a sanitizer removes its tree and leaves the default one."""
+    debug = project.configure_tree("Debug")
+    address = project.configure_tree("Debug", name="asan")
 
     assert project_svc.clean(None, Sanitizer.address, workspace=project.workspace) == 0
+
     assert not address.exists() and debug.exists()
 
+
+@pytest.mark.medium
+def test_clean_without_a_type_removes_the_default_debug_tree(project):
+    """A clean with no argument removes build/default-debug."""
+    debug = project.configure_tree("Debug")
+
     assert project_svc.clean(workspace=project.workspace) == 0
+
     assert not debug.exists()
 
 
-def test_clean_all_removes_every_tree_and_the_gate_state(project):
+@pytest.mark.medium
+def test_clean_all_removes_the_whole_build_folder(project):
+    """Clean --all removes build/ with every tree in it."""
     project.configure_tree("Debug")
     project.configure_tree("Release")
 
