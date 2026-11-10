@@ -54,6 +54,18 @@ namespace
     /// measured floor is -18.6 dB (README) with 1 dB of slack.
     constexpr double K_ALIAS_FLOOR_BOUND_DB = -17.6;
 
+    /// @brief The tone the alias-floor sweep reads worst at, in Hz: the 13th harmonic of 15 kHz folds
+    /// about the 4x domain's 192 kHz to 3 kHz (README).
+    constexpr double K_ALIAS_WORST_TONE_HZ = 15000.0;
+
+    /// @brief Sets the knob positions the alias floor is characterized at: drive 1 and tone 0.5.
+    /// @param node The pedal to set.
+    void set_alias_floor_knobs(SushiDSP::TubeScreamer& node)
+    {
+        node.set_drive(1.0f);
+        node.set_tone(0.5f);
+    }
+
     /// @brief Names a golden file and the rate it was rendered at.
     struct GoldenRow
     {
@@ -91,11 +103,22 @@ TEST(Medium_TubeScreamer, TubeScreamerGoldenFileMatchesAtEachRate)
     }
 }
 
-TEST(Medium_TubeScreamer, TubeScreamerAliasFloorDoesNotRegress)
+/// @brief Tests the whole 1 to 20 kHz sweep: 20 tones of one second and one analysis frame each.
+/// @see tests/nodes/tubescreamer/test_tube_screamer/README.md
+TEST(Large_TubeScreamer, TubeScreamerAliasFloorDoesNotRegress)
 {
     // The floor is the measured -18.6 dB with 1 dB of slack. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     SushiDSP::TubeScreamer node;
-    node.set_drive(1.0f);
-    node.set_tone(0.5f);
+    set_alias_floor_knobs(node);
     EXPECT_LE(SushiDSP::measure::alias_floor(node, 48000.0), K_ALIAS_FLOOR_BOUND_DB);
+}
+
+/// @brief Tests the one tone the sweep reads worst at, a twentieth of the sweep's render.
+/// @see tests/nodes/tubescreamer/test_tube_screamer/README.md
+TEST(Medium_TubeScreamer, TubeScreamerAliasFloorAtItsWorstToneDoesNotRegress)
+{
+    // 13 x 15000 Hz - 192000 Hz = 3000 Hz is the sweep's worst line. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
+    SushiDSP::TubeScreamer node;
+    set_alias_floor_knobs(node);
+    EXPECT_LE(SushiDSP::measure::alias_floor_at_tone(node, 48000.0, K_ALIAS_WORST_TONE_HZ), K_ALIAS_FLOOR_BOUND_DB);
 }

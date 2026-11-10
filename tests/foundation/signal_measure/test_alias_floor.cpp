@@ -152,3 +152,10 @@ TEST(Small_AliasFloor, UnoversampledTanhIsPoor)
     TanhNode node(4.0f);
     EXPECT_GT(SushiDSP::measure::alias_floor(node, 48000.0), -40.0);
 }
+
+TEST(Small_AliasFloor, OneToneOfAnUnoversampledTanhIsPoorAtFifteenKilohertz)
+{
+    // The 3rd harmonic of 15 kHz folds to 3 kHz at 48 kHz. See tests/foundation/signal_measure/README.md.
+    TanhNode node(4.0f);
+    EXPECT_GT(SushiDSP::measure::alias_floor_at_tone(node, 48000.0, 15000.0), -40.0);
+}

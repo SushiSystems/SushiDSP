@@ -74,6 +74,18 @@ The 48 kHz and 96 kHz renders are one row each. Each must match its golden file 
 the bound covers only last-bit differences between builds). `modules/foundation/golden_compare/README.md`
 lists the tube_screamer pin. A missing or short file reads 0 dB and fails.
 
+### `TubeScreamerAliasFloorAtItsWorstToneDoesNotRegress`
+
+`// 13 x 15000 Hz - 192000 Hz = 3000 Hz is the sweep's worst line.`
+
+The sweep case below (`Large_TubeScreamer`) renders 20 tones of 113k samples through the 4x
+domain, which took 15 s in the Debug run of 2026-11-10 against 5 s for a `Medium_` case. The
+section below names the worst case: the 13th harmonic of a 15 kHz tone, which is the -18.6 dB the
+bound derives from. This case measures that tone alone with `alias_floor_at_tone`, at one twentieth
+of the render, and holds it to the same `K_ALIAS_FLOOR_BOUND_DB`. The sweep's maximum is at least this
+tone's reading, so a reading above the bound here is a regression the sweep also sees. The reduced
+case cannot see a regression at another tone, which only the `Large_` sweep sees.
+
 ### `TubeScreamerAliasFloorDoesNotRegress`
 
 `// The floor is the measured -18.6 dB with 1 dB of slack.`

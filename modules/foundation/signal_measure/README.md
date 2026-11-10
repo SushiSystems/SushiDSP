@@ -26,6 +26,10 @@ one second of settling plus one analysis frame. Lines within four bins of DC, of
 fundamental, or of any harmonic below Nyquist are excluded. A harmonic that would fall above
 Nyquist has folded back and is counted as an alias, which is what the number is for.
 
+`alias_floor_at_tone` is the same measurement for one tone, and `alias_floor` is the maximum of it
+over the twenty tones. A test that has measured which tone a node reads worst at checks that tone
+alone, at one twentieth of the render.
+
 The default stimulus is -12 dBFS. A node that clips inside its own chain at this level reports
 that clipping's folded harmonics, not its conversion, so sweep such a node at the operating
 point its data sheet or service note publishes.

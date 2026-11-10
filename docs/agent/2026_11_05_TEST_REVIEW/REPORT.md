@@ -247,6 +247,8 @@ The owner delegated these decisions on 2026-11-05. Each ruling below is final fo
 
 1201. M1, lane slow (2026-11-10), `APreparedNodeWithASetCountsNothing` moves from `Small_RoomNodeCounters` to `Medium_RoomNodeCounters` (2.2 s in the Debug run against 0.1 s). It builds a prepared room node, whose `prepare` solves the pairs; no in-memory adapter can stand in for the node under test. Its sibling, the unprepared node, stays `Small_`. Expected new size: Medium, under 5 s. Recorded in `tests/nodes/room/test_room_node/README.md`.
 
+1202. M1, lane slow (2026-11-10), `TubeScreamerAliasFloorDoesNotRegress` (15.2 s against 5 s). The claim is a 20-tone sweep, so the sweep moves to `Large_TubeScreamer` unchanged and a `Medium_` case checks the one tone the README names as the worst, 15 kHz (13 x 15000 - 192000 = 3000 Hz), at the same bound. The reduction is a twentieth of the render: about 0.8 s from 15 s. `alias_floor` in `modules/foundation/signal_measure` is split, behaviour unchanged, into `alias_floor_at_tone` and the maximum over the 20 tones, which adds one public function to a measurement header; the owner may rule on it. `Small_AliasFloor.OneToneOfAnUnoversampledTanhIsPoorAtFifteenKilohertz` keeps the new function (third harmonic of tanh at about -23 dB against -40 dB). Recorded in `tests/nodes/tubescreamer/test_tube_screamer/README.md` and `tests/foundation/signal_measure/README.md`.
+
 ## Dispatches
 
 dispatch: J15 review, 15 chunks — haiku high, 1 round each, passed, rung 1
