@@ -241,12 +241,9 @@ namespace
     constexpr double K_SWEEP_SECONDS = 0.5;
 
     /// @brief The worst error of the short sweep from 20 Hz up, in decibels: a characterised constant.
-    /// The two-second sweep measured 0.17 dB (modules/foundation/signal_measure/README.md); the 5 Hz
-    /// onset error of the short one does not derive in closed form, so the bound keeps that value and
-    /// widens nothing. A float64 replica reads 0.043 dB worst at 0.5 s. Read the real value from the
-    /// `worst_sweep_error_db` property of each case in the XML report of the Debug run, and set this
-    /// to the worst of the four plus half of the last decimal.
-    constexpr double K_SWEEP_ERROR_DB = 0.17 + 0.005;
+    /// The Debug run of 2026-11-10 recorded 0.043106 dB as the worst `worst_sweep_error_db` of the four
+    /// cases; the bound is that figure plus half of its last decimal.
+    constexpr double K_SWEEP_ERROR_DB = 0.043106 + 0.0000005;
 
     /// @brief The rate of the bottom-of-the-band test: high enough for a 5 Hz sweep to be sampled well.
     constexpr double K_RUN_RATE = 192000.0;

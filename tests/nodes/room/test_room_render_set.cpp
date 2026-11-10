@@ -339,10 +339,12 @@ TEST(Small_RoomRenderSet, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
                  std::runtime_error);
 }
 
-class Small_RoomRenderSetDirectPair : public ::testing::Test
+class Medium_RoomRenderSetDirectPair : public ::testing::Test
 {
     protected:
-        /// @brief Builds the set for a source one metre to the left of a listener facing +x.
+        /// @brief Builds the set for a source one metre to the left of a listener facing +x. The
+        /// set carries the spherical head the claims read, 2.4 s on the Debug build, so the suite is
+        /// `Medium_`.
         void SetUp() override
         {
             RoomScene scene = SushiDSP::test::garage_scene();
@@ -365,7 +367,7 @@ TEST(Small_RoomRenderSet, WoodworthDelayOfTheFallbackHeadAtNinetyDegreesIsTheWor
     EXPECT_NEAR(woodworth_frames, K_MAX_ITD_FRAMES, half_unit_of_last_digit(3));
 }
 
-TEST_F(Small_RoomRenderSetDirectPair, DirectDelayIsTheWoodworthFigureForASourceToTheSide)
+TEST_F(Medium_RoomRenderSetDirectPair, DirectDelayIsTheWoodworthFigureForASourceToTheSide)
 {
     const double woodworth_frames = SushiDSP::room::SphericalHeadHrtf::K_HEAD_RADIUS_METRES /
                                     K_SPEED_OF_SOUND * (0.5 * K_PI + std::sin(0.5 * K_PI)) *
@@ -373,12 +375,12 @@ TEST_F(Small_RoomRenderSetDirectPair, DirectDelayIsTheWoodworthFigureForASourceT
     EXPECT_NEAR(set->direct_itd_frames, woodworth_frames, K_ITD_TOLERANCE_FRAMES);
 }
 
-TEST_F(Small_RoomRenderSetDirectPair, LeftResponseIsTheHrtfSetsAtTheSourceDirection)
+TEST_F(Medium_RoomRenderSetDirectPair, LeftResponseIsTheHrtfSetsAtTheSourceDirection)
 {
     EXPECT_EQ(set->direct_left, fallback_hrtf().interpolate(0.5 * K_PI, 0.0).left);
 }
 
-TEST_F(Small_RoomRenderSetDirectPair, RightResponseIsTheHrtfSetsAtTheSourceDirection)
+TEST_F(Medium_RoomRenderSetDirectPair, RightResponseIsTheHrtfSetsAtTheSourceDirection)
 {
     EXPECT_EQ(set->direct_right, fallback_hrtf().interpolate(0.5 * K_PI, 0.0).right);
 }
