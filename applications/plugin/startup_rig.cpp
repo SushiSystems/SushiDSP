@@ -36,27 +36,58 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <utility>
 
 namespace SushiDSP::Plugin
 {
-    std::optional<std::string> read_startup_rig()
+    std::optional<std::string> FileRigFileReader::read(const std::string& path) const
     {
-        const char* path = std::getenv(K_STARTUP_RIG_VARIABLE);
-        if (path == nullptr || path[0] == '\0')
-        {
-            return std::nullopt;
-        }
         std::ifstream file(path, std::ios::binary);
         if (!file.is_open())
         {
-            SD_LOG_WARN(K_PLUGIN_LOG_CATEGORY,
-                        "{} names '{}', which could not be opened; the plugin starts on the empty "
-                        "rig",
-                        K_STARTUP_RIG_VARIABLE, path);
             return std::nullopt;
         }
         std::ostringstream text;
         text << file.rdbuf();
         return text.str();
+    }
+
+    void InMemoryRigFileReader::add_file(const std::string& path, std::string text)
+    {
+        files_[path] = std::move(text);
+    }
+
+    std::optional<std::string> InMemoryRigFileReader::read(const std::string& path) const
+    {
+        const auto found = files_.find(path);
+        if (found == files_.end())
+        {
+            return std::nullopt;
+        }
+        return found->second;
+    }
+
+    std::optional<std::string> read_startup_rig(const char* variable_value,
+                                                const RigFileReader& reader)
+    {
+        if (variable_value == nullptr || variable_value[0] == '\0')
+        {
+            return std::nullopt;
+        }
+        std::optional<std::string> text = reader.read(variable_value);
+        if (!text.has_value())
+        {
+            SD_LOG_WARN(K_PLUGIN_LOG_CATEGORY,
+                        "{} names '{}', which could not be opened; the plugin starts on the empty "
+                        "rig",
+                        K_STARTUP_RIG_VARIABLE, variable_value);
+        }
+        return text;
+    }
+
+    std::optional<std::string> read_startup_rig()
+    {
+        static const FileRigFileReader file_reader;
+        return read_startup_rig(std::getenv(K_STARTUP_RIG_VARIABLE), file_reader);
     }
 } // namespace SushiDSP::Plugin
