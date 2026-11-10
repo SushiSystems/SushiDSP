@@ -32,193 +32,342 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <string>
 
 #include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
 #include <SushiDSP/nodes/room/air_absorption.hpp>
 #include <SushiDSP/nodes/room/eyring_decay.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
 
+#include <support/tolerance.hpp>
+
 namespace
 {
-    /// @brief Compares six decay times against a reference table within a tolerance in seconds.
-    void expect_bands_near(const std::array<double, 6>& computed,
-                           const std::array<double, 6>& expected, double tolerance)
+    using SushiDSP::room::EyringDecay;
+    using SushiDSP::room::RoomScene;
+    using Bands = std::array<double, SushiDSP::room::K_BAND_COUNT>;
+
+    /// @brief Builds one of the reference rooms.
+    using SceneBuilder = RoomScene (*)();
+
+    /// @brief Characterised band, in seconds: the six decay times of a reference room agree with
+    /// the three-decimal tables below to this. Kept from the original test.
+    constexpr double K_DECAY_BAND_SECONDS = 0.002;
+
+    /// @brief Characterised band, in hertz, of the Schroeder frequencies. Kept from the original
+    /// test.
+    constexpr double K_SCHROEDER_BAND_HZ = 0.5;
+
+    /// @brief Counts the double roundings of the closed form below: the logarithm, the product,
+    /// the sums and the division, with room for the air term.
+    constexpr std::size_t K_CLOSED_FORM_OPERATIONS = 10;
+
+    /// @brief Holds one reference room with the six decay times it must give.
+    struct DecayRow
     {
-        for (std::size_t band = 0; band < 6u; ++band)
-        {
-            EXPECT_NEAR(computed[band], expected[band], tolerance) << "band " << band;
-        }
+            const char* name;
+            SceneBuilder scene;
+            Bands seconds;
+    };
+
+    /// @brief Holds one reference room with its Schroeder frequency.
+    struct SchroederRow
+    {
+            const char* name;
+            SceneBuilder scene;
+            double hertz;
+    };
+
+    /// @brief Holds one reference room.
+    struct RoomRow
+    {
+            const char* name;
+            SceneBuilder scene;
+    };
+
+    /// @brief Holds one band index.
+    struct BandRow
+    {
+            const char* name;
+            std::size_t band;
+    };
+
+    /// @brief Names a row for gtest.
+    template <typename Row>
+    std::string row_name(const ::testing::TestParamInfo<Row>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Returns 4 m V, the air term of the denominator, for one band.
+    double air_term(double volume, std::size_t band)
+    {
+        return 4.0 * SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(band) * volume;
     }
 
     /// @brief Evaluates Sabine's linear form 0.161 V / (S alpha + 4 m V) for one band.
     double sabine_seconds(double volume, double surface_area, double alpha, std::size_t band)
     {
-        const double air =
-            4.0 * SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(band) * volume;
-        return 0.161 * volume / (surface_area * alpha + air);
+        return 0.161 * volume / (surface_area * alpha + air_term(volume, band));
     }
 
     /// @brief Evaluates Eyring's form 0.161 V / (-S ln(1 - alpha) + 4 m V) for one band.
     double eyring_seconds(double volume, double surface_area, double alpha, std::size_t band)
     {
-        const double air =
-            4.0 * SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(band) * volume;
-        return 0.161 * volume / (-surface_area * std::log(1.0 - alpha) + air);
+        return 0.161 * volume / (-surface_area * std::log(1.0 - alpha) + air_term(volume, band));
     }
+
+    /// @brief Expects six decay times to match a reference table within a band in seconds.
+    void expect_bands_near(const Bands& computed, const Bands& expected, double band_seconds)
+    {
+        for (std::size_t band = 0; band < computed.size(); ++band)
+        {
+            EXPECT_TRUE(TestSupport::is_within(
+                TestSupport::measure_error(computed[band], expected[band], band_seconds, 1.0)))
+                << "band " << band;
+        }
+    }
+
+    /// @brief Expects every band of @p computed to match the closed-form Eyring decay of @p scene
+    /// to the roundings of its evaluation.
+    void expect_matches_the_closed_form(const Bands& computed, const RoomScene& scene)
+    {
+        const Bands mean_alpha = scene.mean_absorption();
+        for (std::size_t band = 0; band < computed.size(); ++band)
+        {
+            const double expected = eyring_seconds(scene.volume_m3(), scene.surface_area_m2(), mean_alpha[band], band);
+            EXPECT_TRUE(TestSupport::is_within(
+                TestSupport::measure_relative_error<double>(computed[band], expected, K_CLOSED_FORM_OPERATIONS)))
+                << "band " << band;
+        }
+    }
+
+    /// @brief Expects every band of @p computed to equal the air-only Eyring decay of @p scene
+    /// bit for bit.
+    void expect_bands_equal_the_closed_form(const Bands& computed, const RoomScene& scene)
+    {
+        const Bands mean_alpha = scene.mean_absorption();
+        for (std::size_t band = 0; band < computed.size(); ++band)
+        {
+            EXPECT_EQ(computed[band],
+                      eyring_seconds(scene.volume_m3(), scene.surface_area_m2(), mean_alpha[band], band))
+                << "band " << band;
+        }
+    }
+
+    /// @brief Expects every band of @p computed to be a number and exactly zero.
+    void expect_every_band_zero(const Bands& computed)
+    {
+        for (std::size_t band = 0; band < computed.size(); ++band)
+        {
+            EXPECT_FALSE(std::isnan(computed[band])) << "band " << band;
+            EXPECT_EQ(computed[band], 0.0) << "band " << band;
+        }
+    }
+
+    /// @brief Expects every band of @p smaller to be below the same band of @p larger.
+    void expect_every_band_below(const Bands& smaller, const Bands& larger)
+    {
+        for (std::size_t band = 0; band < smaller.size(); ++band)
+        {
+            EXPECT_LT(smaller[band], larger[band]) << "band " << band;
+        }
+    }
+
+    class Small_EyringDecayRoom : public ::testing::TestWithParam<DecayRow>
+    {
+    };
+
+    class Small_EyringDecaySchroeder : public ::testing::TestWithParam<SchroederRow>
+    {
+    };
+
+    class Small_EyringDecaySabine : public ::testing::TestWithParam<RoomRow>
+    {
+    };
+
+    class Small_EyringDecayGarage : public ::testing::TestWithParam<BandRow>
+    {
+    };
 } // namespace
 
-TEST(Small_EyringDecay, EyringDecayReproducesTheGaragesSixBandDecay)
+TEST_P(Small_EyringDecayRoom, EyringDecayReproducesTheRoomsSixBandDecay)
 {
-    // V = 60 and S = 98 give these six decay times. See tests/nodes/room/README.md.
-    const std::array<double, 6> expected = {1.342, 1.333, 1.161, 1.146, 1.108, 0.893};
-    expect_bands_near(SushiDSP::room::EyringDecay::rt60_seconds(SushiDSP::test::garage_scene()),
-                      expected, 0.002);
+    // The garage is V = 60 and S = 98, the bedroom V = 36.4, S = 67 and the block room V = 54, S = 88.6.
+    const DecayRow row = GetParam();
+
+    expect_bands_near(EyringDecay::rt60_seconds(row.scene()), row.seconds, K_DECAY_BAND_SECONDS);
 }
 
-TEST(Small_EyringDecay, EyringDecayReproducesTheBedroomsSixBandDecay)
-{
-    // V = 36.4 and S = 67 give these six decay times. See tests/nodes/room/README.md.
-    const std::array<double, 6> expected = {0.326, 0.871, 1.154, 0.731, 0.428, 0.356};
-    expect_bands_near(SushiDSP::room::EyringDecay::rt60_seconds(SushiDSP::test::bedroom_scene()),
-                      expected, 0.002);
-}
+INSTANTIATE_TEST_SUITE_P(
+    Rooms, Small_EyringDecayRoom,
+    ::testing::Values(
+        DecayRow{"Garage", SushiDSP::test::garage_scene, {1.342, 1.333, 1.161, 1.146, 1.108, 0.893}},
+        DecayRow{"Bedroom", SushiDSP::test::bedroom_scene, {0.326, 0.871, 1.154, 0.731, 0.428, 0.356}},
+        DecayRow{"BlockRoom", SushiDSP::test::block_room_scene, {0.929, 1.886, 1.548, 1.305, 0.983, 0.981}}),
+    row_name<DecayRow>);
 
-TEST(Small_EyringDecay, EyringDecayReproducesTheBlockRoomsSixBandDecay)
-{
-    // V = 54 and S = 88.6 give these six decay times. See tests/nodes/room/README.md.
-    const std::array<double, 6> expected = {0.929, 1.886, 1.548, 1.305, 0.983, 0.981};
-    expect_bands_near(SushiDSP::room::EyringDecay::rt60_seconds(SushiDSP::test::block_room_scene()),
-                      expected, 0.002);
-}
-
-TEST(Small_EyringDecay, EyringDecayComputesTheSchroederFrequency)
+TEST_P(Small_EyringDecaySchroeder, EyringDecayComputesTheSchroederFrequency)
 {
     // Schroeder frequency = 2000 * sqrt(RT60(500 Hz) / V). See tests/nodes/room/README.md.
-    EXPECT_NEAR(SushiDSP::room::EyringDecay::schroeder_frequency_hz(SushiDSP::test::garage_scene()),
-                278.2, 0.5);
-    EXPECT_NEAR(
-        SushiDSP::room::EyringDecay::schroeder_frequency_hz(SushiDSP::test::bedroom_scene()), 356.1,
-        0.5);
-    EXPECT_NEAR(
-        SushiDSP::room::EyringDecay::schroeder_frequency_hz(SushiDSP::test::block_room_scene()),
-        338.6, 0.5);
+    const SchroederRow row = GetParam();
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
+        EyringDecay::schroeder_frequency_hz(row.scene()), row.hertz, K_SCHROEDER_BAND_HZ, 1.0)));
 }
 
-TEST(Small_EyringDecay, EyringDecayDivergesFromSabineOnlyInAnAbsorbentRoom)
+INSTANTIATE_TEST_SUITE_P(Rooms, Small_EyringDecaySchroeder,
+                         ::testing::Values(SchroederRow{"Garage", SushiDSP::test::garage_scene, 278.2},
+                                           SchroederRow{"Bedroom", SushiDSP::test::bedroom_scene, 356.1},
+                                           SchroederRow{"BlockRoom", SushiDSP::test::block_room_scene, 338.6}),
+                         row_name<SchroederRow>);
+
+TEST_P(Small_EyringDecaySabine, EyringDecayDivergesFromSabineByMinusLogOfOneMinusAlphaOverAlpha)
 {
     // Without air, Sabine / Eyring is -ln(1 - a) / a. See tests/nodes/room/README.md.
-    const double volume = 60.0;
-    const double surface_area = 98.0;
-    const std::array<double, 3> alpha = {0.02, 0.0796, 0.5};
-    const std::array<double, 3> expected_ratio = {1.010, 1.042, 1.386};
-    for (std::size_t index = 0; index < 3u; ++index)
-    {
-        const double sabine = sabine_seconds(volume, surface_area, alpha[index], 0u);
-        const double eyring = eyring_seconds(volume, surface_area, alpha[index], 0u);
-        EXPECT_NEAR(sabine / eyring, expected_ratio[index], 0.002) << "alpha " << alpha[index];
-    }
+    const RoomScene scene = GetParam().scene();
+    const double alpha = scene.mean_absorption()[0];
+    const double surface = alpha * scene.surface_area_m2();
+    const double ratio = sabine_seconds(scene.volume_m3(), scene.surface_area_m2(), alpha, 0u) /
+                         EyringDecay::rt60_seconds(scene)[0];
 
-    // The garage's mean absorption never exceeds 0.09. See tests/nodes/room/README.md.
-    const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
-    const std::array<double, 6> mean_alpha = garage.mean_absorption();
-    const std::array<double, 6> computed = SushiDSP::room::EyringDecay::rt60_seconds(garage);
-    for (std::size_t band = 0; band < 6u; ++band)
-    {
-        const double volume_m3 = garage.volume_m3();
-        const double surface_m2 = garage.surface_area_m2();
-        EXPECT_NEAR(computed[band], eyring_seconds(volume_m3, surface_m2, mean_alpha[band], band),
-                    1e-12)
-            << "band " << band;
-        const double ratio =
-            sabine_seconds(volume_m3, surface_m2, mean_alpha[band], band) / computed[band];
-        EXPECT_GT(ratio, 1.0) << "band " << band;
-        EXPECT_LT(ratio, 1.05) << "band " << band;
-    }
-
-    // The bedroom's 4 kHz band sits at alpha = 0.206, where Sabine overshoots Eyring by 12 %.
-    const SushiDSP::room::RoomScene bedroom = SushiDSP::test::bedroom_scene();
-    const double bedroom_ratio = sabine_seconds(bedroom.volume_m3(), bedroom.surface_area_m2(),
-                                                bedroom.mean_absorption()[5], 5u) /
-                                 SushiDSP::room::EyringDecay::rt60_seconds(bedroom)[5];
-    EXPECT_GT(bedroom_ratio, 1.10);
+    /* The air term A moves the ratio (E + A) / (s + A) from E / s by A (E - s) / (s (s + A)), under
+       A (E / s - 1) / s, where s = S alpha and E = -S ln(1 - alpha). */
+    const double without_air = -std::log(1.0 - alpha) / alpha;
+    const double bound = air_term(scene.volume_m3(), 0u) * (without_air - 1.0) / surface +
+                         static_cast<double>(K_CLOSED_FORM_OPERATIONS) * TestSupport::unit_roundoff<double>() * without_air;
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(ratio, without_air, bound, 1.0)));
 }
 
-TEST(Small_EyringDecay, EyringDecayHandlesAFullyAbsorbentRoom)
+INSTANTIATE_TEST_SUITE_P(Rooms, Small_EyringDecaySabine,
+                         ::testing::Values(RoomRow{"Garage", SushiDSP::test::garage_scene},
+                                           RoomRow{"Bedroom", SushiDSP::test::bedroom_scene},
+                                           RoomRow{"BlockRoom", SushiDSP::test::block_room_scene}),
+                         row_name<RoomRow>);
+
+TEST(Small_EyringDecay, EyringDecayOfTheGarageIsEyringsClosedForm)
+{
+    const RoomScene garage = SushiDSP::test::garage_scene();
+
+    expect_matches_the_closed_form(EyringDecay::rt60_seconds(garage), garage);
+}
+
+TEST_P(Small_EyringDecayGarage, EyringDecayAgreesWithSabineWithinFivePercentInAConcreteGarage)
+{
+    // The garage's mean absorption never exceeds 0.09. See tests/nodes/room/README.md.
+    const std::size_t band = GetParam().band;
+    const RoomScene garage = SushiDSP::test::garage_scene();
+    const double sabine = sabine_seconds(garage.volume_m3(), garage.surface_area_m2(), garage.mean_absorption()[band], band);
+
+    const double ratio = sabine / EyringDecay::rt60_seconds(garage)[band];
+
+    EXPECT_GT(ratio, 1.0);
+    EXPECT_LT(ratio, 1.05);
+}
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_EyringDecayGarage,
+                         ::testing::Values(BandRow{"Hz125", 0u}, BandRow{"Hz250", 1u},
+                                           BandRow{"Hz500", 2u}, BandRow{"Hz1000", 3u},
+                                           BandRow{"Hz2000", 4u}, BandRow{"Hz4000", 5u}),
+                         row_name<BandRow>);
+
+TEST(Small_EyringDecay, EyringDecayOfTheBedroomIsOverTenPercentShorterThanSabineAtFourKilohertz)
+{
+    // The bedroom's 4 kHz band sits at alpha = 0.206, where Sabine overshoots Eyring by 12 %.
+    const RoomScene bedroom = SushiDSP::test::bedroom_scene();
+    const double sabine = sabine_seconds(bedroom.volume_m3(), bedroom.surface_area_m2(), bedroom.mean_absorption()[5], 5u);
+
+    EXPECT_GT(sabine / EyringDecay::rt60_seconds(bedroom)[5], 1.10);
+}
+
+TEST(Small_EyringDecay, EyringDecayHandlesAFullyAbsorbentRoomWithZeroDecay)
 {
     // A mean alpha of 1 gives 0 s, not a NaN. See tests/nodes/room/README.md.
-    SushiDSP::room::RoomScene scene = SushiDSP::test::block_room_scene();
+    RoomScene scene = SushiDSP::test::block_room_scene();
     scene.surfaces.fill(SushiDSP::room::MaterialId::OpenDoorway);
-    const std::array<double, 6> computed = SushiDSP::room::EyringDecay::rt60_seconds(scene);
-    for (std::size_t band = 0; band < 6u; ++band)
-    {
-        EXPECT_FALSE(std::isnan(computed[band])) << "band " << band;
-        EXPECT_DOUBLE_EQ(computed[band], 0.0) << "band " << band;
-    }
-    EXPECT_DOUBLE_EQ(SushiDSP::room::EyringDecay::schroeder_frequency_hz(scene), 0.0);
+
+    expect_every_band_zero(EyringDecay::rt60_seconds(scene));
+}
+
+TEST(Small_EyringDecay, EyringDecayHandlesAFullyAbsorbentRoomWithZeroSchroederFrequency)
+{
+    RoomScene scene = SushiDSP::test::block_room_scene();
+    scene.surfaces.fill(SushiDSP::room::MaterialId::OpenDoorway);
+
+    EXPECT_EQ(EyringDecay::schroeder_frequency_hz(scene), 0.0);
 }
 
 TEST(Small_EyringDecay, EyringDecayOfAnUnfurnishedSceneIsUnchanged)
 {
-    // With nothing furnished the six values equal the air-only hand formula bit for bit.
-    const SushiDSP::room::RoomScene scene;
-    const std::array<double, 6> mean_alpha = scene.mean_absorption();
-    const std::array<double, 6> computed = SushiDSP::room::EyringDecay::rt60_seconds(scene);
-    for (std::size_t band = 0; band < 6u; ++band)
-    {
-        EXPECT_EQ(computed[band], eyring_seconds(scene.volume_m3(), scene.surface_area_m2(),
-                                                 mean_alpha[band], band))
-            << "band " << band;
-    }
+    /* With nothing furnished the unit evaluates the air-only expression, so the closed form
+       matches bit for bit. */
+    const RoomScene scene;
+
+    expect_bands_equal_the_closed_form(EyringDecay::rt60_seconds(scene), scene);
 }
 
 TEST(Small_EyringDecay, EyringDecayAddsTheFurnishingAreaToTheDenominator)
 {
     using SushiDSP::room::FurnitureId;
 
-    SushiDSP::room::RoomScene scene;
+    RoomScene scene;
     scene.furnishings[0] = {FurnitureId::WardrobeModule, 3.0};
     scene.furnishings[1] = {FurnitureId::SofaTwoSeat, 2.0};
     scene.furnishing_count = 2;
-
     const double volume = scene.volume_m3();
-    const double surface_area = scene.surface_area_m2();
-    const std::array<double, 6> mean_alpha = scene.mean_absorption();
-    const std::array<double, 6> furnishing_area = scene.furnishing_absorption_area();
-    const std::array<double, 6> computed = SushiDSP::room::EyringDecay::rt60_seconds(scene);
-    for (std::size_t band = 0; band < 6u; ++band)
+    const Bands mean_alpha = scene.mean_absorption();
+    const Bands furnishing_area = scene.furnishing_absorption_area();
+
+    const Bands computed = EyringDecay::rt60_seconds(scene);
+
+    for (std::size_t band = 0; band < computed.size(); ++band)
     {
-        const double air =
-            4.0 * SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(band) * volume;
         const double expected =
             0.161 * volume /
-            (-surface_area * std::log(1.0 - mean_alpha[band]) + air + furnishing_area[band]);
-        EXPECT_NEAR(computed[band], expected, 1e-9 * expected) << "band " << band;
+            (-scene.surface_area_m2() * std::log(1.0 - mean_alpha[band]) + air_term(volume, band) + furnishing_area[band]);
+        EXPECT_TRUE(TestSupport::is_within(
+            TestSupport::measure_relative_error<double>(computed[band], expected, K_CLOSED_FORM_OPERATIONS)))
+            << "band " << band;
     }
 }
 
-TEST(Small_EyringDecay, EyringDecayShortensWithEveryFurnishing)
+TEST(Small_EyringDecay, EyringDecayShortensWithAWardrobe)
 {
     using SushiDSP::room::FurnitureId;
 
-    SushiDSP::room::RoomScene scene;
-    const std::array<double, 6> bare = SushiDSP::room::EyringDecay::rt60_seconds(scene);
-
+    RoomScene scene;
+    const Bands bare = EyringDecay::rt60_seconds(scene);
     scene.furnishings[0] = {FurnitureId::WardrobeModule, 3.0};
     scene.furnishing_count = 1;
-    const std::array<double, 6> wardrobed = SushiDSP::room::EyringDecay::rt60_seconds(scene);
 
+    expect_every_band_below(EyringDecay::rt60_seconds(scene), bare);
+}
+
+TEST(Small_EyringDecay, EyringDecayShortensFurtherWithASofaBesideTheWardrobe)
+{
+    using SushiDSP::room::FurnitureId;
+
+    RoomScene scene;
+    scene.furnishings[0] = {FurnitureId::WardrobeModule, 3.0};
+    scene.furnishing_count = 1;
+    const Bands wardrobed = EyringDecay::rt60_seconds(scene);
     scene.furnishings[1] = {FurnitureId::SofaTwoSeat, 2.0};
     scene.furnishing_count = 2;
-    const std::array<double, 6> furnished = SushiDSP::room::EyringDecay::rt60_seconds(scene);
 
+    expect_every_band_below(EyringDecay::rt60_seconds(scene), wardrobed);
+}
+
+TEST(Small_EyringDecay, EyringDecayShortensFurtherWhenTheFurnishingIsDoubled)
+{
+    using SushiDSP::room::FurnitureId;
+
+    RoomScene scene;
+    scene.furnishings[0] = {FurnitureId::WardrobeModule, 3.0};
+    scene.furnishings[1] = {FurnitureId::SofaTwoSeat, 2.0};
+    scene.furnishing_count = 2;
+    const Bands furnished = EyringDecay::rt60_seconds(scene);
     scene.furnishings[0].quantity = 6.0;
     scene.furnishings[1].quantity = 4.0;
-    const std::array<double, 6> doubled = SushiDSP::room::EyringDecay::rt60_seconds(scene);
 
-    for (std::size_t band = 0; band < 6u; ++band)
-    {
-        EXPECT_LT(wardrobed[band], bare[band]) << "band " << band;
-        EXPECT_LT(furnished[band], wardrobed[band]) << "band " << band;
-        EXPECT_LT(doubled[band], furnished[band]) << "band " << band;
-    }
+    expect_every_band_below(EyringDecay::rt60_seconds(scene), furnished);
 }
