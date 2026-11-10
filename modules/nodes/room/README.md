@@ -466,7 +466,7 @@ frequency between the centres (spec §6.3). `diffuse_field.hpp` is header-only; 
 directivity index of the last cabinet geometry behind a mutex, since the 2562-direction integral
 costs 18 ms against a 2 ms build, both measured on an unoptimised binary, and a drag never
 changes the geometry. Its cases live in
-`tests/nodes/room/test_modal_solver.cpp` (`DiffuseFieldIsEyringOverTheCabinetsDirectivity`)
+`tests/nodes/room/test_modal_solver.cpp` (`BandPowerIsEyringOverTheCabinetsDirectivity`)
 until the test list can take a file of its own. The index is the
 directivity of `CabinetDirectivity`, 1.1, 3.0, 7.6, 12.0, 15.7 and 18.8 dB for the 4x12, and it
 is what keeps a beaming cabinet's room quieter than a monopole's: the garage's octave under f_s
@@ -566,7 +566,7 @@ The modal field is read where that receiver stands. `ModalSolver::design` takes 
 kind: for the ears it evaluates psi at two points 8.5 cm to either side of `listener_position`,
 for the microphone at `microphone_position` in both ear gains, and the resonators, the count,
 the crossover and the level are the room's whatever the receiver
-(`ModalSolverReadsTheMicrophoneAtOnePoint`, `BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver`).
+(`MicrophoneReadsOnePointForBothEars`, `BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver`).
 
 A microphone's port carries one signal: channel 0 of the early set, the tail read once, and
 the modal field at one point, at physical timing, held back by the decoder's partition so it

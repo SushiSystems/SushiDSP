@@ -569,7 +569,10 @@ Every one of K_MAX_MODES resonators runs, at the garage's 68.6 Hz mode with a 1 
 
 ## `test_modal_solver.cpp`
 
-### `DiffuseFieldIsEyringOverTheCabinetsDirectivity`
+Each figure worked out by hand is held to half a unit of its last typed digit. A closed form the
+test restates is held to a bound counted in roundings of the operations it takes.
+
+### `BandPowerIsEyringOverTheCabinetsDirectivity`
 
 `// The field is Eyring over the 4x12's directivity.`
 
@@ -577,26 +580,54 @@ The garage: Eyring's 1.342, 1.333, 1.161, 1.146, 1.108 and 0.893 s over 0.161 \*
 pi, and the 4x12's directivity index of 1.12, 2.99, 7.59, 12.01, 15.74 and 18.82 dB taken back
 out, give 5.39, 3.48, 1.05, 0.376, 0.154 and 0.0610 per hertz.
 
+### `FieldFollowsTheCabinetAndNotTheRoomAlone`
+
 `// The field is the cabinet's, not the room's alone.`
 
 A cabinet with one driver and a narrower baffle radiates its bass more evenly, so the same room
 holds more of it; the field is the cabinet's, not the room's alone.
 
-### `ModalSolverFindsTheGaragesEigenfrequencies`
+### `PowerBetweenMatchesTheMidpointRule`
+
+`// The integral across two centres and past the last one matches the midpoint rule.`
+
+The field's power between two frequencies is held to the midpoint rule over 65536 steps, within
+1e-6 relative, a characterised figure; the rule's own error is about 1e-10 by Euler-Maclaurin.
+
+### `FieldIsFlatBelowTheFirstCentre`
+
+`// Between the centres the field is linear in log frequency, flat outside them.`
+
+Below 125 Hz the field holds the first band's value, at the geometric mean of two centres the
+mean of their values, and past 4 kHz the last band's.
+
+### `FrequencyIsTheClosedForm`
 
 `// f = (c/2) sqrt((nx/6)^2 + (ny/4)^2 + (nz/2.5)^2).`
 
 (c / 2) sqrt((nx / 6)^2 + (ny / 4)^2 + (nz / 2.5)^2) at c = 343 for the first eight: 28.5833,
 42.8750, 51.5293, 57.1667, 68.6000, 71.4583, 74.3167 and 80.8964 Hz.
 
-### `ModalSolverCountsOneHundredAndEightySevenModesBelowTheGaragesSchroederFrequency`
+### `EstimatedCountIsWeylsCount`
 
 `// Weyl's count is 134.11 + 50.63 + 5.07 = 189.80.`
 
 (4 pi / 3) 60 (278.2 / 343)^3 + (pi / 4) 98 (278.2 / 343)^2 + (50 / 8) (278.2 / 343) = 134.11 +
-50.63 + 5.07 = 189.80.
+50.63 + 5.07 = 189.80. The enumeration finds 187 modes. The estimate is held to 2 percent of the
+count in the three reference rooms, a characterised figure, since Weyl's law is asymptotic.
 
-### `ModalSolverDampsAnAxialModeByTheTwoWallsItBouncesBetween`
+### `LoweredCrossoverIsTheFirstModeLeftOutRoundedDownToAFloat`
+
+A 3.0 x 2.5 x 2.4 m concrete room holds more than 512 modes under 900 Hz. The design keeps the
+first 512 and writes the frequency of the next one, rounded down to a float, as the crossover.
+
+### `ModeShapeAtANodeIsTheRoundingResidueOfCosineOfAQuarterTurn`
+
+The shape of mode (1, 0, 0) at x = 3 m of a 6 m room is cos(pi / 2), which is 6.1e-17 in double:
+the argument rounds by at most u pi / 2 of its size and cos has slope 1 there, so the test allows
+4 u.
+
+### `SoftWallsGiveTheAxialModesTheirClosedFormDecays`
 
 `// The decay ratio of the two modes is 1.846.`
 
@@ -605,14 +636,17 @@ soft pair counts twice for (1, 0, 0) and once for (0, 0, 1): delta_x = (343 / 96
 0.716) 10 + (0.02) 15 + (0.02) 24) = 7.467 nepers/s, delta_z = (343 / 960) ((0.29 + 0.716) 10 +
 (0.02) 15 + 2 (0.02) 24) = 4.044 nepers/s, a decay ratio of 1.846.
 
-### `ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField`
+### `ModalPowerOfTheOctaveBelowTheCrossoverIsTheDiffuseFieldsPower`
 
 `// The octave below f_s holds the diffuse field's power.`
 
 Averaged over the cabinet and the listener, one mode's power for unit white input is
 level_scale^2 times the section's 2 / (1 - r^2); the octave [f_s / 2, f_s) sum must equal the
 power the diffuse field of that room and cabinet holds in the octave, in all three reference
-rooms, so the modal layer and the tail read one reference.
+rooms, so the modal layer and the tail read one reference. The test allows 1e-5 relative, a
+characterised figure.
+
+### `GarageOctaveHoldsTheWorkedOutVarianceOfTheDiffuseField`
 
 `// The garage's octave holds 2.334e-2 of the variance.`
 
@@ -621,7 +655,7 @@ alone, 16 pi times 1.33 to 1.34 s over 0.161 \* 60 m3 spread as 2 / fs over the 
 give 4.02e-2; the ratio sits between the 4x12's mean radiated power at the two bands the octave
 spans, 10^(-0.299) at 250 Hz and 10^(-0.112) at 125 Hz.
 
-### `ModalSolverReadsTheMicrophoneAtOnePoint`
+### `MicrophoneReadsOnePointForBothEars`
 
 `// The ears sit 8.5 cm to either side of the listener.`
 
