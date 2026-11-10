@@ -152,12 +152,24 @@ namespace
             double bound;
     };
 
-    // Past the lower knee the current is Is (e^-40 - 1) plus a slope of 2.3e-28 S over at most 1000 V, which is 1e-16 of Is: three roundings. At -0.5 V the README prints 12 digits.
+    /// @brief Holds the conductance past the lower knee, Is / (n Vt) e^-40 = 2.36e-25 S.
+    const double kReverseConductance = K_SATURATION / K_SCALED_THERMAL_VOLTAGE * std::exp(-40.0);
+
+    /// @brief Returns the bound on the reverse current read against -Is: the tangent's departure from -Is, plus three roundings of Is.
+    ///
+    /// Past the lower knee the current is Is (e^-40 - 1) plus the conductance times the distance past the knee, so it departs from -Is by at most Is e^-40 plus that product.
+    double reverse_saturation_bound(double volts)
+    {
+        const double past_the_knee = std::max(0.0, std::fabs(volts) - K_KNEE);
+        return K_SATURATION * std::exp(-40.0) + kReverseConductance * past_the_knee + 3.0 * kU * K_SATURATION;
+    }
+
+    // At -0.5 V, inside the knee, the README prints 12 digits; past the knee the bound is reverse_saturation_bound.
     const ReverseRow kReverseRows[] = {
         {"MinusHalfVolt", -0.5, -2.51995932614e-9, printed_digits_bound(-2.51995932614e-9, 12)},
-        {"MinusTwoVolts", -2.0, -K_SATURATION, 3.0 * kU * K_SATURATION},
-        {"MinusTenVolts", -10.0, -K_SATURATION, 3.0 * kU * K_SATURATION},
-        {"MinusThousandVolts", -1000.0, -K_SATURATION, 3.0 * kU * K_SATURATION},
+        {"MinusTwoVolts", -2.0, -K_SATURATION, reverse_saturation_bound(-2.0)},
+        {"MinusTenVolts", -10.0, -K_SATURATION, reverse_saturation_bound(-10.0)},
+        {"MinusThousandVolts", -1000.0, -K_SATURATION, reverse_saturation_bound(-1000.0)},
     };
 
     /// @brief Returns the bound on a centred difference of the current: its truncation h^2/6 I''', plus the rounding of the two currents over 2h.
@@ -232,11 +244,12 @@ class Small_SiliconDiodeFarReverse : public ::testing::TestWithParam<Voltage>
 {
 };
 
-// Is / (n Vt) e^-40 = 2.3e-28 S, so the conductance beyond the lower knee is below 1e-27 S.
+// Beyond the lower knee the conductance is the constant Is / (n Vt) e^-40 = 2.36e-25 S: the same product of one division, one exponential and two multiplications, so at most five roundings from it.
 TEST_P(Small_SiliconDiodeFarReverse, ConductanceVanishes)
 {
     const SushiDSP::SiliconDiode diode;
-    EXPECT_LT(diode.jacobian(GetParam().volts), 1e-27);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<double>(
+        diode.jacobian(GetParam().volts), kReverseConductance, 6)));
 }
 
 INSTANTIATE_TEST_SUITE_P(Points, Small_SiliconDiodeFarReverse, ::testing::ValuesIn(kReverseExtremeVoltages), row_name);
@@ -380,16 +393,19 @@ class Small_SiliconDiodeKnee : public ::testing::TestWithParam<Voltage>
 {
 };
 
-// By the mean value theorem the step across 2 delta is at most 2 delta times the steepest current; the subtraction adds four roundings of the antiderivative.
+// By the mean value theorem the step across [a, b] is at most (b - a) times the steepest current, where a and b are the edge plus and minus delta as stored: at 1.8 V they are 2.2e-7 of 2 delta off it, so the width is read from the stored points. Each antiderivative adds the rounding of the exponential side, (3 n + 4) u of itself at the exponent argument n = 40, and the other side is counted the same.
 TEST_P(Small_SiliconDiodeKnee, AntiderivativeHasNoStepAcrossIt)
 {
     const SushiDSP::SiliconDiode diode;
     constexpr double delta = 1.0e-9;
     const double edge = GetParam().volts;
-    const double below = diode.current_antiderivative(edge - delta);
-    const double above = diode.current_antiderivative(edge + delta);
-    const double steepest = std::max(std::fabs(diode.current(edge - delta)), std::fabs(diode.current(edge + delta)));
-    const double bound = 2.0 * delta * steepest + 4.0 * kU * std::max(std::fabs(below), std::fabs(above));
+    const double lower = edge - delta;
+    const double upper = edge + delta;
+    const double below = diode.current_antiderivative(lower);
+    const double above = diode.current_antiderivative(upper);
+    const double steepest = std::max(std::fabs(diode.current(lower)), std::fabs(diode.current(upper)));
+    const double bound =
+        (upper - lower) * steepest + (3.0 * 40.0 + 4.0) * kU * (std::fabs(below) + std::fabs(above));
 
     EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(above - below, 0.0, bound, 1.0)));
 }

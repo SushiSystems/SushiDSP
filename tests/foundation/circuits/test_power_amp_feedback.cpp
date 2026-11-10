@@ -27,6 +27,8 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <complex>
 #include <stdexcept>
@@ -80,51 +82,91 @@ namespace
         return 20.0 * std::log10(magnitude);
     }
 
-    /// @brief The same network's gain from the continuous-time ladder, for the null to aim at.
+    /// @brief Solves a four-unknown complex linear system by Gaussian elimination with partial pivoting.
+    /// @param matrix The coefficients, consumed.
+    /// @param right_hand_side The right-hand side, consumed.
+    /// @return The solution.
+    std::array<std::complex<double>, 4> solve_nodal(std::array<std::array<std::complex<double>, 4>, 4> matrix,
+                                                    std::array<std::complex<double>, 4> right_hand_side)
+    {
+        for (std::size_t column = 0; column < 4; ++column)
+        {
+            std::size_t pivot = column;
+            for (std::size_t row = column + 1; row < 4; ++row)
+            {
+                if (std::abs(matrix[row][column]) > std::abs(matrix[pivot][column]))
+                {
+                    pivot = row;
+                }
+            }
+            std::swap(matrix[column], matrix[pivot]);
+            std::swap(right_hand_side[column], right_hand_side[pivot]);
+            for (std::size_t row = column + 1; row < 4; ++row)
+            {
+                const std::complex<double> factor = matrix[row][column] / matrix[column][column];
+                for (std::size_t inner = column; inner < 4; ++inner)
+                {
+                    matrix[row][inner] -= factor * matrix[column][inner];
+                }
+                right_hand_side[row] -= factor * right_hand_side[column];
+            }
+        }
+        std::array<std::complex<double>, 4> solution{};
+        for (std::size_t row = 4; row-- > 0;)
+        {
+            std::complex<double> accumulator = right_hand_side[row];
+            for (std::size_t inner = row + 1; inner < 4; ++inner)
+            {
+                accumulator -= matrix[row][inner] * solution[inner];
+            }
+            solution[row] = accumulator / matrix[row][row];
+        }
+        return solution;
+    }
+
+    /// @brief The same network's gain from its continuous-time nodal equations, for the null to aim at.
     ///
-    /// The leg is a chain of two-terminal impedances, so its transfer is three divisions: the tap
-    /// into the split node, the split node into the divider, and the divider through the coupling
-    /// capacitor into the grid leak.
+    /// The grid leak returns to the tail node, not to ground, so the four nodes (split, divider, grid, tail)
+    /// are solved together. The rheostat is floored at the DK block's minimum section.
     /// @param frequency_hz The drive frequency.
     /// @param presence Presence position in [0, 1].
-    /// @return The gain in decibels.
+    /// @return The grid's gain in decibels.
     double analytic_gain_db(double frequency_hz, double presence)
     {
+        constexpr std::size_t K_SPLIT = 0, K_DIVIDER = 1, K_GRID = 2, K_TAIL = 3;
         const SushiDSP::PowerAmpFeedbackComponents& c = SushiDSP::K_MARK2C_FEEDBACK;
         const std::complex<double> s(0.0, 2.0 * K_PI * frequency_hz);
-        const auto capacitor = [s](double farads)
-        {
-            return 1.0 / (s * farads);
-        };
-        const auto ohms = [](float value)
-        {
-            return std::complex<double>(value, 0.0);
-        };
-        const auto parallel = [](std::complex<double> a, std::complex<double> b)
-        {
-            return 1.0 / (1.0 / a + 1.0 / b);
-        };
+        const std::complex<double> shaping_admittance =
+            1.0 / static_cast<double>(c.shaping_resistor_ohms) + s * static_cast<double>(c.shaping_capacitor_farads);
+        const double rheostat_ohms = std::max(SushiDSP::dk::K_MINIMUM_POT_OHMS,
+                                              static_cast<double>(static_cast<float>(presence * c.presence_potentiometer_ohms)));
+        const std::complex<double> source_admittance =
+            1.0 / (rheostat_ohms + static_cast<double>(c.tap_series_resistor_ohms) + 1.0 / shaping_admittance);
 
-        const std::complex<double> shaping =
-            parallel(ohms(c.shaping_resistor_ohms), capacitor(c.shaping_capacitor_farads));
-        const std::complex<double> ground_leg = parallel(
-            ohms(c.divider_shunt_resistor_ohms), capacitor(c.divider_shunt_capacitor_farads));
-        const std::complex<double> grid_branch =
-            capacitor(c.coupling_capacitor_farads) + ohms(c.grid_leak_resistor_ohms);
-        const std::complex<double> below_divider = parallel(ground_leg, grid_branch);
-        const std::complex<double> divider_branch =
-            ohms(c.divider_series_resistor_ohms) + below_divider;
-        const std::complex<double> tail_branch(c.tail_feed_resistor_ohms + K_TAIL_IMPEDANCE_OHMS,
-                                               0.0);
-        const std::complex<double> split = parallel(tail_branch, divider_branch);
+        std::array<std::array<std::complex<double>, 4>, 4> admittance{};
+        std::array<std::complex<double>, 4> drive{};
+        const auto to_ground = [&admittance](std::size_t node, std::complex<double> value)
+        {
+            admittance[node][node] += value;
+        };
+        const auto between = [&admittance](std::size_t first, std::size_t second, std::complex<double> value)
+        {
+            admittance[first][first] += value;
+            admittance[second][second] += value;
+            admittance[first][second] -= value;
+            admittance[second][first] -= value;
+        };
+        to_ground(K_SPLIT, source_admittance);
+        drive[K_SPLIT] = source_admittance;
+        between(K_SPLIT, K_TAIL, 1.0 / static_cast<double>(c.tail_feed_resistor_ohms));
+        between(K_SPLIT, K_DIVIDER, 1.0 / static_cast<double>(c.divider_series_resistor_ohms));
+        to_ground(K_DIVIDER, 1.0 / static_cast<double>(c.divider_shunt_resistor_ohms) +
+                                 s * static_cast<double>(c.divider_shunt_capacitor_farads));
+        between(K_DIVIDER, K_GRID, s * static_cast<double>(c.coupling_capacitor_farads));
+        between(K_GRID, K_TAIL, 1.0 / static_cast<double>(c.grid_leak_resistor_ohms));
+        to_ground(K_TAIL, 1.0 / static_cast<double>(K_TAIL_IMPEDANCE_OHMS));
 
-        const std::complex<double> to_split =
-            split / (ohms(static_cast<float>(presence * c.presence_potentiometer_ohms)) +
-                     ohms(c.tap_series_resistor_ohms) + shaping + split);
-        const std::complex<double> to_divider = to_split * below_divider / divider_branch;
-        const std::complex<double> to_grid =
-            to_divider * ohms(c.grid_leak_resistor_ohms) / grid_branch;
-        return 20.0 * std::log10(std::abs(to_grid));
+        return 20.0 * std::log10(std::abs(solve_nodal(admittance, drive)[K_GRID]));
     }
 
     const double kU = TestSupport::unit_roundoff<float>();

@@ -76,12 +76,26 @@ namespace
         return 2.0 * headroom * std::exp(-2.0 * std::fabs(row.linear_volts) / headroom) + 4.0 * kU * headroom;
     }
 
-    // A centred difference has truncation h^2 / 6 of the third derivative of the antiderivative, here the slope of the bound, at most 0.77 / H_min; the rounding is that of the two antiderivative values over 2h plus the bound itself.
+    /// @brief Returns the headroom of the side a linear voltage swings toward, as the swing selects it.
+    double side_headroom(double x)
+    {
+        return x > 0.0 ? K_SUPPLY_HEADROOM : K_BOTTOM_HEADROOM;
+    }
+
+    // The antiderivative is H^2 (z + log1p(exp(-2 z)) - ln 2) with z = |x| / H. Near zero the three terms cancel to z^2 / 2 while each carries a rounding of its own size, so the error follows H^2 (z + ln 2), not the value: the quotient z rounds once, the exponential adds at most (1 + 2 z) u / 2 through log1p, log1p rounds at ln 2 u, the sum rounds at (z + ln 2) u, the literal ln 2 and the final subtraction round at ln 2 u each, so the total stays under 4 (z + 1) u H^2.
+    double antiderivative_rounding(double x)
+    {
+        const double headroom = side_headroom(x);
+        return 4.0 * kU * headroom * headroom * (std::fabs(x) / headroom + 1.0);
+    }
+
+    // A centred difference has truncation h^2 / 6 of the third derivative of the antiderivative, here the slope of the bound, at most 0.77 / H_min. The rounding is that of the two antiderivative values over 2h; the two points x +- h are rounded to the grid of x, which moves the width 2h by at most 2 u |x|, a relative u |x| / h of the slope; and the bound itself rounds twice.
     double slope_bound(double x, double step)
     {
         const double truncation = step * step / 6.0 * 0.77 / K_BOTTOM_HEADROOM;
-        const double magnitude = std::fabs(K_SWING.bound_antiderivative(x + step)) + std::fabs(K_SWING.bound_antiderivative(x - step));
-        return truncation + 8.0 * kU * magnitude / (2.0 * step) + 2.0 * kU * std::fabs(K_SWING.bound(x));
+        const double rounding = (antiderivative_rounding(x + step) + antiderivative_rounding(x - step)) / (2.0 * step);
+        const double width = kU * std::fabs(x) / step * std::fabs(K_SWING.bound(x));
+        return truncation + rounding + width + 2.0 * kU * std::fabs(K_SWING.bound(x));
     }
 } // namespace
 
