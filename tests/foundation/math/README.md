@@ -1,76 +1,77 @@
-# tests/foundation/math
-
 ## `test_biquad.cpp`
 
-### `BiquadOnePoleLowPassMatchesTheAnalyticSingleRcResponse`
+Every gain row drives the filter with a sine of a whole number of cycles, settles it for twice
+ln(u)/ln(r) samples (r is the largest pole radius, found by mapping the analog poles through
+z = (1 + t p)/(1 - t p)), and reads the amplitude by projecting the output onto sine and cosine.
+The sampled peak is not used: it misses the crest by up to 0.9 %. The error bound of a reading is
+4 u ||h||_1 (float rounding of the input and of the output, ||h||_1 the l1 norm of the impulse
+response) plus the design budget below. The oracles are the analog prototypes of the RBJ designs
+with the corner prewarped, which the bilinear map reproduces exactly, so the first-order shelf and
+the one-pole low-pass carry no budget.
 
-`// A one-pole loses 6 dB per octave, not 12.`
+### `Small_BiquadMagnitude`
 
-Golden values from the analytic single-RC magnitude 1/sqrt(1+(f/fc)^2), which the prewarped
-bilinear form reproduces exactly at the corner and closely below fs/8. The point of the case is
-the slope: a one-pole must lose 6 dB per octave, not the 12 dB a Butterworth biquad loses, or it
-would darken a Miller-limited stage twice as fast as the physics does.
+Rows: `LowPassPassesDcAtUnityGain` to `PeakingLeavesFarFrequenciesNearUnity` are the RBJ designs
+against `1/(s^2 + s/Q + 1)` and its shelf and peaking forms; `OnePoleLowPassAt1kHz` and
+`...AtTwiceItsCorner` against `1/(1 + jT/t_c)`; `FirstOrderShelfAt...` against
+`g (1 + jT/t_z)/(1 + jT/t_p)` for the DD-3 pre-emphasis corners (zero 594.07 Hz, pole 3386.28 Hz,
+low-frequency gain 33/47) at 96 kHz; `EqualCornerShelfAt...` where zero and pole cancel and leave
+the flat gain 2; `FirstOrderHighPassIs...` against the analog RC `j(f/fc)/(1 + j(f/fc))`. The
+impulse-invariant high-pass has a budget of omega_c^2 in relative gain, the order of the first
+term of its map that the RC leaves out; by hand it reads 2e-5 at the corner and at a decade
+(budget 1.7e-4 at fs = 48 kHz, fc = 100 Hz).
 
-`// Bilinear warping pulls the response down above fs/8.`
+### `OnePoleLowPassLosesSixDecibelsPerOctaveFarAboveItsCorner`
 
-Compared only up to fs/8; above that the bilinear map's frequency warping pulls the discrete
-response below the analytic one by design (0.55 dB at 55 kHz here), which is the usual and
-desirable direction for an anti-aliasing role.
+A one-pole loses 6.02 dB per octave, not the 12 dB of a Butterworth biquad. The probes sit at 40
+and 80 times the corner at 384 kHz; the bilinear warp lifts them by at most
+20 log10(e) x^2/2 dB (tan x <= x(1 + x^2/2) for x < 0.5) and the 1 under the root by at most
+10 log10(e)/omega^2 dB, and the test allows exactly that.
 
-### `BiquadFirstOrderShelfPlacesItsCornersAndAsymptotesExactly`
+### `FirstOrderShelfPairCancelsToTheInputWithinRounding`
 
-`// The goldens are the post-warp readings at 96 kHz.`
+Pre-emphasis (zero 594.07, pole 3386.28, gain 33/47) followed by the swapped pair (gain 47/33)
+is the identity, because the numerator of one is the denominator of the other and the gains
+multiply to 1. The error bound is u (max|middle| ||h_de||_1 + max|input|): the float rounding of
+the middle signal, filtered by the second stage, plus the float rounding of the output.
 
-DD-3 pre-emphasis (DR1+DR2 plan N4): zero 594.07 Hz, pole 3386.28 Hz, LF gain 33/47. These are
-the same corners modules/dd3::Dd3PreEmphasis configures, so the goldens below are shared with
-Dd3PreEmphasisHitsItsThreeDerivedGains (test_dd3_analog_filters.cpp).
+### `Small_BiquadLowCorner`
 
-The probe sits at fs/16 and fs = 96 kHz, not 48 kHz: at 48 kHz, fs/4 = 12 kHz lands the sine's
-own samples on the same four phase points every cycle (48000/12000 = 4 exactly), so the
-peak-of-sine estimator below can never see the true peak, whatever the tolerance; and fs/16 = 3
-kHz at 48 kHz sits below the pole, short of the HF asymptote it is meant to probe. 96 kHz clears
-both problems, matching the sibling DD-3 test's fix (commit dc8422f).
+The corner range that makes `set_high_pass` diverge at the 384 kHz oversampled rate: there the
+conjugate pole pair rounds onto the unit circle, while the one-pole's real pole R = exp(-2 pi fc/fs)
+does not. `PassbandGainMatchesTheAnalogRc` reads the 1 kHz gain. `StepResponseDecaysAsTheRealPolePowerN`
+uses y[n] = y[0] R^n after the first sample (b0 + b1 is exactly zero, so the recursion is a pure
+multiplication by R); the relative bound is 2 u_f for the two float roundings plus 3 n u_d for the
+state recursion and the library's one-ulp error in R.
 
-```text
-LF gain  = 0.7021277                     (-3.0745 dB)
-HF gain  = 0.7021277 * (3386.28/594.07)  = 0.7021277 * 5.7001364 = 4.0022236
-at 1 kHz = 0.7021277 * sqrt((1+(1000/594.07)^2)/(1+(1000/3386.28)^2))
-         = 0.7021277 * 1.8778100 = 1.31855
-```
-
-The discretised HF asymptote is tan-warped and is NOT 4.0022236 at Nyquist; the goldens below
-are the digital (post-warp) readings at 96 kHz, not the analogue ones above.
-
-### `BiquadFirstOrderShelfPairCancelsExactly`
-
-`// The shelf pair cancels to a null below -120 dB.`
-
-N4: pre-emphasis (zero 594.07, pole 3386.28, gain 33/47) followed by de-emphasis (the same two
-corners swapped, gain 47/33) is the identity, because the numerator polynomial of one is the
-denominator polynomial of the other and the scalars multiply to 1. Assert a null below -120 dB
-on a broadband signal, which no tolerance-based response check would catch.
-
-### `BiquadFirstOrderHighPassIsMinusThreeDecibelsAtItsCorner`
-
-`// A single RC reads -0.04 dB a decade above its corner.`
-
-A single RC section: -3.01 dB at the corner and -0.04 dB a decade above it, which is what
-separates it from the second-order Butterworth (-3.01 dB at fc, but -0.004 dB a decade up).
-
-### `BiquadFirstOrderHighPassStaysCleanAtLowCornersAtHighRates`
-
-`// The one-pole's real pole stays inside the unit circle.`
-
-The corner range that makes set_high_pass diverge at the 384 kHz oversampled rate: there the
-conjugate pole pair rounds onto the unit circle, while this one-pole's real pole does not. The
-passband reading is checked against the analogue RC value, an independent reference.
-
-### `BiquadSetCoefficientsLoadsThemVerbatim`
+### `SetCoefficientsLoadsThemVerbatim`
 
 `// The impulse response is 1, 1/2, 1/4, 1/8.`
 
 b = {1, 0, 0}, a = {-0.5, 0} is the one-pole y[n] = x[n] + 0.5 y[n-1], whose impulse response is
 the geometric sequence 1, 1/2, 1/4, 1/8.
+
+## `test_fft.cpp`
+
+The bound of every transform check is the radix-2 result of Higham (Accuracy and Stability of
+Numerical Algorithms, theorem 24.2): the 2-norm error is at most log2(N) eta / (1 - log2(N) eta)
+times the 2-norm of the result, with eta = u + gamma4 (sqrt 2 + u) for twiddles rounded to float.
+At N = 1 the bound is zero and the transform must be exact.
+
+### `InverseReconstructsTheInput`
+
+`// Each pass adds log2(N) eta of the norm; the scale adds u.`
+
+The forward pass leaves log2(N) eta of ||y||. The inverse divides that error by sqrt(N) and the
+input has sqrt(N) less norm than the spectrum, so it adds log2(N) eta of ||x|| again, and the
+1/N scale adds u.
+
+### `SingleBinCosineHasHalfNAtItsBinAndZeroElsewhere`
+
+`// The cosine puts N/2 on its bin and on the mirrored one.`
+
+A real cosine at bin k has N/2 at bins k and N - k and zero elsewhere. The float rounding of the
+input adds sqrt(N) u ||x|| to the bound.
 
 ## `test_newton_raphson_solver.cpp`
 

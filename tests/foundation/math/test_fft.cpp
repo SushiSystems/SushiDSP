@@ -23,161 +23,241 @@
 
 /**
  * @file test_fft.cpp
- * @brief Tests Fft against known bins, a brute-force DFT and its own inverse.
+ * @brief Tests Fft against known bins, a host DFT and its own inverse.
  * @author Mustafa Garip
  */
 
-#define _USE_MATH_DEFINES
+#include <gtest/gtest.h>
+
 #include <cmath>
-#include <cstdlib>
+#include <complex>
+#include <cstddef>
+#include <cstdint>
+#include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
+#include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/fft.hpp>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-TEST(Small_Fft, FftOfDcSignalHasEnergyOnlyInBinZero)
+namespace
 {
-    constexpr std::uint32_t size = 64;
-    SushiDSP::Fft fft(size);
+    const double kU = TestSupport::unit_roundoff<float>();
 
-    std::vector<float> time_domain(size, 1.0f);
-    std::vector<float> real_out(size, 0.0f);
-    std::vector<float> imag_out(size, 0.0f);
+    /// Pi to double precision, spelled out so the tests do not depend on M_PI being visible.
+    constexpr double K_PI = 3.14159265358979323846;
 
-    fft.forward(time_domain.data(), real_out.data(), imag_out.data());
-
-    EXPECT_NEAR(real_out[0], static_cast<float>(size), 1e-3f);
-    for (std::uint32_t bin = 1; bin < size; ++bin)
+    /// @brief Returns the relative 2-norm bound of a radix-2 FFT, log2(N) eta / (1 - log2(N) eta) with
+    /// eta = mu + gamma4 (sqrt 2 + mu) and mu = u for twiddles rounded to float (Higham, Accuracy and
+    /// Stability of Numerical Algorithms, theorem 24.2).
+    double fft_relative_bound(std::uint32_t size)
     {
-        EXPECT_NEAR(real_out[bin], 0.0f, 1e-3f);
-        EXPECT_NEAR(imag_out[bin], 0.0f, 1e-3f);
+        const double stages = std::log2(static_cast<double>(size));
+        const double gamma4 = 4.0 * kU / (1.0 - 4.0 * kU);
+        const double eta = kU + gamma4 * (std::sqrt(2.0) + kU);
+        return stages * eta / (1.0 - stages * eta);
     }
+
+    /// @brief Returns count deterministic samples in [-0.5, 0.5) from a linear congruential generator.
+    std::vector<float> noise_input(std::size_t count, std::uint32_t seed)
+    {
+        std::vector<float> samples(count);
+        std::uint32_t state = seed;
+        for (float& sample : samples)
+        {
+            state = state * 1103515245u + 12345u;
+            sample = static_cast<float>(state >> 16) / 65536.0f - 0.5f;
+        }
+        return samples;
+    }
+
+    /// @brief Returns the 2-norm of a real vector.
+    double norm_of(const std::vector<double>& values)
+    {
+        double sum = 0.0;
+        for (const double value : values)
+        {
+            sum += value * value;
+        }
+        return std::sqrt(sum);
+    }
+
+    /// The spectrum of a transform, as the two float arrays it fills.
+    struct Spectrum
+    {
+            std::vector<float> real;
+            std::vector<float> imag;
+    };
+
+    /// @brief Runs the forward transform of the input.
+    Spectrum forward_of(const SushiDSP::Fft& fft, const std::vector<float>& input)
+    {
+        Spectrum spectrum{std::vector<float>(input.size()), std::vector<float>(input.size())};
+        fft.forward(input.data(), spectrum.real.data(), spectrum.imag.data());
+        return spectrum;
+    }
+
+    /// @brief Returns the 2-norm of the difference between a spectrum and a double-precision one.
+    double spectrum_error(const Spectrum& computed, const std::vector<std::complex<double>>& reference)
+    {
+        std::vector<double> differences;
+        for (std::size_t k = 0; k < reference.size(); ++k)
+        {
+            differences.push_back(computed.real[k] - reference[k].real());
+            differences.push_back(computed.imag[k] - reference[k].imag());
+        }
+        return norm_of(differences);
+    }
+
+    /// @brief Returns the 2-norm of a complex spectrum.
+    double spectrum_norm(const std::vector<std::complex<double>>& reference)
+    {
+        std::vector<double> parts;
+        for (const std::complex<double>& bin : reference)
+        {
+            parts.push_back(bin.real());
+            parts.push_back(bin.imag());
+        }
+        return norm_of(parts);
+    }
+
+    /// @brief Returns the DFT of a real input by the definition, in double precision.
+    std::vector<std::complex<double>> host_dft(const std::vector<float>& input)
+    {
+        const std::size_t size = input.size();
+        std::vector<std::complex<double>> bins(size);
+        for (std::size_t k = 0; k < size; ++k)
+        {
+            for (std::size_t n = 0; n < size; ++n)
+            {
+                const double theta = -2.0 * K_PI * static_cast<double>((k * n) % size) / static_cast<double>(size);
+                bins[k] += static_cast<double>(input[n]) * std::complex<double>(std::cos(theta), std::sin(theta));
+            }
+        }
+        return bins;
+    }
+
+    /// @brief Returns a cosine of the given bin over size samples, rounded to float.
+    std::vector<float> cosine_input(std::uint32_t size, std::uint32_t bin)
+    {
+        std::vector<float> samples(size);
+        for (std::uint32_t n = 0; n < size; ++n)
+        {
+            samples[n] = static_cast<float>(
+                std::cos(2.0 * K_PI * static_cast<double>((bin * n) % size) / static_cast<double>(size)));
+        }
+        return samples;
+    }
+
+    /// @brief Returns the 2-norm of the difference between a reconstruction and its input.
+    double reconstruction_error(const std::vector<float>& reconstructed, const std::vector<float>& input)
+    {
+        std::vector<double> differences;
+        for (std::size_t n = 0; n < input.size(); ++n)
+        {
+            differences.push_back(static_cast<double>(reconstructed[n]) - input[n]);
+        }
+        return norm_of(differences);
+    }
+
+    /// @brief Returns the 2-norm of a float vector.
+    double input_norm_of(const std::vector<float>& input)
+    {
+        return norm_of(std::vector<double>(input.begin(), input.end()));
+    }
+
+    std::string size_name(const ::testing::TestParamInfo<std::uint32_t>& info)
+    {
+        return "Size" + std::to_string(info.param);
+    }
+
+    class Small_FftSize : public ::testing::TestWithParam<std::uint32_t>
+    {
+    };
+} // namespace
+
+TEST_P(Small_FftSize, ReportsTheSizeItWasBuiltWith)
+{
+    EXPECT_EQ(SushiDSP::Fft(GetParam()).size(), GetParam());
 }
 
-TEST(Small_Fft, FftOfSingleBinSineMatchesKnownBin)
+TEST_P(Small_FftSize, ForwardMatchesTheHostDft)
+{
+    const SushiDSP::Fft fft(GetParam());
+    const std::vector<float> input = noise_input(GetParam(), GetParam());
+    const std::vector<std::complex<double>> expected = host_dft(input);
+
+    const Spectrum spectrum = forward_of(fft, input);
+
+    // The host DFT is the exact transform of the float input, so only the FFT's own error remains.
+    const double bound = fft_relative_bound(GetParam()) * spectrum_norm(expected);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(spectrum_error(spectrum, expected), 0.0, bound)));
+}
+
+// Each pass adds log2(N) eta of the norm; the scale adds u. See tests/foundation/math/README.md.
+TEST_P(Small_FftSize, InverseReconstructsTheInput)
+{
+    const SushiDSP::Fft fft(GetParam());
+    const std::vector<float> input = noise_input(GetParam(), GetParam());
+    const Spectrum spectrum = forward_of(fft, input);
+    std::vector<float> reconstructed(GetParam());
+
+    fft.inverse(spectrum.real.data(), spectrum.imag.data(), reconstructed.data());
+
+    const double bound = (2.0 * fft_relative_bound(GetParam()) + kU) * input_norm_of(input);
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_error(reconstruction_error(reconstructed, input), 0.0, bound)));
+}
+
+INSTANTIATE_TEST_SUITE_P(Sizes, Small_FftSize, ::testing::Values(1u, 2u, 8u, 256u), size_name);
+
+TEST(Small_Fft, DcSignalHasEnergyOnlyInBinZero)
+{
+    constexpr std::uint32_t size = 64;
+    const SushiDSP::Fft fft(size);
+    std::vector<std::complex<double>> expected(size);
+    expected[0] = static_cast<double>(size);
+
+    const Spectrum spectrum = forward_of(fft, std::vector<float>(size, 1.0f));
+
+    const double bound = fft_relative_bound(size) * spectrum_norm(expected);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(spectrum_error(spectrum, expected), 0.0, bound)));
+}
+
+// The cosine puts N/2 on its bin and on the mirrored one. See tests/foundation/math/README.md.
+TEST(Small_Fft, SingleBinCosineHasHalfNAtItsBinAndZeroElsewhere)
 {
     constexpr std::uint32_t size = 64;
     constexpr std::uint32_t target_bin = 4;
-    SushiDSP::Fft fft(size);
+    const SushiDSP::Fft fft(size);
+    std::vector<std::complex<double>> expected(size);
+    expected[target_bin] = size / 2.0;
+    expected[size - target_bin] = size / 2.0;
+    const std::vector<float> input = cosine_input(size, target_bin);
 
-    std::vector<float> time_domain(size);
-    for (std::uint32_t n = 0; n < size; ++n)
-    {
-        time_domain[n] = std::cos(2.0f * static_cast<float>(M_PI) * target_bin * n / size);
-    }
-    std::vector<float> real_out(size, 0.0f);
-    std::vector<float> imag_out(size, 0.0f);
+    const Spectrum spectrum = forward_of(fft, input);
 
-    fft.forward(time_domain.data(), real_out.data(), imag_out.data());
-
-    const float expected_magnitude = static_cast<float>(size) / 2.0f;
-    const float magnitude_at_target = std::sqrt(real_out[target_bin] * real_out[target_bin] +
-                                                imag_out[target_bin] * imag_out[target_bin]);
-    EXPECT_NEAR(magnitude_at_target, expected_magnitude, 1e-2f);
+    // Rounding the cosine to float adds sqrt(N) u ||x|| to the spectrum.
+    const double bound =
+        fft_relative_bound(size) * spectrum_norm(expected) + std::sqrt(size) * kU * input_norm_of(input);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(spectrum_error(spectrum, expected), 0.0, bound)));
 }
 
-TEST(Small_Fft, FftMatchesBruteForceDftAcrossSizes)
+TEST(Small_Fft, ForwardAndInverseRoundTripPerformsNoHeapAllocation)
 {
-    for (std::uint32_t transform_size : {1u, 2u, 8u, 256u})
-    {
-        SushiDSP::Fft fft(transform_size);
-        EXPECT_EQ(fft.size(), transform_size);
-
-        std::vector<float> input(transform_size);
-        std::vector<float> real_out(transform_size);
-        std::vector<float> imag_out(transform_size);
-        std::vector<float> reconstructed(transform_size);
-        std::srand(transform_size);
-        for (auto& sample : input)
-        {
-            sample = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX) - 0.5f;
-        }
-
-        fft.forward(input.data(), real_out.data(), imag_out.data());
-        fft.inverse(real_out.data(), imag_out.data(), reconstructed.data());
-
-        for (std::uint32_t n = 0; n < transform_size; ++n)
-        {
-            EXPECT_NEAR(reconstructed[n], input[n], 1e-4f) << "size=" << transform_size;
-        }
-
-        for (std::uint32_t k = 0; k < transform_size; ++k)
-        {
-            double expected_real = 0.0;
-            double expected_imag = 0.0;
-            for (std::uint32_t n = 0; n < transform_size; ++n)
-            {
-                const double theta = -2.0 * M_PI * static_cast<double>(k) * static_cast<double>(n) /
-                                     static_cast<double>(transform_size);
-                expected_real += input[n] * std::cos(theta);
-                expected_imag += input[n] * std::sin(theta);
-            }
-            EXPECT_NEAR(real_out[k], static_cast<float>(expected_real), 1e-3f)
-                << "size=" << transform_size << " k=" << k;
-            EXPECT_NEAR(imag_out[k], static_cast<float>(expected_imag), 1e-3f)
-                << "size=" << transform_size << " k=" << k;
-        }
-    }
-}
-
-TEST(Small_Fft, ForwardThenInverseFftIsIdentity)
-{
-    constexpr std::uint32_t size = 64;
-    SushiDSP::Fft fft(size);
-
-    std::vector<float> original(size);
-    for (std::uint32_t n = 0; n < size; ++n)
-    {
-        original[n] = std::sin(2.0f * static_cast<float>(M_PI) * 3.0f * n / size) + 0.5f;
-    }
-
-    std::vector<float> real_out(size, 0.0f);
-    std::vector<float> imag_out(size, 0.0f);
-    std::vector<float> reconstructed(size, 0.0f);
-
-    fft.forward(original.data(), real_out.data(), imag_out.data());
-    fft.inverse(real_out.data(), imag_out.data(), reconstructed.data());
-
-    for (std::uint32_t n = 0; n < size; ++n)
-    {
-        EXPECT_NEAR(reconstructed[n], original[n], 1e-3f);
-    }
-}
-
-TEST(Medium_Fft, ForwardAndInverseRoundTripPerformsNoHeapAllocation)
-{
-    const std::uint32_t size = 256;
-    SushiDSP::Fft fft(size);
-
-    std::vector<float> time_domain(size, 0.0f);
-    std::vector<float> real_bins(size, 0.0f);
-    std::vector<float> imag_bins(size, 0.0f);
-    std::vector<float> reconstructed(size, 0.0f);
-    for (std::uint32_t i = 0; i < size; ++i)
-    {
-        time_domain[i] = static_cast<float>(i % 7) - 3.0f;
-    }
+    constexpr std::uint32_t size = 256;
+    const SushiDSP::Fft fft(size);
+    const std::vector<float> input = noise_input(size, 1u);
+    std::vector<float> real_bins(size);
+    std::vector<float> imag_bins(size);
+    std::vector<float> reconstructed(size);
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-
-    for (int block = 0; block < 1000; ++block)
-    {
-        fft.forward(time_domain.data(), real_bins.data(), imag_bins.data());
-        fft.inverse(real_bins.data(), imag_bins.data(), reconstructed.data());
-    }
-
+    fft.forward(input.data(), real_bins.data(), imag_bins.data());
+    fft.inverse(real_bins.data(), imag_bins.data(), reconstructed.data());
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
-    for (std::uint32_t i = 0; i < size; ++i)
-    {
-        EXPECT_NEAR(reconstructed[i], time_domain[i], 1e-3f);
-    }
 }
