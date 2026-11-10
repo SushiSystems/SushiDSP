@@ -301,20 +301,33 @@ length crossfade as well as the steady network.
 
 ## `test_late_reverb_design.cpp`
 
-### `LateReverbDesignMeetsTheModalOverlapRule`
+### `LinesTotalTheModalOverlapRuleForTheGarage`
 
 `// The lines total at least 1.4 * RT60(500 Hz).`
 
 Garage: Eyring gives RT60(500 Hz) = 1.160756 s, so the sixteen lines must total at least 1.4 \*
 1.160756 = 1.625058 s, which is 78002.8 frames at 48 kHz. The plan's 78019 rounds the decay to
-1.161 s first; both bounds hold.
+1.161 s first; the test holds the larger figure, which implies the smaller. The other two rooms
+are held to the unrounded rule from their own mid-band decay.
+
+### `ShortestLineIsTheFirstPrimeAtTheHandoverTime`
 
 `// The shortest line is the handover time.`
 
 The rule is met by spreading the lines, not by holding them all back: the shortest line is the
-handover time, so the tail's first output lands where the taps stop.
+handover time, so the tail's first output lands where the taps stop. The garage's handover time
+is 1749.27 frames; 1749 = 3 \* 11 \* 53 and 1751 = 17 \* 103, so the first prime is 1753.
 
-### `LateReverbDesignUsesSixteenDistinctPrimes`
+### `TailOnsetLandsBetweenTheHandoverTimeAndThePrimeAboveIt`
+
+`// The tail lands at the delay plus the shortest line.`
+
+The network emits nothing until its shortest line has run, and the delay ahead of it is the
+handover time less that line, never under zero. The onset, delay plus shortest line, is therefore
+never before the handover time, and never after the first prime at or above it, which is where
+the shortest line starts from.
+
+### `GarageLongestLineIsTheFirstPrimeAtItsTarget`
 
 `// The garage's primes run from 1753 to 10211.`
 
@@ -322,61 +335,70 @@ The garage's shortest line is its handover time, 1749 frames, and the spread tha
 sixteen to 1.4 \* 1.160756 s = 78002.8 frames is 5.836; the targets 1749 \* 5.836^(k / 15),
 rounded and stepped up to the next prime, run from 1753 to 10211.
 
+### `LineFramesStepsTheTargetsUpToThePrimes`
+
 `// The targets 4800 and 19200 step up to 4801 and 19207.`
 
 line_frames alone: a 100 ms shortest line spread by four asks for 4800 and 19200 frames, and the
 primes at or above them are 4801 and 19207.
+
+### `LineFramesGivesTheFirstSixteenPrimesForAZeroShortestLine`
 
 `// A zero shortest line yields the first sixteen primes.`
 
 A zero shortest line still yields sixteen distinct primes, the first sixteen, so the network
 never sees a zero or a repeated length.
 
-### `LateReverbDesignFitsTheDecayEachBandAsks`
+### `LineFiltersFitTheDecayEachBandAsks`
 
 `// The cascade lands within 1 dB of each wanted gain.`
 
-Line 0 is 3449 frames, tau_0 = 0.0718542 s. Against the garage's six decays 1.341523, 1.332626,
-1.160756, 1.146019, 1.108081 and 0.893129 s the wanted gains 10^(-3 tau_0 / RT60) are -3.214,
--3.235, -3.714, -3.762, -3.891 and -4.827 dB; the cascade lands within 1 dB.
+Against the garage's six decays 1.341523, 1.332626, 1.160756, 1.146019, 1.108081 and 0.893129 s
+a line of tau seconds must keep 10^(-3 tau / RT60), which is -60 tau / RT60 dB; the cascade lands
+within 1 dB, the clearance the band fit is held to.
 
-### `LateReverbDesignDelaysTheTailToTheHandoverTime`
+### `DelayIsZeroWhenTheShortestLineIsPastTheHandoverTime`
 
 `// The delay is the handover time less the shortest line.`
 
-t_c = 5 \* 2.5 / 343 = 0.0364431 s, 1749.27 frames. The network emits nothing until its shortest
-line has run, so the delay ahead of it is the handover time less that line: the garage's
-shortest line is 1753 frames, already past t_c, and the delay is zero.
+t_c = 5 \* 2.5 / 343 = 0.0364431 s, 1749.27 frames. The garage's shortest line is 1753 frames,
+already past t_c, so the delay is zero.
 
-`// Every reference room hands over within a frame of t_c.`
-
-Every reference room hands over within a frame of t_c, the tail's first output landing at the
-delay plus the shortest line.
-
-### `LateReverbDesignPutsEachBandsRemainderIntoTheTail`
+### `InputGainIsTheRootOfTheMeanShare`
 
 `// Each band's share is floored at -30 dB of the largest.`
 
 Per band the tail carries what the diffuse field holds beyond the taps: the input gain squared
 is the mean over bands of remainder over network energy, each band's share floored at -30 dB of
-the largest, and the output cascade lands within the fit's error on sqrt of each band's share of
-that mean. The bedroom's 4 kHz reflections alone exceed its field there, so that band's share
-sits on the floor.
+the largest. The bedroom's 4 kHz reflections alone exceed its field there, so that band's share
+sits on the floor. The gain is held to two float roundings of that root: the cast to float and
+the double arithmetic around it.
+
+### `ToneCorrectionFollowsEachBandsShareOfTheMean`
+
+The output cascade lands within 0.7 dB, a characterised figure, of the root of each band's share
+over that mean.
+
+### `InputGainGrowsAsTheTapsShrink`
 
 `// The tail's gain grows as the taps shrink.`
 
 An empty set leaves the whole field to the tail, so its gain exceeds the full set's; halving
 every tap raises the tail, since the remainder grows as the taps shrink.
 
-### `LateReverbDesignRendersEachBandsRemainder`
+### `EachBandWithARemainderRendersWithinItsClearance`
 
 `// Each band renders within 1 dB, or 2 dB at 125 Hz.`
 
 An impulse through LateReverb at each room's design, 131072 frames, read as the power spectrum's
 mean over each octave: within 1 dB of the band's remainder from 250 Hz up, where the fits are
 anchored on both sides, and within 2 dB at 125 Hz, whose octave runs down to 88 Hz where the
-line filters and the output cascade hold whatever their low shelves settle to. A band whose
-remainder is zero renders at least 10 dB under the reflections it would sit beneath.
+line filters and the output cascade hold whatever their low shelves settle to. Both figures are
+characterised. The rendering is made once per room and shared by the two tests of this group.
+
+### `EachBandWithNoRemainderRendersUnderTheReflections`
+
+A band whose remainder is zero renders at least 10 dB under the reflections it would sit beneath.
 
 ### `LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh`
 
@@ -386,41 +408,53 @@ sin(k d) / (k d) at d = 0.17 m is 0.975 at 125 Hz, 0.902 at 250 Hz and 0.0088 in
 kHz; the plan's 0.900 is the 250 Hz value and its 0.0257 matches no band. The coherence filter's
 magnitude is above 0.85 at 125 Hz and below 0.20 at 4 kHz.
 
-### `LateReverbDesignKeepsTheCoherencePairPowerComplementary`
+### `PairIsPowerComplementary`
 
-`// |A|^2 + |B|^2 = 1 within 1e-9.`
+`// |A|^2 + |B|^2 = 1 at every band centre and the corner.`
 
-|A|^2 + |B|^2 = 1 at every band centre and at the corner between them within 1e-9, so the right
-ear carries the left ear's energy whatever the split between the two sums.
+|A|^2 + |B|^2 = 1 at every band centre and at the corner between them, so the right ear carries
+the left ear's energy whatever the split between the two sums. The pair is exact in real
+arithmetic; the test allows 1e-9, a characterised figure, for the rounding of the coefficients.
 
-### `LateReverbDesignShapesTheOutputWithBothSections`
+### `ToneCorrectionBoostsTheBassAndCutsTheTrebleForTheGarage`
+
+`// The garage's output cascade runs from +4.7 dB at 125 Hz to -12.1 dB at 4 kHz.`
+
+The room's longer bass decay and the 4x12's beaming both handed to the tail: the cascade is
+above +3.5 dB at 125 Hz and under -11 dB at 4 kHz. `ToneCorrectionFallIsTheMeasuredRatioForTheGarage`
+holds the ratio of the two gains to the measured fall of 16.8 dB within 0.6.
+
+### `SecondToneSectionCarriesPartOfTheFallToFourKilohertz`
 
 `// The second section carries part of the fall to 4 kHz.`
 
-The garage's output cascade falls from +4.7 dB at 125 Hz to -12.1 dB at 4 kHz, the room's longer
-bass decay and the 4x12's beaming both handed to the tail; the first section alone does not
-reach the 4 kHz figure, so the second carries part of the fall.
+The first section alone does not reach the 4 kHz figure, so the second carries part of the fall.
 
-### `LateReverbDesignGivesTheMicrophoneOneOutput`
+### `MicrophoneCoherenceAIsAPassThrough`
 
 `// A microphone's coherence filters are pass-throughs.`
 
 ListenerKind::Microphone leaves both coherence filters as pass-throughs: b0 = 1 in each section,
-the rest 0. The lines are the room's, the same for both listeners.
+the rest 0. `MicrophoneCoherenceBIsAPassThrough` holds the second; `MicrophoneLinesAreTheRoomsLinesAsForTheEars`
+holds that the lines are the room's, the same for both listeners.
 
-### `LateReverbDesignHandsAMicrophoneItsShareOfTheField`
+### `OmniAtTheListenersSpotGetsTheEarsInputGain`
 
 `// A microphone picks up a^2 + (1 - a)^2 / 3 of the field.`
 
 A microphone picks up a^2 + (1 - a)^2 / 3 of a diffuse field's power for a pattern a + (1 - a)
 cos(theta): all of it as an omni, a third as a cardioid, so at one spot the cardioid's tail is
 designed against a third of the field beyond its own taps, and the ears' against the whole
-field. The taps hold each capsule's pattern already.
+field. The taps hold each capsule's pattern already. The omni's gain sits within 2 percent of the
+ears', a characterised figure.
 
-`// The design's gain follows that arithmetic within 1e-6.`
+### `CardioidInputGainFollowsAThirdOfTheField`
+
+`// The design's gain follows that arithmetic.`
 
 The cardioid's remainder at 500 Hz is a third of the field less its own taps, which the pattern
-has already reduced; the design's gain follows that arithmetic within 1e-6.
+has already reduced; the design's gain follows that arithmetic to two float roundings.
+`CardioidInputGainIsBelowTheOmnis` holds the ordering.
 
 ## `test_microphone_model.cpp`
 
