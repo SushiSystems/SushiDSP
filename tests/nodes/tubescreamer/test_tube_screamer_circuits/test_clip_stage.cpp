@@ -35,7 +35,7 @@
 #include <complex>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -55,13 +55,72 @@ namespace
     using namespace SushiDSP::tube_screamer_circuits;
     using namespace SushiDSP::test_circuits;
 
-    using ClipNode = DkBlockNode<ClipNetlist, ClipCircuit, DiodePairPort>;
-
     /// @brief Pi to double precision, spelled out so the tests do not depend on M_PI.
     constexpr double K_PI = 3.14159265358979323846;
 
     /// @brief The three DRIVE values ts_clip.asc steps, in setting-index order.
     inline constexpr std::array<double, 3> K_STEPPED_DRIVE{0.1, 0.5, 0.9};
+
+    /// @brief The deviation, in dB, the small-signal response may show against its closed form.
+    /// Characterized: the discrete-time block at 384 kHz against the continuous closed form.
+    constexpr double K_CLOSED_FORM_TOLERANCE_DB = 0.02;
+
+    /// @brief The relative bound on the clipped peak against the LTspice reference transient.
+    /// Characterized: the figure the reference was matched to.
+    constexpr double K_PEAK_RELATIVE_BOUND = 0.01;
+
+    /// @brief The share, in percent, of samples whose Newton iteration may fail to converge.
+    /// Specified: docs/design/SUSHIDSP/DSP_MATH_LIBRARY.md, 0.01 %.
+    constexpr double K_MAX_NON_CONVERGED_PERCENT = 0.01;
+
+    /// @brief The same share for the antialiased port. Characterized: 0.0105 % measured against
+    /// 0.0054 % for the plain port (README), so about twice the plain bound.
+    constexpr double K_ADAA_MAX_NON_CONVERGED_PERCENT = 0.02;
+
+    /// @brief The null residual, in dB, the plain port must reach against the LTspice transient.
+    /// Characterized: a regression floor at the measured figure.
+    constexpr double K_PLAIN_TRANSIENT_NULL_BOUND_DB = -60.0;
+
+    /// @brief The null residual, in dB, the antialiased port must reach against the LTspice transient.
+    /// Characterized: a regression floor, not an acceptance (README).
+    constexpr double K_ADAA_TRANSIENT_NULL_BOUND_DB = -28.0;
+
+    /// @brief The null residual, in dB, either port must reach against the reference decimated to
+    /// the shipping run rate. Characterized: a regression floor (README).
+    constexpr double K_RUN_RATE_NULL_BOUND_DB = -20.0;
+
+    /// @brief The null residual, in dB, the plain port must reach against the converged model.
+    /// Characterized: a regression floor (README).
+    constexpr double K_CONVERGED_PLAIN_NULL_BOUND_DB = -15.0;
+
+    /// @brief The null residual, in dB, the antialiased port must reach against the converged model.
+    /// Characterized: a regression floor (README).
+    constexpr double K_CONVERGED_ADAA_NULL_BOUND_DB = -4.0;
+
+    /// @brief The relative bound on the second branch being the first reversed, in the diode pair
+    /// port's voltage. Characterized: the last-bit difference the solver leaves.
+    constexpr double K_VOLTAGE_ASYMMETRY_BOUND = 1.0e-12;
+
+    /// @brief The relative and absolute bounds on the antiderivative quotient against the pair
+    /// current. Characterized: the central difference with a 1e-6 V step.
+    constexpr double K_ANTIDERIVATIVE_RELATIVE_BOUND = 1.0e-6;
+    constexpr double K_ANTIDERIVATIVE_ABSOLUTE_BOUND = 1.0e-15;
+
+    /// @brief How far below the plain port, in dB, the antialiased port must sink the folded harmonic.
+    /// Characterized (README).
+    constexpr double K_ADAA_FOLD_IMPROVEMENT_DB = 15.0;
+
+    /// @brief The level, in dB below the fundamental, the antialiased port must sink the folded
+    /// harmonic to. Characterized (README).
+    constexpr double K_ADAA_FOLD_FLOOR_DB = -50.0;
+
+    /// @brief The relative bound on a port with no history stamping the endpoint current.
+    /// Characterized: double rounding of the pair current.
+    constexpr double K_ENDPOINT_RELATIVE_BOUND = 1.0e-12;
+
+    /// @brief The relative shift the interval average must move the current by once there is history.
+    /// Characterized (README).
+    constexpr double K_HISTORY_SHIFT_RELATIVE_BOUND = 1.0e-6;
 
     /// @brief The closed-form small-signal response of the clip stage (D6c plan).
     ///
@@ -116,375 +175,7 @@ namespace
                 last_voltage = v;
             }
     };
-} // namespace
 
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockPreparesAtEveryDrivePositionIncludingBothEndStops)
-{
-    ClipNetlist netlist;
-    const std::size_t drive = build_clip_block(netlist);
-    EXPECT_EQ(netlist.node_count, 6u);
-
-    ClipCircuit circuit;
-    ASSERT_TRUE(circuit.prepare(netlist, 384000.0));
-    for (const double position : {0.0, 0.1, 0.5, 0.9, 1.0})
-    {
-        circuit.set_potentiometer(drive, position);
-        circuit.update_matrices_if_dirty();
-        DiodePairPort port;
-        std::array<double, 1> outputs{};
-        for (int sample = 0; sample < 64; ++sample)
-        {
-            circuit.process_sample(port, {0.1}, outputs);
-            ASSERT_TRUE(std::isfinite(outputs[0])) << position;
-        }
-    }
-    EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
-{
-    // At 1e-4 V the diodes stay on zero-bias conductance. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    constexpr double K_RUN_RATE = 384000.0;
-    constexpr double K_AMPLITUDE_VOLTS = 1.0e-4;
-
-    for (const double drive : K_STEPPED_DRIVE)
-    {
-        ClipNetlist netlist;
-        const std::size_t pot = build_clip_block(netlist);
-        ClipCircuit circuit;
-        DiodePairPort port;
-        ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
-        circuit.set_potentiometer(pot, drive_to_position(drive));
-        circuit.update_matrices_if_dirty();
-
-        for (const double frequency : {100.0, 1000.0})
-        {
-            circuit.reset();
-            std::array<double, 1> outputs{};
-            double peak = 0.0;
-            const std::size_t samples = static_cast<std::size_t>(0.5 * K_RUN_RATE);
-            for (std::size_t index = 0; index < samples; ++index)
-            {
-                const double phase =
-                    2.0 * K_PI * frequency * static_cast<double>(index) / K_RUN_RATE;
-                circuit.process_sample(port, {K_AMPLITUDE_VOLTS * std::sin(phase)}, outputs);
-                if (index > samples * 4 / 5)
-                {
-                    peak = std::max(peak, std::abs(outputs[0]));
-                }
-            }
-            const double measured_db = 20.0 * std::log10(peak / K_AMPLITUDE_VOLTS);
-            EXPECT_NEAR(measured_db, clip_closed_form_db(frequency, drive), 0.02)
-                << drive << " " << frequency;
-        }
-    }
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockClipsAtTheReferencePeakVoltage)
-{
-    // The diode pair, not Rf, sets the peak above threshold. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    constexpr double K_RUN_RATE = 192000.0;
-    const std::array<double, 3> expected_peak{0.481683, 0.490169, 0.491758};
-
-    for (std::size_t setting = 0; setting < K_STEPPED_DRIVE.size(); ++setting)
-    {
-        ClipNetlist netlist;
-        const std::size_t pot = build_clip_block(netlist);
-        ClipCircuit circuit;
-        DiodePairPort port;
-        ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
-        circuit.set_potentiometer(pot, drive_to_position(K_STEPPED_DRIVE[setting]));
-        circuit.update_matrices_if_dirty();
-
-        std::array<double, 1> outputs{};
-        double peak = 0.0;
-        const std::size_t samples = static_cast<std::size_t>(0.1 * K_RUN_RATE);
-        for (std::size_t index = 0; index < samples; ++index)
-        {
-            const double phase = 2.0 * K_PI * 1000.0 * static_cast<double>(index) / K_RUN_RATE;
-            circuit.process_sample(port, {0.1 * std::sin(phase)}, outputs);
-            if (index > samples / 2)
-            {
-                peak = std::max(peak, std::abs(outputs[0]));
-            }
-        }
-        EXPECT_NEAR(peak, expected_peak[setting], 0.01 * expected_peak[setting]) << setting;
-    }
-}
-
-namespace
-{
-    /// @brief Drives the convergence stimulus through one port and reports the miss ratio.
-    ///
-    /// Templated because the plain and the antialiased port have to be held to the same number:
-    /// antialiasing leaves the Newton residual alone by construction, so a port that changed the
-    /// convergence behaviour would be a port that changed the physics.
-    /// @tparam Port The nonlinear port type.
-    /// @param label Printed with the measurement.
-    /// @return Percentage of samples whose Newton iteration did not converge.
-    template <typename Port> double clip_convergence_percentage(const char* label)
-    {
-        constexpr double K_RUN_RATE = 384000.0;
-
-        ClipNetlist netlist;
-        const std::size_t pot = build_clip_block(netlist);
-
-        ClipCircuit circuit;
-        Port port;
-        EXPECT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
-        circuit.set_potentiometer(pot, drive_to_position(1.0));
-        circuit.update_matrices_if_dirty();
-        circuit.reset_statistics();
-
-        std::array<double, 1> outputs{};
-
-        const double sweep_seconds = 2.0;
-        const double sweep_low = 20.0;
-        const double sweep_high = 20000.0;
-        const double sweep_amplitude =
-            0.25118864 * static_cast<double>(SushiDSP::K_FULL_SCALE_VOLTS);
-        const std::size_t sweep_samples = static_cast<std::size_t>(sweep_seconds * K_RUN_RATE);
-        const double rate = std::log(sweep_high / sweep_low);
-        for (std::size_t index = 0; index < sweep_samples; ++index)
-        {
-            const double seconds = static_cast<double>(index) / K_RUN_RATE;
-            const double phase = 2.0 * K_PI * sweep_low * sweep_seconds / rate *
-                                 (std::exp(seconds * rate / sweep_seconds) - 1.0);
-            circuit.process_sample(port, {sweep_amplitude * std::sin(phase)}, outputs);
-        }
-
-        const std::array<double, 3> burst_volts{0.05, 0.5, 5.0};
-        const std::size_t burst_samples = static_cast<std::size_t>(0.25 * K_RUN_RATE);
-        for (double amplitude : burst_volts)
-        {
-            for (std::size_t index = 0; index < burst_samples; ++index)
-            {
-                const double seconds = static_cast<double>(index) / K_RUN_RATE;
-                const double drive = amplitude * std::sin(2.0 * K_PI * 1000.0 * seconds);
-                circuit.process_sample(port, {drive}, outputs);
-            }
-        }
-
-        const double ratio = 100.0 * static_cast<double>(circuit.non_converged_samples()) /
-                             static_cast<double>(circuit.total_samples());
-        std::printf("[ measure ] ts_clip DK %s: %.4f %% non-converged (%llu of %llu), max %u "
-                    "iterations, %llu NaN fallbacks\n",
-                    label, ratio, static_cast<unsigned long long>(circuit.non_converged_samples()),
-                    static_cast<unsigned long long>(circuit.total_samples()),
-                    circuit.maximum_iterations_seen(),
-                    static_cast<unsigned long long>(circuit.nan_fallback_samples()));
-        EXPECT_EQ(circuit.nan_fallback_samples(), 0u) << label;
-        return ratio;
-    }
-} // namespace
-
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
-{
-    // The stimulus is a sweep and three bursts at 384 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    EXPECT_LE(clip_convergence_percentage<DiodePairPort>("plain"), 0.01);
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockAdaaPortAlmostDoublesTheNewtonMissRate)
-{
-    // The ADAA port measures 0.0105 % against 0.0054 %. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    EXPECT_LE(clip_convergence_percentage<AdaaDiodePairPort>("adaa"), 0.02);
-}
-
-namespace
-{
-    /// @brief Nulls the clip block against ts_clip's LTspice transient through one port.
-    /// @tparam Port The nonlinear port type.
-    /// @param label Printed with each setting's residual.
-    /// @see tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md
-    template <typename Port> void run_clip_transient_null(const char* label, double bound_db)
-    {
-        const std::string path = spice_path("ts_clip", "tran");
-        const auto reference = SushiDSP::measure::load_transient_csv(path);
-        if (reference.input.empty())
-        {
-            GTEST_SKIP() << "No LTspice reference at " << path
-                         << ". Generate it with: python tools/spice/export.py --block ts_clip "
-                         << "(needs LTspice installed; see docs/reference/spice/README.md), "
-                         << "then commit the CSV.";
-        }
-
-        ASSERT_GT(reference.sample_rate, 0.0);
-
-        for (std::size_t setting = 0; setting < K_STEPPED_DRIVE.size(); ++setting)
-        {
-            std::vector<float> reference_output;
-            std::vector<float> circuit_output;
-
-            ClipNetlist netlist;
-            const std::size_t pot = build_clip_block(netlist);
-
-            ClipCircuit circuit;
-            Port port;
-            ASSERT_TRUE(circuit.prepare(netlist, reference.sample_rate));
-            circuit.set_potentiometer(pot, drive_to_position(K_STEPPED_DRIVE[setting]));
-            circuit.update_matrices_if_dirty();
-
-            // One pre-roll pass matches LTspice's own start. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-            constexpr std::size_t K_PRE_ROLL_PASSES = 1;
-
-            std::vector<double> stimulus;
-            for (std::size_t row = 0; row < reference.input.size(); ++row)
-            {
-                if (reference.setting[row] == static_cast<int>(setting))
-                {
-                    stimulus.push_back(static_cast<double>(reference.input[row]));
-                    reference_output.push_back(reference.output[row]);
-                }
-            }
-
-            std::array<double, 1> outputs{};
-            for (std::size_t pass = 0; pass <= K_PRE_ROLL_PASSES; ++pass)
-            {
-                const bool final_pass = pass == K_PRE_ROLL_PASSES;
-                for (std::size_t index = 0; index < stimulus.size(); ++index)
-                {
-                    circuit.process_sample(port, {stimulus[index]}, outputs);
-                    if (final_pass)
-                    {
-                        circuit_output.push_back(static_cast<float>(outputs[0]));
-                    }
-                }
-            }
-
-            ASSERT_FALSE(reference_output.empty()) << "setting " << setting;
-
-            std::vector<float> aligned_reference = reference_output;
-            for (std::size_t index = aligned_reference.size(); index-- > 1;)
-            {
-                aligned_reference[index] =
-                    0.5f * (aligned_reference[index] + aligned_reference[index - 1]);
-            }
-
-            band_limit(reference_output, reference.sample_rate, 10000.0);
-            band_limit(aligned_reference, reference.sample_rate, 10000.0);
-            band_limit(circuit_output, reference.sample_rate, 10000.0);
-
-            const double residual =
-                SushiDSP::measure::null_test(reference_output, circuit_output, 256);
-            const double aligned_residual =
-                SushiDSP::measure::null_test(aligned_reference, circuit_output, 256);
-            std::printf("[ measure ] ts_clip %s tran setting %zu: %.2f dB residual, "
-                        "%.2f dB against the half-sample-delayed reference\n",
-                        label, setting, residual, aligned_residual);
-            EXPECT_LE(std::min(residual, aligned_residual), bound_db)
-                << label << " setting " << setting;
-        }
-    }
-} // namespace
-
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockNullsAgainstTheLtspiceTransientReference)
-{
-    run_clip_transient_null<DiodePairPort>("plain", -60.0);
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockAdaaPortFallsShortOfTheLtspiceTransientReferenceByItsOwnBandLimiting)
-{
-    // The bound is a regression floor, not an acceptance. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    run_clip_transient_null<AdaaDiodePairPort>("adaa", -28.0);
-}
-
-TEST(Small_TubeScreamerCircuits, DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged)
-{
-    // The adapter scales by input_scale_volts both ways. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    constexpr double K_RUN_RATE = 192000.0;
-    constexpr std::uint32_t K_FRAMES = 256;
-    constexpr double K_SCALE_VOLTS = 2.0;
-    constexpr double K_DRIVE = 0.3;
-
-    std::vector<float> input(K_FRAMES, 0.0f);
-    for (std::uint32_t frame = 0; frame < K_FRAMES; ++frame)
-    {
-        input[frame] = 0.05f * static_cast<float>(std::sin(
-                                   2.0 * K_PI * 1000.0 * static_cast<double>(frame) / K_RUN_RATE));
-    }
-
-    ClipNode node;
-    build_clip_block(node.netlist);
-    node.pot_positions[0] = drive_to_position(K_DRIVE);
-    node.input_scale_volts = K_SCALE_VOLTS;
-    node.prepare({K_RUN_RATE, K_FRAMES, 1});
-    ASSERT_TRUE(node.prepared());
-
-    std::vector<float> output(K_FRAMES, 0.0f);
-    const float* inputs[1] = {input.data()};
-    float* outputs[1] = {output.data()};
-    SushiDSP::ProcessContext context{outputs, inputs, K_FRAMES, 0.0};
-    node.process(context);
-
-    ClipNetlist netlist;
-    const std::size_t pot = build_clip_block(netlist);
-    ClipCircuit circuit;
-    DiodePairPort port;
-    ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
-    circuit.set_potentiometer(pot, drive_to_position(K_DRIVE));
-    circuit.update_matrices_if_dirty();
-
-    for (std::uint32_t frame = 0; frame < K_FRAMES; ++frame)
-    {
-        std::array<double, 1> solved{};
-        circuit.process_sample(port, {static_cast<double>(input[frame]) * K_SCALE_VOLTS}, solved);
-        EXPECT_FLOAT_EQ(output[frame], static_cast<float>(solved[0] / K_SCALE_VOLTS)) << frame;
-    }
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockLeavesItsCurrentsInStepWithItsVoltagesAfterAFailedSolve)
-{
-    // A stiff diode and a flipping input exhaust the budget. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    constexpr double K_RUN_RATE = 48000.0;
-    constexpr std::size_t K_SAMPLES = 4096;
-
-    ClipNetlist netlist;
-    const std::size_t pot = build_clip_block(netlist);
-
-    ClipCircuit circuit;
-    StiffDiodePairPort port;
-    ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
-    circuit.set_potentiometer(pot, drive_to_position(1.0));
-    circuit.update_matrices_if_dirty();
-    circuit.reset_statistics();
-
-    const SushiDSP::SiliconDiode oracle{2.52e-9, 1.0, 5.0e-3};
-    std::array<double, 1> outputs{};
-    std::uint64_t seen_failures = 0;
-    std::uint64_t discriminating = 0;
-
-    for (std::size_t index = 0; index < K_SAMPLES; ++index)
-    {
-        const double drive = index % 2 == 0 ? 2.0 : -2.0;
-        circuit.process_sample(port, {drive}, outputs);
-        if (circuit.non_converged_samples() == seen_failures)
-        {
-            continue;
-        }
-        seen_failures = circuit.non_converged_samples();
-        if (port.previous_voltage != port.last_voltage)
-        {
-            ++discriminating;
-        }
-        for (std::size_t branch = 0; branch < 2; ++branch)
-        {
-            EXPECT_DOUBLE_EQ(circuit.nonlinear_currents()[branch],
-                             oracle.current(circuit.nonlinear_voltages()[branch]))
-                << "sample " << index << " branch " << branch;
-        }
-    }
-
-    std::printf("[ measure ] ts_clip stiff port: %llu failed solves, %llu of them returning an "
-                "iterate the models were not last evaluated at\n",
-                static_cast<unsigned long long>(seen_failures),
-                static_cast<unsigned long long>(discriminating));
-    ASSERT_GT(seen_failures, 0u) << "the stimulus never reached DkCircuit's failure path";
-    ASSERT_GT(discriminating, 0u) << "every failed solve returned the iterate the models were "
-                                     "last evaluated at, so the assertion above is vacuous";
-}
-
-namespace
-{
     /// @brief A port that records what DkCircuit's update hook is handed, stamping f(v) unchanged.
     ///
     /// AdaaDiodePairPort documents a precondition it cannot check on its own - that the pair's
@@ -535,6 +226,247 @@ namespace
             }
     };
 
+    /// @brief What the clip block did over a short run at one drive position.
+    struct PositionRun
+    {
+            bool prepared = false;
+            bool finite = true;
+            std::uint64_t nan_fallbacks = 0;
+    };
+
+    /// @brief Steps the block to a drive position and runs 64 samples of 0.1 V through it.
+    PositionRun run_clip_at_position(double position)
+    {
+        PositionRun run;
+        ClipNetlist netlist;
+        const std::size_t drive = build_clip_block(netlist);
+        ClipCircuit circuit;
+        run.prepared = circuit.prepare(netlist, 384000.0);
+        circuit.set_potentiometer(drive, position);
+        circuit.update_matrices_if_dirty();
+
+        DiodePairPort port;
+        std::array<double, 1> outputs{};
+        for (int sample = 0; sample < 64; ++sample)
+        {
+            circuit.process_sample(port, {0.1}, outputs);
+            run.finite = run.finite && std::isfinite(outputs[0]);
+        }
+        run.nan_fallbacks = circuit.nan_fallback_samples();
+        return run;
+    }
+
+    /// @brief Measures the small-signal gain of the plain port at one drive and frequency, in dB.
+    ///
+    /// Driven at 1e-4 V the diodes stay on their zero-bias conductance, the regime the closed form
+    /// describes.
+    double small_signal_gain_db(double drive, double frequency)
+    {
+        constexpr double K_RUN_RATE = 384000.0;
+        constexpr double K_AMPLITUDE_VOLTS = 1.0e-4;
+
+        ClipNetlist netlist;
+        const std::size_t pot = build_clip_block(netlist);
+        ClipCircuit circuit;
+        DiodePairPort port;
+        if (!circuit.prepare(netlist, K_RUN_RATE))
+        {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        circuit.set_potentiometer(pot, drive_to_position(drive));
+        circuit.update_matrices_if_dirty();
+
+        std::array<double, 1> outputs{};
+        double peak = 0.0;
+        const std::size_t samples = static_cast<std::size_t>(0.5 * K_RUN_RATE);
+        for (std::size_t index = 0; index < samples; ++index)
+        {
+            const double phase = 2.0 * K_PI * frequency * static_cast<double>(index) / K_RUN_RATE;
+            circuit.process_sample(port, {K_AMPLITUDE_VOLTS * std::sin(phase)}, outputs);
+            if (index > samples * 4 / 5)
+            {
+                peak = std::max(peak, std::abs(outputs[0]));
+            }
+        }
+        return 20.0 * std::log10(peak / K_AMPLITUDE_VOLTS);
+    }
+
+    /// @brief Returns the settled peak, in volts, of a 0.1 V, 1 kHz sine at a stepped drive setting.
+    double clipped_peak_at_setting(std::size_t setting)
+    {
+        constexpr double K_RUN_RATE = 192000.0;
+        ClipNetlist netlist;
+        const std::size_t pot = build_clip_block(netlist);
+        ClipCircuit circuit;
+        DiodePairPort port;
+        if (!circuit.prepare(netlist, K_RUN_RATE))
+        {
+            return 0.0;
+        }
+        circuit.set_potentiometer(pot, drive_to_position(K_STEPPED_DRIVE[setting]));
+        circuit.update_matrices_if_dirty();
+
+        std::array<double, 1> outputs{};
+        double peak = 0.0;
+        const std::size_t samples = static_cast<std::size_t>(0.1 * K_RUN_RATE);
+        for (std::size_t index = 0; index < samples; ++index)
+        {
+            const double phase = 2.0 * K_PI * 1000.0 * static_cast<double>(index) / K_RUN_RATE;
+            circuit.process_sample(port, {0.1 * std::sin(phase)}, outputs);
+            if (index > samples / 2)
+            {
+                peak = std::max(peak, std::abs(outputs[0]));
+            }
+        }
+        return peak;
+    }
+
+    /// @brief What a convergence run measured.
+    struct ConvergenceRun
+    {
+            bool prepared = false;
+            double non_converged_percent = 100.0;
+            std::uint64_t nan_fallbacks = 0;
+    };
+
+    /// @brief Drives the convergence stimulus through one port and reports the miss share.
+    ///
+    /// Templated because the plain and the antialiased port have to be held to the same number:
+    /// antialiasing leaves the Newton residual alone by construction, so a port that changed the
+    /// convergence behaviour would be a port that changed the physics.
+    /// @tparam Port The nonlinear port type.
+    /// @return The run: the percentage of samples whose Newton iteration did not converge.
+    template <typename Port> ConvergenceRun measure_clip_convergence()
+    {
+        constexpr double K_RUN_RATE = 384000.0;
+
+        ConvergenceRun run;
+        ClipNetlist netlist;
+        const std::size_t pot = build_clip_block(netlist);
+
+        ClipCircuit circuit;
+        Port port;
+        run.prepared = circuit.prepare(netlist, K_RUN_RATE);
+        circuit.set_potentiometer(pot, drive_to_position(1.0));
+        circuit.update_matrices_if_dirty();
+        circuit.reset_statistics();
+
+        std::array<double, 1> outputs{};
+
+        const double sweep_seconds = 2.0;
+        const double sweep_low = 20.0;
+        const double sweep_high = 20000.0;
+        const double sweep_amplitude =
+            0.25118864 * static_cast<double>(SushiDSP::K_FULL_SCALE_VOLTS);
+        const std::size_t sweep_samples = static_cast<std::size_t>(sweep_seconds * K_RUN_RATE);
+        const double rate = std::log(sweep_high / sweep_low);
+        for (std::size_t index = 0; index < sweep_samples; ++index)
+        {
+            const double seconds = static_cast<double>(index) / K_RUN_RATE;
+            const double phase = 2.0 * K_PI * sweep_low * sweep_seconds / rate *
+                                 (std::exp(seconds * rate / sweep_seconds) - 1.0);
+            circuit.process_sample(port, {sweep_amplitude * std::sin(phase)}, outputs);
+        }
+
+        const std::array<double, 3> burst_volts{0.05, 0.5, 5.0};
+        const std::size_t burst_samples = static_cast<std::size_t>(0.25 * K_RUN_RATE);
+        for (double amplitude : burst_volts)
+        {
+            for (std::size_t index = 0; index < burst_samples; ++index)
+            {
+                const double seconds = static_cast<double>(index) / K_RUN_RATE;
+                const double drive = amplitude * std::sin(2.0 * K_PI * 1000.0 * seconds);
+                circuit.process_sample(port, {drive}, outputs);
+            }
+        }
+
+        run.non_converged_percent = 100.0 * static_cast<double>(circuit.non_converged_samples()) /
+                                    static_cast<double>(circuit.total_samples());
+        run.nan_fallbacks = circuit.nan_fallback_samples();
+        return run;
+    }
+
+    /// @brief One setting's stimulus and reference output rows, cut from a stepped transient.
+    struct SettingRows
+    {
+            std::vector<float> stimulus;
+            std::vector<float> output;
+    };
+
+    /// @brief Cuts the rows of one setting out of a stepped transient reference.
+    SettingRows extract_setting_rows(const SushiDSP::measure::Transient& reference, std::size_t setting)
+    {
+        SettingRows rows;
+        for (std::size_t row = 0; row < reference.input.size(); ++row)
+        {
+            if (reference.setting[row] == static_cast<int>(setting))
+            {
+                rows.stimulus.push_back(reference.input[row]);
+                rows.output.push_back(reference.output[row]);
+            }
+        }
+        return rows;
+    }
+
+    /// @brief Nulls the clip block against ts_clip's LTspice transient through one port.
+    /// @tparam Port The nonlinear port type.
+    /// @param reference The stepped transient reference.
+    /// @param setting The setting index.
+    /// @return The better, in dB, of the residual against the reference and against the
+    /// half-sample-delayed reference; 0 dB when the block does not prepare or the setting has no rows.
+    /// @see tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md
+    template <typename Port>
+    double clip_transient_null_residual_db(const SushiDSP::measure::Transient& reference, std::size_t setting)
+    {
+        const SettingRows rows = extract_setting_rows(reference, setting);
+        if (rows.output.empty())
+        {
+            return 0.0;
+        }
+
+        ClipNetlist netlist;
+        const std::size_t pot = build_clip_block(netlist);
+        ClipCircuit circuit;
+        Port port;
+        if (!circuit.prepare(netlist, reference.sample_rate))
+        {
+            return 0.0;
+        }
+        circuit.set_potentiometer(pot, drive_to_position(K_STEPPED_DRIVE[setting]));
+        circuit.update_matrices_if_dirty();
+
+        // One pre-roll pass matches LTspice's own start. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+        constexpr std::size_t K_PRE_ROLL_PASSES = 1;
+        std::vector<float> circuit_output;
+        std::array<double, 1> outputs{};
+        for (std::size_t pass = 0; pass <= K_PRE_ROLL_PASSES; ++pass)
+        {
+            const bool final_pass = pass == K_PRE_ROLL_PASSES;
+            for (std::size_t index = 0; index < rows.stimulus.size(); ++index)
+            {
+                circuit.process_sample(port, {static_cast<double>(rows.stimulus[index])}, outputs);
+                if (final_pass)
+                {
+                    circuit_output.push_back(static_cast<float>(outputs[0]));
+                }
+            }
+        }
+
+        std::vector<float> reference_output = rows.output;
+        std::vector<float> aligned_reference = rows.output;
+        for (std::size_t index = aligned_reference.size(); index-- > 1;)
+        {
+            aligned_reference[index] = 0.5f * (aligned_reference[index] + aligned_reference[index - 1]);
+        }
+
+        band_limit(reference_output, reference.sample_rate, 10000.0);
+        band_limit(aligned_reference, reference.sample_rate, 10000.0);
+        band_limit(circuit_output, reference.sample_rate, 10000.0);
+
+        return std::min(SushiDSP::measure::null_test(reference_output, circuit_output, 256),
+                        SushiDSP::measure::null_test(aligned_reference, circuit_output, 256));
+    }
+
     /// @brief Magnitude of one bin of a rectangular-windowed DFT, in signal units.
     /// @param signal The signal; its length is the transform length.
     /// @param bin The bin index.
@@ -560,8 +492,9 @@ namespace
     /// @param tone_hz Stimulus frequency in hertz.
     /// @param amplitude_volts Stimulus peak in volts.
     /// @param output Receives the analysis frame; its size is the transform length.
+    /// @return Whether the block prepared.
     template <typename Port>
-    void render_clip_tone(double tone_hz, double amplitude_volts, std::vector<double>& output)
+    bool render_clip_tone(double tone_hz, double amplitude_volts, std::vector<double>& output)
     {
         constexpr double K_RUN_RATE = 192000.0;
 
@@ -569,7 +502,10 @@ namespace
         const std::size_t pot = build_clip_block(netlist);
         ClipCircuit circuit;
         Port port;
-        ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
+        if (!circuit.prepare(netlist, K_RUN_RATE))
+        {
+            return false;
+        }
         circuit.set_potentiometer(pot, drive_to_position(1.0));
         circuit.update_matrices_if_dirty();
 
@@ -590,135 +526,144 @@ namespace
                 solved);
             output[index] = solved[0];
         }
-    }
-} // namespace
-
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockDiodePairPortIsOneScalarPortInDisguise)
-{
-    // Branch 1 is branch 0 reversed, to the last bit. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    constexpr double K_RUN_RATE = 192000.0;
-
-    ClipNetlist netlist;
-    const std::size_t pot = build_clip_block(netlist);
-    ClipCircuit circuit;
-    RecordingDiodePairPort port;
-    ASSERT_TRUE(circuit.prepare(netlist, K_RUN_RATE));
-    circuit.set_potentiometer(pot, drive_to_position(1.0));
-    circuit.update_matrices_if_dirty();
-
-    std::array<double, 1> solved{};
-    for (std::size_t index = 0; index < 4096; ++index)
-    {
-        const double seconds = static_cast<double>(index) / K_RUN_RATE;
-        circuit.process_sample(port, {0.5 * std::sin(2.0 * K_PI * 1000.0 * seconds)}, solved);
+        return true;
     }
 
-    EXPECT_EQ(port.worst_open_circuit_asymmetry, 0.0);
-    EXPECT_EQ(port.worst_impedance_asymmetry, 0.0);
-    EXPECT_LT(port.worst_voltage_asymmetry, 1e-12);
-    EXPECT_LT(port.last_impedance, 0.0);
-}
-
-TEST(Small_TubeScreamerCircuits, AdaaDiodePairPortAntiderivativeDividesBackToThePairCurrent)
-{
-    // d/dp of H(v) - F00*h(v)^2/2 comes back as h(v). See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    const SushiDSP::SiliconDiode diode;
-
-    ClipNetlist netlist;
-    const std::size_t pot = build_clip_block(netlist);
-    ClipCircuit circuit;
-    RecordingDiodePairPort probe;
-    ASSERT_TRUE(circuit.prepare(netlist, 192000.0));
-    circuit.set_potentiometer(pot, drive_to_position(1.0));
-    circuit.update_matrices_if_dirty();
-    std::array<double, 1> solved{};
-    circuit.process_sample(probe, {0.5}, solved);
-    const double impedance = probe.last_impedance;
-    ASSERT_LT(impedance, 0.0);
-
-    auto pair_current = [&](double v)
+    /// @brief Returns how far below its fundamental the folded harmonic sits in a rendered tone, in dB.
+    double folded_harmonic_db(const std::vector<double>& tone)
     {
-        return diode.current(v) - diode.current(-v);
-    };
-    auto open_circuit = [&](double v)
-    {
-        return v - impedance * pair_current(v);
-    };
-    auto antiderivative = [&](double v)
-    {
-        const double current = pair_current(v);
-        return diode.current_antiderivative(v) + diode.current_antiderivative(-v) -
-               0.5 * impedance * current * current;
-    };
-
-    const double delta = 1.0e-6;
-    for (double voltage = -1.2; voltage <= 1.2; voltage += 0.01)
-    {
-        const double divided = (antiderivative(voltage + delta) - antiderivative(voltage - delta)) /
-                               (open_circuit(voltage + delta) - open_circuit(voltage - delta));
-        const double expected = pair_current(voltage);
-        EXPECT_NEAR(divided, expected, 1.0e-6 * std::fabs(expected) + 1.0e-15) << voltage;
+        constexpr std::size_t K_FUNDAMENTAL_BIN = 1280; // 15 kHz
+        constexpr std::size_t K_FOLD_BIN = 256;         // 3 kHz
+        return 20.0 * std::log10(magnitude_at_bin(tone, K_FOLD_BIN) / magnitude_at_bin(tone, K_FUNDAMENTAL_BIN));
     }
-}
 
-TEST(Small_TubeScreamerCircuits, AdaaDiodePairPortSinksTheFoldedHarmonicThatSetsTheAliasFloor)
-{
-    // The 13th harmonic of 15 kHz folds to 3 kHz at 192 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    constexpr std::size_t K_FRAMES = 16384;
-    constexpr std::size_t K_FUNDAMENTAL_BIN = 1280; // 15 kHz
-    constexpr std::size_t K_FOLD_BIN = 256;         // 3 kHz
+    /// @brief Runs the recording port through a 1 kHz, 0.5 V sine at the shipping run rate.
+    RecordingDiodePairPort run_recording_port()
+    {
+        constexpr double K_RUN_RATE = 192000.0;
 
-    std::vector<double> plain(K_FRAMES, 0.0);
-    std::vector<double> antialiased(K_FRAMES, 0.0);
-    render_clip_tone<DiodePairPort>(15000.0, 0.5, plain);
-    render_clip_tone<AdaaDiodePairPort>(15000.0, 0.5, antialiased);
+        ClipNetlist netlist;
+        const std::size_t pot = build_clip_block(netlist);
+        ClipCircuit circuit;
+        RecordingDiodePairPort port;
+        static_cast<void>(circuit.prepare(netlist, K_RUN_RATE));
+        circuit.set_potentiometer(pot, drive_to_position(1.0));
+        circuit.update_matrices_if_dirty();
 
-    const double plain_db = 20.0 * std::log10(magnitude_at_bin(plain, K_FOLD_BIN) /
-                                              magnitude_at_bin(plain, K_FUNDAMENTAL_BIN));
-    const double antialiased_db =
-        20.0 * std::log10(magnitude_at_bin(antialiased, K_FOLD_BIN) /
-                          magnitude_at_bin(antialiased, K_FUNDAMENTAL_BIN));
-    std::printf("[ measure ] ts_clip 15 kHz 13th harmonic folded to 3 kHz: plain %.2f dB, "
-                "adaa %.2f dB\n",
-                plain_db, antialiased_db);
+        std::array<double, 1> solved{};
+        for (std::size_t index = 0; index < 4096; ++index)
+        {
+            const double seconds = static_cast<double>(index) / K_RUN_RATE;
+            circuit.process_sample(port, {0.5 * std::sin(2.0 * K_PI * 1000.0 * seconds)}, solved);
+        }
+        return port;
+    }
 
-    EXPECT_LE(antialiased_db, plain_db - 15.0);
-    EXPECT_LE(antialiased_db, -50.0);
-}
+    /// @brief Returns the port impedance the recording port sees at a 0.5 V input.
+    double probe_port_impedance()
+    {
+        ClipNetlist netlist;
+        const std::size_t pot = build_clip_block(netlist);
+        ClipCircuit circuit;
+        RecordingDiodePairPort probe;
+        static_cast<void>(circuit.prepare(netlist, 192000.0));
+        circuit.set_potentiometer(pot, drive_to_position(1.0));
+        circuit.update_matrices_if_dirty();
+        std::array<double, 1> solved{};
+        circuit.process_sample(probe, {0.5}, solved);
+        return probe.last_impedance;
+    }
 
-TEST(Small_TubeScreamerCircuits, AdaaDiodePairPortResetDropsItsSampleIntervalHistory)
-{
-    // A port with no history stamps the plain pair current. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    const SushiDSP::SiliconDiode diode;
-    AdaaDiodePairPort port;
+    /// @brief Returns the worst miss of the antiderivative quotient against the pair current,
+    /// over -1.2 V to 1.2 V in 0.01 V steps, as a multiple of the allowed miss.
+    ///
+    /// d/dp of H(v) - F00*h(v)^2/2 comes back as h(v), checked by a central difference.
+    double worst_antiderivative_miss(double impedance)
+    {
+        const SushiDSP::SiliconDiode diode;
+        auto pair_current = [&](double v) { return diode.current(v) - diode.current(-v); };
+        auto open_circuit = [&](double v) { return v - impedance * pair_current(v); };
+        auto antiderivative = [&](double v)
+        {
+            const double current = pair_current(v);
+            return diode.current_antiderivative(v) + diode.current_antiderivative(-v) - 0.5 * impedance * current * current;
+        };
 
-    const std::array<double, 2> voltage{0.6, -0.6};
-    const std::array<double, 2> open_circuit{1.4, -1.4};
-    const std::array<std::array<double, 2>, 2> impedance{
-        {{-40000.0, 40000.0}, {40000.0, -40000.0}}};
-    std::array<double, 2> currents{};
+        constexpr double K_DELTA = 1.0e-6;
+        double worst = 0.0;
+        for (int step = 0; step <= 240; ++step)
+        {
+            const double voltage = -1.2 + 0.01 * static_cast<double>(step);
+            const double divided = (antiderivative(voltage + K_DELTA) - antiderivative(voltage - K_DELTA)) /
+                                   (open_circuit(voltage + K_DELTA) - open_circuit(voltage - K_DELTA));
+            const double expected = pair_current(voltage);
+            const double allowed = K_ANTIDERIVATIVE_RELATIVE_BOUND * std::fabs(expected) + K_ANTIDERIVATIVE_ABSOLUTE_BOUND;
+            worst = std::max(worst, std::fabs(divided - expected) / allowed);
+        }
+        return worst;
+    }
 
-    port.currents_for_update(open_circuit, voltage, impedance, currents);
-    const double endpoint_at_six = diode.current(0.6) - diode.current(-0.6);
-    EXPECT_NEAR(currents[0] - currents[1], endpoint_at_six, 1e-12 * std::fabs(endpoint_at_six));
-    EXPECT_DOUBLE_EQ(currents[1], -currents[0]);
+    /// @brief What the stiff port left behind after each failed solve.
+    struct FailedSolveTrail
+    {
+            bool prepared = false;
+            std::uint64_t failures = 0;
+            std::uint64_t discriminating = 0;
+            std::vector<std::array<double, 2>> currents;
+            std::vector<std::array<double, 2>> oracle_currents;
+    };
 
-    const std::array<double, 2> moved_voltage{0.5, -0.5};
-    const std::array<double, 2> moved_open_circuit{0.9, -0.9};
-    const double endpoint_at_five = diode.current(0.5) - diode.current(-0.5);
+    /// @brief Drives a flipping 2 V input through the stiff port and records the currents after each
+    /// failed solve beside what the diode gives at the voltages the circuit reports.
+    ///
+    /// A stiff diode and a flipping input exhaust the iteration budget. See
+    /// tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    FailedSolveTrail record_failed_solves()
+    {
+        constexpr double K_RUN_RATE = 48000.0;
+        constexpr std::size_t K_SAMPLES = 4096;
 
-    // A second sample has an interval to average over, so it no longer sits on the endpoint.
-    port.currents_for_update(moved_open_circuit, moved_voltage, impedance, currents);
-    EXPECT_GT(std::fabs(currents[0] - currents[1] - endpoint_at_five),
-              1e-6 * std::fabs(endpoint_at_five));
+        FailedSolveTrail trail;
+        ClipNetlist netlist;
+        const std::size_t pot = build_clip_block(netlist);
 
-    port.reset();
-    port.currents_for_update(moved_open_circuit, moved_voltage, impedance, currents);
-    EXPECT_NEAR(currents[0] - currents[1], endpoint_at_five, 1e-12 * std::fabs(endpoint_at_five));
-}
+        ClipCircuit circuit;
+        StiffDiodePairPort port;
+        trail.prepared = circuit.prepare(netlist, K_RUN_RATE);
+        circuit.set_potentiometer(pot, drive_to_position(1.0));
+        circuit.update_matrices_if_dirty();
+        circuit.reset_statistics();
 
-namespace
-{
+        const SushiDSP::SiliconDiode oracle{2.52e-9, 1.0, 5.0e-3};
+        std::array<double, 1> outputs{};
+        for (std::size_t index = 0; index < K_SAMPLES; ++index)
+        {
+            const double drive = index % 2 == 0 ? 2.0 : -2.0;
+            circuit.process_sample(port, {drive}, outputs);
+            if (circuit.non_converged_samples() != trail.failures)
+            {
+                trail.failures = circuit.non_converged_samples();
+                trail.discriminating += port.previous_voltage != port.last_voltage ? 1u : 0u;
+                trail.currents.push_back({circuit.nonlinear_currents()[0], circuit.nonlinear_currents()[1]});
+                trail.oracle_currents.push_back({oracle.current(circuit.nonlinear_voltages()[0]), oracle.current(circuit.nonlinear_voltages()[1])});
+            }
+        }
+        return trail;
+    }
+
+    /// @brief Fails for every failed solve whose currents differ from the diode's at its voltages.
+    void expect_currents_in_step_with_voltages(const FailedSolveTrail& trail)
+    {
+        for (std::size_t solve = 0; solve < trail.currents.size(); ++solve)
+        {
+            for (std::size_t branch = 0; branch < 2; ++branch)
+            {
+                EXPECT_DOUBLE_EQ(trail.currents[solve][branch], trail.oracle_currents[solve][branch])
+                    << "failed solve " << solve << " branch " << branch;
+            }
+        }
+    }
+
     /// @brief The shipping run rate of the D6c chain: 48 kHz at the 4x oversampling factor.
     constexpr double K_SHIPPING_RUN_RATE = 384000.0;
 
@@ -755,7 +700,7 @@ namespace
     /// @param stimulus The decimated stimulus in volts.
     /// @param reference The decimated reference output, already head-trimmed.
     /// @param drive The drive pot's position.
-    /// @return Null residual in dB.
+    /// @return Null residual in dB; 0 dB when the block does not prepare.
     template <typename Port>
     double clip_run_rate_residual(const std::vector<float>& stimulus,
                                   const std::vector<float>& reference, double drive)
@@ -764,7 +709,10 @@ namespace
         const std::size_t pot = build_clip_block(netlist);
         ClipCircuit circuit;
         Port port;
-        EXPECT_TRUE(circuit.prepare(netlist, K_SHIPPING_RUN_RATE));
+        if (!circuit.prepare(netlist, K_SHIPPING_RUN_RATE))
+        {
+            return 0.0;
+        }
         circuit.set_potentiometer(pot, drive_to_position(drive));
         circuit.update_matrices_if_dirty();
 
@@ -788,62 +736,24 @@ namespace
         band_limit(circuit_output, K_SHIPPING_RUN_RATE, 10000.0);
         return SushiDSP::measure::null_test(trimmed_reference, circuit_output, 64);
     }
-} // namespace
 
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheReferenceDecimatedToTheShippingRunRate)
-{
-    // Both ports null against LTspice decimated to 192 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    const std::string path = spice_path("ts_clip", "tran");
-    const auto reference = SushiDSP::measure::load_transient_csv(path);
-    if (reference.input.empty())
+    /// @brief Returns the null residual of one port against the reference decimated to the shipping
+    /// run rate at one setting; 0 dB when the decimated reference is too short to trim.
+    template <typename Port>
+    double run_rate_null_residual_db(const SushiDSP::measure::Transient& reference, std::size_t setting)
     {
-        GTEST_SKIP() << "No LTspice reference at " << path
-                     << ". Generate it with: python tools/spice/export.py --block ts_clip "
-                     << "(needs LTspice installed; see docs/reference/spice/README.md), "
-                     << "then commit the CSV.";
-    }
-    ASSERT_GT(reference.sample_rate, 0.0);
-
-    for (std::size_t setting = 0; setting < K_STEPPED_DRIVE.size(); ++setting)
-    {
-        std::vector<float> stimulus;
-        std::vector<float> reference_output;
-        for (std::size_t row = 0; row < reference.input.size(); ++row)
+        const SettingRows rows = extract_setting_rows(reference, setting);
+        const std::vector<float> decimated_stimulus = decimate_to_run_rate(rows.stimulus, reference.sample_rate);
+        const std::vector<float> decimated_reference = decimate_to_run_rate(rows.output, reference.sample_rate);
+        if (decimated_reference.size() <= K_DECIMATION_SETTLE * 2u)
         {
-            if (reference.setting[row] == static_cast<int>(setting))
-            {
-                stimulus.push_back(reference.input[row]);
-                reference_output.push_back(reference.output[row]);
-            }
+            return 0.0;
         }
-        ASSERT_FALSE(reference_output.empty()) << "setting " << setting;
-
-        const std::vector<float> decimated_stimulus =
-            decimate_to_run_rate(stimulus, reference.sample_rate);
-        const std::vector<float> decimated_reference =
-            decimate_to_run_rate(reference_output, reference.sample_rate);
-        ASSERT_GT(decimated_reference.size(), K_DECIMATION_SETTLE * 2u) << "setting " << setting;
-
-        const std::vector<float> trimmed(decimated_reference.begin() +
-                                             static_cast<std::ptrdiff_t>(K_DECIMATION_SETTLE),
+        const std::vector<float> trimmed(decimated_reference.begin() + static_cast<std::ptrdiff_t>(K_DECIMATION_SETTLE),
                                          decimated_reference.end());
-
-        const double plain = clip_run_rate_residual<DiodePairPort>(decimated_stimulus, trimmed,
-                                                                   K_STEPPED_DRIVE[setting]);
-        const double antialiased = clip_run_rate_residual<AdaaDiodePairPort>(
-            decimated_stimulus, trimmed, K_STEPPED_DRIVE[setting]);
-        std::printf("[ measure ] ts_clip at 192 kHz vs decimated reference, setting %zu: "
-                    "plain %.2f dB, adaa %.2f dB\n",
-                    setting, plain, antialiased);
-
-        // Which port wins is printed, not asserted. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-        EXPECT_LE(plain, -20.0) << "setting " << setting;
-        EXPECT_LE(antialiased, -20.0) << "setting " << setting;
+        return clip_run_rate_residual<Port>(decimated_stimulus, trimmed, K_STEPPED_DRIVE[setting]);
     }
-}
 
-namespace
-{
     /// @brief Rate the converged reference run uses: ten times the shipping run rate.
     ///
     /// At 1.92 MHz the 13th harmonic of a 15 kHz tone sits at 195 kHz against a Nyquist of
@@ -858,7 +768,7 @@ namespace
     /// @param tone_hz Stimulus frequency in hertz.
     /// @param amplitude_volts Stimulus peak in volts.
     /// @param frames Analysis frames to keep after settling.
-    /// @return The analysis window.
+    /// @return The analysis window; empty when the block does not prepare.
     template <typename Port>
     std::vector<float> render_clip_at_rate(double run_rate, double tone_hz, double amplitude_volts,
                                            std::size_t frames)
@@ -867,7 +777,10 @@ namespace
         const std::size_t pot = build_clip_block(netlist);
         ClipCircuit circuit;
         Port port;
-        EXPECT_TRUE(circuit.prepare(netlist, run_rate));
+        if (!circuit.prepare(netlist, run_rate))
+        {
+            return {};
+        }
         circuit.set_potentiometer(pot, drive_to_position(1.0));
         circuit.update_matrices_if_dirty();
 
@@ -893,7 +806,265 @@ namespace
         }
         return window;
     }
+
+    /// @brief Drops the decimation settle from the head of a signal.
+    std::vector<float> trim_decimation_settle(const std::vector<float>& signal)
+    {
+        return std::vector<float>(signal.begin() + static_cast<std::ptrdiff_t>(K_DECIMATION_SETTLE), signal.end());
+    }
+
+    /// @brief Names a drive and a frequency of the small-signal sweep.
+    struct SmallSignalRow
+    {
+            const char* name;
+            std::size_t setting;
+            double frequency;
+    };
+
+    /// @brief Names a drive position.
+    struct PositionRow
+    {
+            const char* name;
+            double position;
+    };
+
+    /// @brief Names a setting index of the stepped reference and the peak the reference gives it.
+    struct SettingRow
+    {
+            const char* name;
+            std::size_t setting;
+            double reference_peak_volts;
+    };
+
+    /// @brief Names a setting index of the stepped reference.
+    struct ReferenceRow
+    {
+            const char* name;
+            std::size_t setting;
+    };
+
+    /// @brief Returns the row's name, for the parameterised test names.
+    template <typename Row>
+    std::string row_name(const ::testing::TestParamInfo<Row>& info)
+    {
+        return std::string(info.param.name);
+    }
 } // namespace
+
+class Small_TubeScreamerCircuitsClipPosition : public ::testing::TestWithParam<PositionRow>
+{
+};
+
+TEST_P(Small_TubeScreamerCircuitsClipPosition, DkTsClipBlockStaysFiniteAtTheDrivePosition)
+{
+    const PositionRun run = run_clip_at_position(GetParam().position);
+
+    ASSERT_TRUE(run.prepared);
+    EXPECT_TRUE(run.finite);
+}
+
+TEST_P(Small_TubeScreamerCircuitsClipPosition, DkTsClipBlockNeverFallsBackToNanAtTheDrivePosition)
+{
+    const PositionRun run = run_clip_at_position(GetParam().position);
+
+    ASSERT_TRUE(run.prepared);
+    EXPECT_EQ(run.nan_fallbacks, 0u);
+}
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsClipPosition,
+                         ::testing::Values(PositionRow{"BottomStop", 0.0}, PositionRow{"Drive0p1", 0.1}, PositionRow{"Drive0p5", 0.5},
+                                           PositionRow{"Drive0p9", 0.9}, PositionRow{"TopStop", 1.0}),
+                         row_name<PositionRow>);
+
+class Small_TubeScreamerCircuitsClipSmallSignal : public ::testing::TestWithParam<SmallSignalRow>
+{
+};
+
+TEST_P(Small_TubeScreamerCircuitsClipSmallSignal, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
+{
+    // At 1e-4 V the diodes stay on zero-bias conductance. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const SmallSignalRow& row = GetParam();
+    const double drive = K_STEPPED_DRIVE[row.setting];
+
+    EXPECT_NEAR(small_signal_gain_db(drive, row.frequency), clip_closed_form_db(row.frequency, drive), K_CLOSED_FORM_TOLERANCE_DB);
+}
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsClipSmallSignal,
+                         ::testing::Values(SmallSignalRow{"Drive0p1At100Hz", 0, 100.0}, SmallSignalRow{"Drive0p1At1000Hz", 0, 1000.0},
+                                           SmallSignalRow{"Drive0p5At100Hz", 1, 100.0}, SmallSignalRow{"Drive0p5At1000Hz", 1, 1000.0},
+                                           SmallSignalRow{"Drive0p9At100Hz", 2, 100.0}, SmallSignalRow{"Drive0p9At1000Hz", 2, 1000.0}),
+                         row_name<SmallSignalRow>);
+
+class Small_TubeScreamerCircuitsClipPeak : public ::testing::TestWithParam<SettingRow>
+{
+};
+
+TEST_P(Small_TubeScreamerCircuitsClipPeak, DkTsClipBlockClipsAtTheReferencePeakVoltage)
+{
+    // The diode pair, not Rf, sets the peak above threshold. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const SettingRow& row = GetParam();
+
+    EXPECT_NEAR(clipped_peak_at_setting(row.setting), row.reference_peak_volts, K_PEAK_RELATIVE_BOUND * row.reference_peak_volts);
+}
+
+// The peaks are the LTspice reference transient's, for 100 mV at 1 kHz (README).
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsClipPeak,
+                         ::testing::Values(SettingRow{"Drive0p1", 0, 0.481683}, SettingRow{"Drive0p5", 1, 0.490169},
+                                           SettingRow{"Drive0p9", 2, 0.491758}),
+                         row_name<SettingRow>);
+
+TEST(Small_TubeScreamerCircuits, DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
+{
+    // The stimulus is a sweep and three bursts at 384 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const ConvergenceRun run = measure_clip_convergence<DiodePairPort>();
+
+    ASSERT_TRUE(run.prepared);
+    EXPECT_LE(run.non_converged_percent, K_MAX_NON_CONVERGED_PERCENT);
+    EXPECT_EQ(run.nan_fallbacks, 0u);
+}
+
+TEST(Small_TubeScreamerCircuits, DkTsClipBlockAdaaPortKeepsTheNewtonMissShareUnderTwiceThePlainBound)
+{
+    // The ADAA port measures 0.0105 % against 0.0054 %. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const ConvergenceRun run = measure_clip_convergence<AdaaDiodePairPort>();
+
+    ASSERT_TRUE(run.prepared);
+    EXPECT_LE(run.non_converged_percent, K_ADAA_MAX_NON_CONVERGED_PERCENT);
+    EXPECT_EQ(run.nan_fallbacks, 0u);
+}
+
+/// @brief Loads ts_clip's LTspice transient, and skips the test when the file is absent.
+class Small_TubeScreamerCircuitsClipReference : public ::testing::TestWithParam<ReferenceRow>
+{
+    protected:
+        void SetUp() override
+        {
+            const std::string path = spice_path("ts_clip", "tran");
+            reference_ = SushiDSP::measure::load_transient_csv(path);
+            if (reference_.input.empty())
+            {
+                GTEST_SKIP() << "No LTspice reference at " << path
+                             << ". Generate it with: python tools/spice/export.py --block ts_clip "
+                             << "(needs LTspice installed; see docs/reference/spice/README.md), "
+                             << "then commit the CSV.";
+            }
+        }
+
+        SushiDSP::measure::Transient reference_;
+};
+
+TEST_P(Small_TubeScreamerCircuitsClipReference, DkTsClipBlockNullsAgainstTheLtspiceTransientReference)
+{
+    ASSERT_GT(reference_.sample_rate, 0.0);
+
+    EXPECT_LE(clip_transient_null_residual_db<DiodePairPort>(reference_, GetParam().setting), K_PLAIN_TRANSIENT_NULL_BOUND_DB);
+}
+
+TEST_P(Small_TubeScreamerCircuitsClipReference, DkTsClipBlockAdaaPortFallsShortOfTheLtspiceTransientReferenceByItsOwnBandLimiting)
+{
+    // The bound is a regression floor, not an acceptance. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    ASSERT_GT(reference_.sample_rate, 0.0);
+
+    EXPECT_LE(clip_transient_null_residual_db<AdaaDiodePairPort>(reference_, GetParam().setting), K_ADAA_TRANSIENT_NULL_BOUND_DB);
+}
+
+TEST_P(Small_TubeScreamerCircuitsClipReference, DkTsClipBlockPlainPortNullsAgainstTheReferenceDecimatedToTheShippingRunRate)
+{
+    // Which port wins is not asserted. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    ASSERT_GT(reference_.sample_rate, 0.0);
+
+    EXPECT_LE(run_rate_null_residual_db<DiodePairPort>(reference_, GetParam().setting), K_RUN_RATE_NULL_BOUND_DB);
+}
+
+TEST_P(Small_TubeScreamerCircuitsClipReference, DkTsClipBlockAdaaPortNullsAgainstTheReferenceDecimatedToTheShippingRunRate)
+{
+    ASSERT_GT(reference_.sample_rate, 0.0);
+
+    EXPECT_LE(run_rate_null_residual_db<AdaaDiodePairPort>(reference_, GetParam().setting), K_RUN_RATE_NULL_BOUND_DB);
+}
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsClipReference,
+                         ::testing::Values(ReferenceRow{"Drive0p1", 0}, ReferenceRow{"Drive0p5", 1}, ReferenceRow{"Drive0p9", 2}),
+                         row_name<ReferenceRow>);
+
+TEST(Small_TubeScreamerCircuits, DkTsClipBlockLeavesItsCurrentsInStepWithItsVoltagesAfterAFailedSolve)
+{
+    // A stiff diode and a flipping input exhaust the budget. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const FailedSolveTrail trail = record_failed_solves();
+
+    ASSERT_TRUE(trail.prepared);
+    ASSERT_GT(trail.failures, 0u) << "the stimulus never reached DkCircuit's failure path";
+    ASSERT_GT(trail.discriminating, 0u) << "every failed solve returned the iterate the models were "
+                                           "last evaluated at, so the assertion below is vacuous";
+    expect_currents_in_step_with_voltages(trail);
+}
+
+TEST(Small_TubeScreamerCircuits, DkTsClipBlockDiodePairPortIsOneScalarPortInDisguise)
+{
+    // Branch 1 is branch 0 reversed, to the last bit. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const RecordingDiodePairPort port = run_recording_port();
+
+    EXPECT_EQ(port.worst_open_circuit_asymmetry, 0.0);
+    EXPECT_EQ(port.worst_impedance_asymmetry, 0.0);
+    EXPECT_LT(port.worst_voltage_asymmetry, K_VOLTAGE_ASYMMETRY_BOUND);
+    EXPECT_LT(port.last_impedance, 0.0);
+}
+
+TEST(Small_TubeScreamerCircuits, AdaaDiodePairPortAntiderivativeDividesBackToThePairCurrent)
+{
+    // d/dp of H(v) - F00*h(v)^2/2 comes back as h(v). See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const double impedance = probe_port_impedance();
+
+    ASSERT_LT(impedance, 0.0);
+    EXPECT_LE(worst_antiderivative_miss(impedance), 1.0);
+}
+
+TEST(Medium_TubeScreamerCircuits, AdaaDiodePairPortSinksTheFoldedHarmonicThatSetsTheAliasFloor)
+{
+    // The 13th harmonic of 15 kHz folds to 3 kHz at 192 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    constexpr std::size_t K_FRAMES = 16384;
+    std::vector<double> plain(K_FRAMES, 0.0);
+    std::vector<double> antialiased(K_FRAMES, 0.0);
+    ASSERT_TRUE(render_clip_tone<DiodePairPort>(15000.0, 0.5, plain));
+    ASSERT_TRUE(render_clip_tone<AdaaDiodePairPort>(15000.0, 0.5, antialiased));
+
+    const double plain_db = folded_harmonic_db(plain);
+    const double antialiased_db = folded_harmonic_db(antialiased);
+
+    EXPECT_LE(antialiased_db, plain_db - K_ADAA_FOLD_IMPROVEMENT_DB);
+    EXPECT_LE(antialiased_db, K_ADAA_FOLD_FLOOR_DB);
+}
+
+TEST(Small_TubeScreamerCircuits, AdaaDiodePairPortResetDropsItsSampleIntervalHistory)
+{
+    // A port with no history stamps the plain pair current. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const SushiDSP::SiliconDiode diode;
+    AdaaDiodePairPort port;
+
+    const std::array<double, 2> voltage{0.6, -0.6};
+    const std::array<double, 2> open_circuit{1.4, -1.4};
+    const std::array<std::array<double, 2>, 2> impedance{
+        {{-40000.0, 40000.0}, {40000.0, -40000.0}}};
+    std::array<double, 2> currents{};
+
+    port.currents_for_update(open_circuit, voltage, impedance, currents);
+    const double endpoint_at_six = diode.current(0.6) - diode.current(-0.6);
+    EXPECT_NEAR(currents[0] - currents[1], endpoint_at_six, K_ENDPOINT_RELATIVE_BOUND * std::fabs(endpoint_at_six));
+    EXPECT_DOUBLE_EQ(currents[1], -currents[0]);
+
+    const std::array<double, 2> moved_voltage{0.5, -0.5};
+    const std::array<double, 2> moved_open_circuit{0.9, -0.9};
+    const double endpoint_at_five = diode.current(0.5) - diode.current(-0.5);
+
+    // A second sample has an interval to average over, so it no longer sits on the endpoint.
+    port.currents_for_update(moved_open_circuit, moved_voltage, impedance, currents);
+    EXPECT_GT(std::fabs(currents[0] - currents[1] - endpoint_at_five),
+              K_HISTORY_SHIFT_RELATIVE_BOUND * std::fabs(endpoint_at_five));
+
+    port.reset();
+    port.currents_for_update(moved_open_circuit, moved_voltage, impedance, currents);
+    EXPECT_NEAR(currents[0] - currents[1], endpoint_at_five, K_ENDPOINT_RELATIVE_BOUND * std::fabs(endpoint_at_five));
+}
 
 TEST(Small_TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases)
 {
@@ -905,47 +1076,25 @@ TEST(Small_TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheConvergedMo
     const std::vector<float> converged = render_clip_at_rate<DiodePairPort>(
         K_CONVERGED_RUN_RATE, K_TONE, K_AMPLITUDE_VOLTS,
         static_cast<std::size_t>(K_FRAMES * (K_CONVERGED_RUN_RATE / K_SHIPPING_RUN_RATE)));
+    ASSERT_FALSE(converged.empty());
     const std::vector<float> reference = decimate_to_run_rate(converged, K_CONVERGED_RUN_RATE);
     ASSERT_GT(reference.size(), K_DECIMATION_SETTLE * 2u);
 
-    const std::vector<float> plain = render_clip_at_rate<DiodePairPort>(
-        K_SHIPPING_RUN_RATE, K_TONE, K_AMPLITUDE_VOLTS, K_FRAMES);
-    const std::vector<float> antialiased = render_clip_at_rate<AdaaDiodePairPort>(
-        K_SHIPPING_RUN_RATE, K_TONE, K_AMPLITUDE_VOLTS, K_FRAMES);
+    const std::vector<float> plain = render_clip_at_rate<DiodePairPort>(K_SHIPPING_RUN_RATE, K_TONE, K_AMPLITUDE_VOLTS, K_FRAMES);
+    const std::vector<float> antialiased = render_clip_at_rate<AdaaDiodePairPort>(K_SHIPPING_RUN_RATE, K_TONE, K_AMPLITUDE_VOLTS, K_FRAMES);
+    ASSERT_FALSE(plain.empty());
+    ASSERT_FALSE(antialiased.empty());
 
     // Both candidates are trimmed by the same amount. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    auto trim = [](const std::vector<float>& signal)
-    {
-        return std::vector<float>(signal.begin() + static_cast<std::ptrdiff_t>(K_DECIMATION_SETTLE),
-                                  signal.end());
-    };
-
-    std::vector<float> reference_window = trim(reference);
-    std::vector<float> plain_window = trim(plain);
-    std::vector<float> antialiased_window = trim(antialiased);
-    const std::size_t length =
-        std::min({reference_window.size(), plain_window.size(), antialiased_window.size()});
+    std::vector<float> reference_window = trim_decimation_settle(reference);
+    std::vector<float> plain_window = trim_decimation_settle(plain);
+    std::vector<float> antialiased_window = trim_decimation_settle(antialiased);
+    const std::size_t length = std::min({reference_window.size(), plain_window.size(), antialiased_window.size()});
     reference_window.resize(length);
     plain_window.resize(length);
     antialiased_window.resize(length);
 
-    // The two-tap mean is a delay and a low-pass. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    std::vector<float> delayed_reference = reference_window;
-    for (std::size_t index = delayed_reference.size(); index-- > 1;)
-    {
-        delayed_reference[index] = 0.5f * (delayed_reference[index] + delayed_reference[index - 1]);
-    }
-
-    const double plain_residual = SushiDSP::measure::null_test(reference_window, plain_window, 64);
-    const double antialiased_residual =
-        SushiDSP::measure::null_test(reference_window, antialiased_window, 64);
-    const double antialiased_aligned =
-        SushiDSP::measure::null_test(delayed_reference, antialiased_window, 64);
-    std::printf("[ measure ] ts_clip at 192 kHz vs the converged model, 15 kHz: plain %.2f dB, "
-                "adaa %.2f dB, adaa half-sample aligned %.2f dB\n",
-                plain_residual, antialiased_residual, antialiased_aligned);
-
     // These are regression floors, not acceptances. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    EXPECT_LE(plain_residual, -15.0);
-    EXPECT_LE(antialiased_residual, -4.0);
+    EXPECT_LE(SushiDSP::measure::null_test(reference_window, plain_window, 64), K_CONVERGED_PLAIN_NULL_BOUND_DB);
+    EXPECT_LE(SushiDSP::measure::null_test(reference_window, antialiased_window, 64), K_CONVERGED_ADAA_NULL_BOUND_DB);
 }

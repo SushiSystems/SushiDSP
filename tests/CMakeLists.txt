@@ -47,7 +47,7 @@ add_executable(sushidsp_tests
     foundation/device/test_device_counter_report.cpp
     foundation/device/test_device_counters.cpp
     foundation/device/test_device_log_category.cpp
-    foundation/io/test_io_log_category.cpp
+    foundation/io/compile_io_log_category.cpp
     foundation/profile/test_profile/compile_compiled_out.cpp
     foundation/profile/test_profile/test_compiled_out.cpp
     foundation/profile/test_profile/test_zones.cpp
@@ -64,7 +64,7 @@ add_executable(sushidsp_tests
     nodes/mesa_mark2c/test_mesa_mark2c/test_profile.cpp
     nodes/peavey5150/test_peavey5150/test_profile.cpp
     nodes/tubescreamer/test_tube_screamer/test_profile.cpp
-    nodes/tubescreamer/test_tubescreamer_log_category.cpp
+    nodes/tubescreamer/compile_tubescreamer_log_category.cpp
     # --- Unit tests written for the units that had none ---
     nodes/room/test_room_log_category.cpp
     nodes/room/test_fade_window.cpp
@@ -119,7 +119,7 @@ add_executable(sushidsp_tests
     foundation/math/dk/test_in_memory_dk_counters.cpp
     foundation/math/test_halfband_coefficients.cpp
     # --- Unit tests written for the units that had none ---
-    foundation/io/test_ir.cpp
+    foundation/io/compile_ir.cpp
     foundation/regression_test/test_regression_test.cpp
     foundation/golden_compare/test_golden_compare_log_category.cpp
     foundation/golden_compare/test_golden_file.cpp

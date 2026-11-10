@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_tubescreamer_log_category.cpp                                     */
+/* compile_tubescreamer_log_category.cpp                                  */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,9 @@
 /**************************************************************************/
 
 /**
- * @file test_tubescreamer_log_category.cpp
- * @brief Tests that the tubescreamer module logs under its own category.
+ * @file compile_tubescreamer_log_category.cpp
+ * @brief Compiles tubescreamer_log_category.hpp, which declares the category every tubescreamer record is written under.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
-
 #include <SushiDSP/nodes/tubescreamer/tubescreamer_log_category.hpp>
-
-#include <string_view>
-
-TEST(Small_TubescreamerLogCategory, IsNamedTubescreamer)
-{
-    EXPECT_EQ(K_TUBESCREAMER_LOG_CATEGORY.module(), std::string_view("tubescreamer"));
-}

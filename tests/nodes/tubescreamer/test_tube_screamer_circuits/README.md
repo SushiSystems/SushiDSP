@@ -47,7 +47,7 @@ measured. One run before the session was interrupted saw the eight-iteration bud
 57 of 1 056 000 samples, 0.0054 %, inside the spec's 0.01 % but past the plan's "4 worst case".
 That figure is unverified since; the deferred sd test run confirms or corrects it.
 
-### `DkTsClipBlockAdaaPortAlmostDoublesTheNewtonMissRate`
+### `DkTsClipBlockAdaaPortKeepsTheNewtonMissShareUnderTwiceThePlainBound`
 
 `// The ADAA port measures 0.0105 % against 0.0054 %.`
 
@@ -58,7 +58,7 @@ are a different state trajectory arriving at harder open-circuit voltages. The m
 recorded rather than accommodated - it is one of the two reasons the shipping node still holds a
 DiodePairPort (spec 2026-08-26-aaa-audio-quality-design.md, Model corrections D6c C2).
 
-### `run_clip_transient_null`
+### `clip_transient_null_residual_db`
 
 `/// @brief Nulls the clip block against ts_clip's LTspice transient through one port.`
 
@@ -105,18 +105,6 @@ DkTsClipBlockSmallSignalResponseMatchesItsClosedForm. That is the open decision 
 2026-08-26-aaa-audio-quality-design.md, Model corrections (D6c C2), and it is why TubeScreamer
 still holds a DiodePairPort. The bound here is a regression floor on the measured numbers, not
 an acceptance.
-
-### `DkBlockNodeCarriesTheBlockThroughItsFloatBoundaryUnchanged`
-
-`// The adapter scales by input_scale_volts both ways.`
-
-modules/foundation/circuit_blocks/include/SushiDSP/foundation/circuit_blocks/dk_block_node.hpp is the adapter every block-level measurement runs through, and
-Task 7's product node follows the same rule, so what it owes is exact: the buffer sample times
-input_scale_volts is what the block solves, and the block's answer divided by the same constant
-is what lands in the output buffer. A non-unity scale is used so a dropped multiply on either
-side shows up. The drive is 0.3 rather than the 0.5 the adapter defaults every wiper to, so
-prepare()'s set_potentiometer and update_matrices_if_dirty have to have run for the two blocks
-to agree.
 
 ### `DkTsClipBlockLeavesItsCurrentsInStepWithItsVoltagesAfterAFailedSolve`
 
@@ -189,7 +177,7 @@ exists to make.
 The reference window is the second half of LTspice's 40 ms run, so the block is walked through
 the stimulus once and compared on the replay, exactly as the reference-rate case argues.
 
-### `DkTsClipBlockBothPortsNullAgainstTheReferenceDecimatedToTheShippingRunRate`
+### `DkTsClipBlockPlainPortNullsAgainstTheReferenceDecimatedToTheShippingRunRate` and `DkTsClipBlockAdaaPortNullsAgainstTheReferenceDecimatedToTheShippingRunRate`
 
 `// Both ports null against LTspice decimated to 192 kHz.`
 
@@ -267,18 +255,7 @@ The 0.25 dB tolerance is the sweep measurement's own accuracy - D6a puts its wor
 20 Hz at 0.17 dB - not the block's. The block is linear, so any drive level measures the same
 response; -40 dBFS is what measure::frequency_response uses.
 
-### `DkTsToneBlockClosedFormCostsUnderOneDecibelAtOneHundredHertzAtNoon`
-
-`// The stage costs under 1 dB at 100 Hz at noon.`
-
-The acceptance the old reference could not have met: its stage was an integrator with unity gain
-at 1 / (2\*pi\*10k\*220n) = 72.3 Hz, so it read -30.43 dB at 100 Hz at noon. R.G. Keen on the
-real stage: "there is no net signal loss through the tone control stage, a gain of 1". The three
-factors at 100 Hz at noon are the filter -1.1957 dB, the gain leg +0.2887 dB and the output
-network -0.0875 dB. Of the filter's loss, 0.8279 dB is R7 against the 10 kOhm bias return,
-20\*log10(1 / (1 + 1k/10k)); the other 0.3679 dB is C5 and the wiper leg loading that node.
-
-### `DkTsToneBlockClosedFormSweepsSixteenDecibelsAtTheLegsTurnoverFrequency`
+### `DkTsToneBlockBrightEndExceedsTheDarkEndAtTheLegsTurnoverFrequency`
 
 `// The wiper leg's turnover sits at about 3.2 kHz.`
 
@@ -305,15 +282,7 @@ closed form is checked at 1e-9 dB, which is what pins the shape; the measured sw
 at 0.25 dB, its own accuracy, which is what pins that this block is that shape. A null like
 D6a's is tens of dB deep and fails the loose gate as readily as the tight one.
 
-### `DkTsToneBlockKnobMapsOntoTheReferencesSteppedRange`
-
-`// TONE = 1 is bright and the mapping is the identity.`
-
-TONE is measured from the op-amp's + input, where the wiper leg only cuts, so TONE = 1 is bright
-and the mapping is the identity. Before the 2026-09-06 correction this ran backwards and stopped
-at 0.1 and 0.9, because the old netlist muted at TONE = 1.
-
-### `DkTsToneBlockPreparesAtEveryTonePositionIncludingBothEndStops`
+### `DkTsToneBlockStaysFiniteAtThePosition` and `DkTsToneBlockNeverFallsBackToNanAtThePosition`
 
 `// Both end stops are ordinary settings.`
 

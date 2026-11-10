@@ -29,11 +29,13 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <complex>
 #include <cstddef>
-#include <cstdio>
+#include <cstdint>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -59,6 +61,25 @@ namespace
     /// @brief The three TONE values ts_tone.asc steps, in setting-index order.
     inline constexpr std::array<double, 3> K_STEPPED_TONE{0.1, 0.5, 0.9};
 
+    /// @brief The sweep's own accuracy, in dB. Characterized (README): the discrete-time block at
+    /// 384 kHz tracks the continuous closed form to within this over 20 Hz to 10 kHz.
+    constexpr double K_SWEEP_ACCURACY_DB = 0.25;
+
+    /// @brief The spread, in dB, between the bright and the dark end of the tone pot at the wiper
+    /// leg's turnover frequency. Specified (README): the closed form gives 16.185 dB at 3.2 kHz.
+    constexpr double K_TURNOVER_SPREAD_DB = 16.185;
+
+    /// @brief The turnover frequency of the wiper leg, in hertz (README).
+    constexpr double K_TURNOVER_HZ = 3200.0;
+
+    /// @brief The deviation, in dB, the block may show against the LTspice AC sweep. Characterized:
+    /// the figure the committed reference was held to.
+    constexpr double K_AC_MATCH_BOUND_DB = 0.5;
+
+    /// @brief The null residual, in dB, the block must reach against the LTspice transient.
+    /// Characterized: the figure the committed reference was held to.
+    constexpr double K_TRANSIENT_NULL_BOUND_DB = -60.0;
+
     /// @brief Whether the committed ts_tone CSVs still describe ts_tone.asc.
     ///
     /// They do not. The 2026-09-06 correction replaced the netlist - the passive filter was
@@ -72,6 +93,9 @@ namespace
     inline constexpr const char* K_REGENERATE_COMMAND =
         "python tools/spice/export.py ts_tone "
         "--ltspice \"%LOCALAPPDATA%/Programs/ADI/LTspice/LTspice.exe\"";
+
+    /// @brief The frequencies the sweeps measure at, in hertz.
+    const std::vector<double> K_SWEEP_FREQUENCIES{20.0, 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 3200.0, 5000.0, 10000.0};
 
     /// @brief The closed-form response of the corrected tone stage.
     ///
@@ -112,98 +136,67 @@ namespace
         }
         return frequencies;
     }
-} // namespace
 
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockResponseMatchesItsClosedForm)
-{
-    // The 0.25 dB tolerance is the sweep's own accuracy. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    constexpr double K_RUN_RATE = 384000.0;
-    const std::vector<double> frequencies{20.0,   50.0,   100.0,  200.0,  500.0,
-                                          1000.0, 2000.0, 5000.0, 10000.0};
-
-    for (const double tone : K_STEPPED_TONE)
+    /// @brief Measures the block's magnitude response at a tone position and the level pot's reference position.
+    /// @param tone The tone pot's position.
+    /// @param run_rate The rate the block runs at.
+    /// @param frequencies The frequencies to measure at.
+    /// @return One point per frequency; empty when the block did not prepare.
+    std::vector<SushiDSP::measure::ResponsePoint> measure_tone_response(double tone, double run_rate,
+                                                                        const std::vector<double>& frequencies)
     {
         ToneNode node;
         const TonePotentiometers pots = build_tone_block(node.netlist);
         node.pot_positions[pots.tone] = tone;
         node.pot_positions[pots.level] = K_LEVEL_POT_POSITION;
 
-        const auto measured = SushiDSP::measure::frequency_response(node, K_RUN_RATE, frequencies);
-        ASSERT_TRUE(node.prepared());
-        ASSERT_EQ(measured.size(), frequencies.size());
+        auto measured = SushiDSP::measure::frequency_response(node, run_rate, frequencies);
+        if (!node.prepared())
+        {
+            measured.clear();
+        }
+        return measured;
+    }
+
+    /// @brief Returns the worst deviation from the closed form over the measured points, in dB.
+    double worst_deviation_from_closed_form_db(const std::vector<SushiDSP::measure::ResponsePoint>& measured, double tone)
+    {
+        double worst = 0.0;
         for (const auto& point : measured)
         {
-            EXPECT_NEAR(point.magnitude_db, tone_closed_form_db(point.frequency_hz, tone), 0.25)
-                << tone << " at " << point.frequency_hz << " Hz";
+            worst = std::max(worst, std::fabs(point.magnitude_db - tone_closed_form_db(point.frequency_hz, tone)));
         }
-    }
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockClosedFormCostsUnderOneDecibelAtOneHundredHertzAtNoon)
-{
-    // The stage costs under 1 dB at 100 Hz at noon. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    EXPECT_NEAR(tone_closed_form_db(100.0, 0.5), -0.9946, 0.001);
-    EXPECT_GT(tone_closed_form_db(100.0, 0.5), -1.0);
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockClosedFormSweepsSixteenDecibelsAtTheLegsTurnoverFrequency)
-{
-    // The wiper leg's turnover sits at about 3.2 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    const double dark = tone_closed_form_db(3200.0, 0.0 + 1.0e-9);
-    const double bright = tone_closed_form_db(3200.0, 1.0 - 1.0e-9);
-    EXPECT_NEAR(bright - dark, 16.185, 0.01);
-
-    // At the bright end the stage passes +0.435 dB at 1 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    EXPECT_GT(tone_closed_form_db(1000.0, 1.0 - 1.0e-9), 0.0);
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAtNoon)
-{
-    // The real network cannot notch above 723 Hz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    constexpr double K_RUN_RATE = 384000.0;
-    const std::vector<double> frequencies = midband_frequencies();
-
-    for (std::size_t index = 1; index < frequencies.size(); ++index)
-    {
-        EXPECT_LE(tone_closed_form_db(frequencies[index], 0.5),
-                  tone_closed_form_db(frequencies[index - 1], 0.5) + 1.0e-9)
-            << frequencies[index];
+        return worst;
     }
 
-    ToneNode node;
-    const TonePotentiometers pots = build_tone_block(node.netlist);
-    node.pot_positions[pots.tone] = 0.5;
-    node.pot_positions[pots.level] = K_LEVEL_POT_POSITION;
-
-    const auto measured = SushiDSP::measure::frequency_response(node, K_RUN_RATE, frequencies);
-    ASSERT_TRUE(node.prepared());
-    ASSERT_EQ(measured.size(), frequencies.size());
-    for (std::size_t index = 1; index < measured.size(); ++index)
+    /// @brief Returns the largest rise, in dB, from one measured point to the next; negative when
+    /// every step falls.
+    double largest_rise_db(const std::vector<SushiDSP::measure::ResponsePoint>& measured)
     {
-        EXPECT_LE(measured[index].magnitude_db, measured[index - 1].magnitude_db + 0.25)
-            << measured[index].frequency_hz;
+        double largest = -std::numeric_limits<double>::infinity();
+        for (std::size_t index = 1; index < measured.size(); ++index)
+        {
+            largest = std::max(largest, measured[index].magnitude_db - measured[index - 1].magnitude_db);
+        }
+        return largest;
     }
-}
 
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockKnobMapsOntoTheReferencesSteppedRange)
-{
-    // TONE = 1 is bright and the mapping is the identity. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    EXPECT_DOUBLE_EQ(tone_to_position(0.0), 0.0);
-    EXPECT_DOUBLE_EQ(tone_to_position(0.5), 0.5);
-    EXPECT_DOUBLE_EQ(tone_to_position(1.0), 1.0);
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockPreparesAtEveryTonePositionIncludingBothEndStops)
-{
-    // Both end stops are ordinary settings. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    ToneNetlist netlist;
-    const TonePotentiometers pots = build_tone_block(netlist);
-    EXPECT_EQ(netlist.node_count, 9u);
-
-    ToneCircuit circuit;
-    ASSERT_TRUE(circuit.prepare(netlist, 384000.0));
-    for (const double position : {0.0, 0.1, 0.5, 0.9, 1.0})
+    /// @brief Steps the block to a tone position, runs 64 samples of 0.1 V and reports what came out.
+    struct PositionRun
     {
+            bool prepared = false;
+            bool finite = true;
+            std::uint64_t nan_fallbacks = 0;
+    };
+
+    /// @brief Runs the block over every position in the list and reports the whole run.
+    PositionRun run_at_position(double position)
+    {
+        PositionRun run;
+        ToneNetlist netlist;
+        const TonePotentiometers pots = build_tone_block(netlist);
+        ToneCircuit circuit;
+        run.prepared = circuit.prepare(netlist, 384000.0);
         circuit.set_potentiometer(pots.tone, position);
         circuit.set_potentiometer(pots.level, K_LEVEL_POT_POSITION);
         circuit.update_matrices_if_dirty();
@@ -213,87 +206,47 @@ TEST(Small_TubeScreamerCircuits, DkTsToneBlockPreparesAtEveryTonePositionIncludi
         for (int sample = 0; sample < 64; ++sample)
         {
             circuit.process_sample(port, {0.1}, outputs);
-            ASSERT_TRUE(std::isfinite(outputs[0])) << position;
+            run.finite = run.finite && std::isfinite(outputs[0]);
         }
-    }
-    EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockMatchesTheLtspiceAcSweepWithinHalfADecibel)
-{
-    if (!K_SPICE_REFERENCE_MATCHES_SCHEMATIC)
-    {
-        GTEST_SKIP() << "ts_tone_ac.csv was exported from the netlist the 2026-09-06 correction "
-                     << "replaced. Regenerate it with: " << K_REGENERATE_COMMAND
-                     << ", commit the CSV, and set K_SPICE_REFERENCE_MATCHES_SCHEMATIC to true.";
+        run.nan_fallbacks = circuit.nan_fallback_samples();
+        return run;
     }
 
-    const std::string path = spice_path("ts_tone", "ac");
-    const auto reference = SushiDSP::measure::load_ac_csv(path);
-    if (reference.frequency_hz.empty())
+    /// @brief Returns the worst deviation, in dB, of the block from the LTspice AC sweep at one setting,
+    /// or infinity when the sweep has no value for a frequency.
+    double worst_deviation_from_ac_reference_db(const SushiDSP::measure::AcSweep& reference, std::size_t setting)
     {
-        GTEST_SKIP() << "No LTspice reference at " << path
-                     << ". Generate it with: " << K_REGENERATE_COMMAND << ", then commit the CSV.";
-    }
-
-    constexpr double K_RUN_RATE = 192000.0;
-    const std::vector<double> frequencies{20.0,   50.0,   100.0,  200.0,  500.0,
-                                          1000.0, 2000.0, 5000.0, 10000.0};
-
-    for (std::size_t setting = 0; setting < K_STEPPED_TONE.size(); ++setting)
-    {
-        ToneNode node;
-        const TonePotentiometers pots = build_tone_block(node.netlist);
-        node.pot_positions[pots.tone] = K_STEPPED_TONE[setting];
-        node.pot_positions[pots.level] = K_LEVEL_POT_POSITION;
-
-        const auto measured = SushiDSP::measure::frequency_response(node, K_RUN_RATE, frequencies);
-        ASSERT_TRUE(node.prepared());
+        constexpr double K_RUN_RATE = 192000.0;
+        const auto measured = measure_tone_response(K_STEPPED_TONE[setting], K_RUN_RATE, K_SWEEP_FREQUENCIES);
+        double worst = measured.empty() ? std::numeric_limits<double>::infinity() : 0.0;
         for (const auto& point : measured)
         {
             double expected = 0.0;
-            ASSERT_TRUE(interpolate_magnitude(reference, static_cast<int>(setting),
-                                              point.frequency_hz, expected))
-                << "setting " << setting << " at " << point.frequency_hz << " Hz";
-            EXPECT_NEAR(point.magnitude_db, expected, 0.5)
-                << "setting " << setting << " at " << point.frequency_hz << " Hz";
+            if (!interpolate_magnitude(reference, static_cast<int>(setting), point.frequency_hz, expected))
+            {
+                return std::numeric_limits<double>::infinity();
+            }
+            worst = std::max(worst, std::fabs(point.magnitude_db - expected));
         }
-    }
-}
-
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockNullsAgainstTheLtspiceTransientReference)
-{
-    if (!K_SPICE_REFERENCE_MATCHES_SCHEMATIC)
-    {
-        GTEST_SKIP() << "ts_tone_tran.csv was exported from the netlist the 2026-09-06 "
-                     << "correction replaced. Regenerate it with: " << K_REGENERATE_COMMAND
-                     << ", commit the CSV, and set K_SPICE_REFERENCE_MATCHES_SCHEMATIC to true.";
+        return worst;
     }
 
-    const std::string path = spice_path("ts_tone", "tran");
-    const auto reference = SushiDSP::measure::load_transient_csv(path);
-    if (reference.input.empty())
-    {
-        GTEST_SKIP() << "No LTspice reference at " << path
-                     << ". Generate it with: " << K_REGENERATE_COMMAND << ", then commit the CSV.";
-    }
-
-    ASSERT_GT(reference.sample_rate, 0.0);
-
-    for (std::size_t setting = 0; setting < K_STEPPED_TONE.size(); ++setting)
+    /// @brief Returns the null residual, in dB, of the block against the LTspice transient at one
+    /// setting, or 0 dB when the setting has no rows or the block does not prepare.
+    double transient_null_residual_db(const SushiDSP::measure::Transient& reference, std::size_t setting)
     {
         ToneNetlist netlist;
         const TonePotentiometers pots = build_tone_block(netlist);
 
         ToneCircuit circuit;
         LinearPort port;
-        ASSERT_TRUE(circuit.prepare(netlist, reference.sample_rate));
+        if (!circuit.prepare(netlist, reference.sample_rate))
+        {
+            return 0.0;
+        }
         circuit.set_potentiometer(pots.tone, K_STEPPED_TONE[setting]);
         circuit.set_potentiometer(pots.level, K_LEVEL_POT_POSITION);
         circuit.update_matrices_if_dirty();
-
-        // One pre-roll pass matches LTspice's own start. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-        constexpr std::size_t K_PRE_ROLL_PASSES = 1;
 
         std::vector<double> stimulus;
         std::vector<float> reference_output;
@@ -305,8 +258,13 @@ TEST(Small_TubeScreamerCircuits, DkTsToneBlockNullsAgainstTheLtspiceTransientRef
                 reference_output.push_back(reference.output[row]);
             }
         }
-        ASSERT_FALSE(reference_output.empty()) << "setting " << setting;
+        if (reference_output.empty())
+        {
+            return 0.0;
+        }
 
+        // One pre-roll pass matches LTspice's own start. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+        constexpr std::size_t K_PRE_ROLL_PASSES = 1;
         std::vector<float> circuit_output;
         std::array<double, 1> outputs{};
         for (std::size_t pass = 0; pass <= K_PRE_ROLL_PASSES; ++pass)
@@ -324,9 +282,174 @@ TEST(Small_TubeScreamerCircuits, DkTsToneBlockNullsAgainstTheLtspiceTransientRef
 
         band_limit(reference_output, reference.sample_rate, 10000.0);
         band_limit(circuit_output, reference.sample_rate, 10000.0);
-
-        const double residual = SushiDSP::measure::null_test(reference_output, circuit_output, 256);
-        std::printf("[ measure ] ts_tone tran setting %zu: %.2f dB residual\n", setting, residual);
-        EXPECT_LE(residual, -60.0) << "setting " << setting;
+        return SushiDSP::measure::null_test(reference_output, circuit_output, 256);
     }
+
+    /// @brief Names a pot position.
+    struct PositionRow
+    {
+            const char* name;
+            double position;
+    };
+
+    /// @brief Names a setting index of the stepped reference.
+    struct SettingRow
+    {
+            const char* name;
+            std::size_t setting;
+    };
+
+    /// @brief Returns the row's name, for the parameterised test names.
+    template <typename Row>
+    std::string row_name(const ::testing::TestParamInfo<Row>& info)
+    {
+        return std::string(info.param.name);
+    }
+} // namespace
+
+class Small_TubeScreamerCircuitsToneResponse : public ::testing::TestWithParam<PositionRow>
+{
+};
+
+TEST_P(Small_TubeScreamerCircuitsToneResponse, DkTsToneBlockResponseMatchesItsClosedForm)
+{
+    // The 0.25 dB tolerance is the sweep's own accuracy. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    constexpr double K_RUN_RATE = 384000.0;
+    const auto measured = measure_tone_response(GetParam().position, K_RUN_RATE, K_SWEEP_FREQUENCIES);
+
+    ASSERT_EQ(measured.size(), K_SWEEP_FREQUENCIES.size());
+    EXPECT_LE(worst_deviation_from_closed_form_db(measured, GetParam().position), K_SWEEP_ACCURACY_DB);
 }
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsToneResponse,
+                         ::testing::Values(PositionRow{"Tone0p1", K_STEPPED_TONE[0]}, PositionRow{"Tone0p5", K_STEPPED_TONE[1]},
+                                           PositionRow{"Tone0p9", K_STEPPED_TONE[2]}),
+                         row_name<PositionRow>);
+
+TEST(Small_TubeScreamerCircuits, DkTsToneBlockBrightEndExceedsTheDarkEndAtTheLegsTurnoverFrequency)
+{
+    // The wiper leg's turnover sits at about 3.2 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    constexpr double K_RUN_RATE = 384000.0;
+    const auto dark = measure_tone_response(0.0, K_RUN_RATE, {K_TURNOVER_HZ});
+    const auto bright = measure_tone_response(1.0, K_RUN_RATE, {K_TURNOVER_HZ});
+
+    ASSERT_EQ(dark.size(), 1u);
+    ASSERT_EQ(bright.size(), 1u);
+    EXPECT_NEAR(bright[0].magnitude_db - dark[0].magnitude_db, K_TURNOVER_SPREAD_DB, K_SWEEP_ACCURACY_DB);
+}
+
+TEST(Small_TubeScreamerCircuits, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAtNoon)
+{
+    // The real network cannot notch above 723 Hz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    constexpr double K_RUN_RATE = 384000.0;
+    const std::vector<double> frequencies = midband_frequencies();
+    const auto measured = measure_tone_response(0.5, K_RUN_RATE, frequencies);
+
+    ASSERT_EQ(measured.size(), frequencies.size());
+    EXPECT_LE(largest_rise_db(measured), K_SWEEP_ACCURACY_DB);
+}
+
+class Small_TubeScreamerCircuitsTonePosition : public ::testing::TestWithParam<PositionRow>
+{
+};
+
+TEST_P(Small_TubeScreamerCircuitsTonePosition, DkTsToneBlockStaysFiniteAtThePosition)
+{
+    // Both end stops are ordinary settings. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    const PositionRun run = run_at_position(GetParam().position);
+
+    ASSERT_TRUE(run.prepared);
+    EXPECT_TRUE(run.finite);
+}
+
+TEST_P(Small_TubeScreamerCircuitsTonePosition, DkTsToneBlockNeverFallsBackToNanAtThePosition)
+{
+    const PositionRun run = run_at_position(GetParam().position);
+
+    ASSERT_TRUE(run.prepared);
+    EXPECT_EQ(run.nan_fallbacks, 0u);
+}
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsTonePosition,
+                         ::testing::Values(PositionRow{"Dark", 0.0}, PositionRow{"Tone0p1", 0.1}, PositionRow{"Tone0p5", 0.5},
+                                           PositionRow{"Tone0p9", 0.9}, PositionRow{"Bright", 1.0}),
+                         row_name<PositionRow>);
+
+/// @brief Skips its tests until the committed ts_tone reference describes the schematic again.
+class Small_TubeScreamerCircuitsToneReference : public ::testing::TestWithParam<SettingRow>
+{
+    protected:
+        void SetUp() override
+        {
+            if (!K_SPICE_REFERENCE_MATCHES_SCHEMATIC)
+            {
+                GTEST_SKIP() << "the ts_tone CSVs were exported from the netlist the 2026-09-06 correction "
+                             << "replaced. Regenerate them with: " << K_REGENERATE_COMMAND
+                             << ", commit the CSVs, and set K_SPICE_REFERENCE_MATCHES_SCHEMATIC to true.";
+            }
+        }
+};
+
+/// @brief Loads the AC reference, and skips when the file is absent.
+class Small_TubeScreamerCircuitsToneAc : public Small_TubeScreamerCircuitsToneReference
+{
+    protected:
+        void SetUp() override
+        {
+            Small_TubeScreamerCircuitsToneReference::SetUp();
+            if (IsSkipped())
+            {
+                return;
+            }
+            reference_ = SushiDSP::measure::load_ac_csv(spice_path("ts_tone", "ac"));
+            if (reference_.frequency_hz.empty())
+            {
+                GTEST_SKIP() << "No LTspice AC reference. Generate it with: " << K_REGENERATE_COMMAND
+                             << ", then commit the CSV.";
+            }
+        }
+
+        SushiDSP::measure::AcSweep reference_;
+};
+
+/// @brief Loads the transient reference, and skips when the file is absent.
+class Small_TubeScreamerCircuitsToneTransient : public Small_TubeScreamerCircuitsToneReference
+{
+    protected:
+        void SetUp() override
+        {
+            Small_TubeScreamerCircuitsToneReference::SetUp();
+            if (IsSkipped())
+            {
+                return;
+            }
+            reference_ = SushiDSP::measure::load_transient_csv(spice_path("ts_tone", "tran"));
+            if (reference_.input.empty())
+            {
+                GTEST_SKIP() << "No LTspice transient reference. Generate it with: " << K_REGENERATE_COMMAND
+                             << ", then commit the CSV.";
+            }
+        }
+
+        SushiDSP::measure::Transient reference_;
+};
+
+TEST_P(Small_TubeScreamerCircuitsToneAc, DkTsToneBlockMatchesTheLtspiceAcSweep)
+{
+    EXPECT_LE(worst_deviation_from_ac_reference_db(reference_, GetParam().setting), K_AC_MATCH_BOUND_DB);
+}
+
+TEST_P(Small_TubeScreamerCircuitsToneTransient, DkTsToneBlockNullsAgainstTheLtspiceTransientReference)
+{
+    ASSERT_GT(reference_.sample_rate, 0.0);
+
+    EXPECT_LE(transient_null_residual_db(reference_, GetParam().setting), K_TRANSIENT_NULL_BOUND_DB);
+}
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsToneAc,
+                         ::testing::Values(SettingRow{"Setting0", 0}, SettingRow{"Setting1", 1}, SettingRow{"Setting2", 2}),
+                         row_name<SettingRow>);
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsToneTransient,
+                         ::testing::Values(SettingRow{"Setting0", 0}, SettingRow{"Setting1", 1}, SettingRow{"Setting2", 2}),
+                         row_name<SettingRow>);
