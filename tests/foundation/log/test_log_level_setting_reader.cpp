@@ -71,7 +71,7 @@ TEST(Small_LogLevelSettingReader, FindsNothingWhenTheValueIsNotALevel)
     EXPECT_FALSE(setting.has_value());
 }
 
-TEST(Small_LogLevelSettingReader, AppliedSettingSetsTheProjectLevelAndEachNamedModule)
+TEST(Medium_LogLevelSettingReader, AppliedSettingSetsTheProjectLevelAndEachNamedModule)
 {
     const SushiDSP::InMemoryEnvironment environment{
         {"READER_TEST_LOG_LEVEL", "error,named=trace"}};
