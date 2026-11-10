@@ -29,20 +29,50 @@
 
 #include <gtest/gtest.h>
 
-#include "ui/level_text.hpp"
-
 #include <cmath>
 #include <limits>
+#include <string>
 
-TEST(Small_LevelText, LevelTextUnityPeakReadsZeroDecibels)
+#include "support/tolerance.hpp"
+#include "ui/level_text.hpp"
+
+namespace
 {
-    EXPECT_NEAR(ui::peak_to_decibels(1.0f), 0.0f, 1e-4f);
+    /// @brief One peak whose decibel reading the test checks.
+    struct PeakRow
+    {
+            const char* name;
+            float peak;
+    };
+
+    /// @brief Returns the row's name, for the parameterised test names.
+    std::string peak_row_name(const ::testing::TestParamInfo<PeakRow>& info)
+    {
+        return std::string(info.param.name);
+    }
+
+    /// @brief Rounded operations on the longest path of the reading: the logarithm and the
+    /// product with twenty.
+    constexpr std::size_t K_PEAK_TO_DECIBEL_OPERATIONS = 2;
+} // namespace
+
+class Small_LevelTextPeak : public ::testing::TestWithParam<PeakRow>
+{
+};
+
+TEST_P(Small_LevelTextPeak, LevelTextReadsThePeakAsTwentyTimesItsCommonLogarithm)
+{
+    const double peak = GetParam().peak;
+    const double reference = 20.0 * std::log10(peak);
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<float>(
+        ui::peak_to_decibels(GetParam().peak), reference, K_PEAK_TO_DECIBEL_OPERATIONS)));
 }
 
-TEST(Small_LevelText, LevelTextHalfPeakReadsMinusSixDecibels)
-{
-    EXPECT_NEAR(ui::peak_to_decibels(0.5f), -6.0206f, 1e-3f);
-}
+INSTANTIATE_TEST_SUITE_P(Rows, Small_LevelTextPeak,
+                         ::testing::Values(PeakRow{"Unity", 1.0f}, PeakRow{"Half", 0.5f},
+                                           PeakRow{"Quarter", 0.25f}),
+                         peak_row_name);
 
 TEST(Small_LevelText, LevelTextZeroPeakReadsNegativeInfinity)
 {

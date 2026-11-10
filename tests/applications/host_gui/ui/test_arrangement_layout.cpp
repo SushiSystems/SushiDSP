@@ -27,7 +27,9 @@
  * @author Mustafa Garip
  */
 
+#include <algorithm>
 #include <cstdint>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -89,10 +91,9 @@ TEST(Small_ArrangementLayout, ArrangementLayoutDropsTheBeatsWhenTheyCrowd)
     const std::vector<ui::GridLine> lines = ui::grid_lines(scale, clock, 800.0f);
 
     ASSERT_FALSE(lines.empty());
-    for (const ui::GridLine& line : lines)
-    {
-        EXPECT_TRUE(line.is_bar);
-    }
+    const auto beats_kept = std::count_if(lines.begin(), lines.end(),
+                                          [](const ui::GridLine& line) { return !line.is_bar; });
+    EXPECT_EQ(beats_kept, 0);
     EXPECT_EQ(lines[1].bar, 2u);
     EXPECT_FLOAT_EQ(lines[1].x, 19.2f);
 }
@@ -126,34 +127,80 @@ TEST(Small_ArrangementLayout, ArrangementLayoutGivesAClipItsRectangle)
     EXPECT_FLOAT_EQ(span.right, 288.0f);
 }
 
+namespace
+{
+    /// @brief The pixel density every drop and drag case measures at.
+    constexpr double K_PIXELS_PER_FRAME = 0.002;
+
+    /// @brief A drop four pixels past bar 9, which is drawn at x 1536: the maintainer's acceptance case.
+    constexpr float K_DROP_PAST_BAR_NINE_X = 1540.0f;
+
+    /// @brief Bar 9 of 120 BPM in 4/4 at 48 kHz: eight bars of 96000 frames.
+    constexpr std::uint64_t K_BAR_NINE_FRAME = 768000u;
+
+    /// @brief The dropped frame of the screen x under a snap mode.
+    std::uint64_t dropped_at(ui::SnapMode mode, float x)
+    {
+        SushiDSP::MusicalClock clock;
+        make_four_four(clock);
+        ui::TimelineScale scale;
+        scale.set_pixels_per_frame(K_PIXELS_PER_FRAME);
+        return ui::dropped_frame(scale, mode, clock, x);
+    }
+
+    /// @brief The start frame of a clip at 96000 frames dragged by a pixel offset under a snap mode.
+    std::uint64_t dragged_by(ui::SnapMode mode, float pixels)
+    {
+        SushiDSP::MusicalClock clock;
+        make_four_four(clock);
+        ui::TimelineScale scale;
+        scale.set_pixels_per_frame(K_PIXELS_PER_FRAME);
+        return ui::dragged_start_frame(scale, mode, clock, 96000u, pixels);
+    }
+} // namespace
+
 TEST(Small_ArrangementLayout, ArrangementLayoutLandsADropOnTheSnappedBar)
 {
     SushiDSP::MusicalClock clock;
     make_four_four(clock);
 
-    ui::TimelineScale scale;
-    scale.set_pixels_per_frame(0.002);
-
-    // Bar 9 is drawn at x 1536; a drop four pixels past it is the maintainer's acceptance case.
-    EXPECT_EQ(ui::dropped_frame(scale, ui::SnapMode::Bar, clock, 1540.0f), clock.frame_of(9u, 1u));
-    EXPECT_EQ(ui::dropped_frame(scale, ui::SnapMode::Bar, clock, 1540.0f), 768000u);
-    EXPECT_EQ(ui::dropped_frame(scale, ui::SnapMode::Beat, clock, 1540.0f), 768000u);
-    EXPECT_EQ(ui::dropped_frame(scale, ui::SnapMode::None, clock, 1540.0f), 770000u);
-    EXPECT_EQ(ui::dropped_frame(scale, ui::SnapMode::Bar, clock, -80.0f), 0u);
+    EXPECT_EQ(dropped_at(ui::SnapMode::Bar, K_DROP_PAST_BAR_NINE_X), clock.frame_of(9u, 1u));
+    EXPECT_EQ(dropped_at(ui::SnapMode::Bar, K_DROP_PAST_BAR_NINE_X), K_BAR_NINE_FRAME);
 }
 
-TEST(Small_ArrangementLayout, ArrangementLayoutMovesADraggedClipByItsPixels)
+TEST(Small_ArrangementLayout, ArrangementLayoutLandsADropOnTheSnappedBeat)
 {
-    SushiDSP::MusicalClock clock;
-    make_four_four(clock);
+    EXPECT_EQ(dropped_at(ui::SnapMode::Beat, K_DROP_PAST_BAR_NINE_X), K_BAR_NINE_FRAME);
+}
 
-    ui::TimelineScale scale;
-    scale.set_pixels_per_frame(0.002);
+TEST(Small_ArrangementLayout, ArrangementLayoutLandsAFreeDropOnItsPixel)
+{
+    EXPECT_EQ(dropped_at(ui::SnapMode::None, K_DROP_PAST_BAR_NINE_X), 770000u);
+}
 
-    EXPECT_EQ(ui::dragged_start_frame(scale, ui::SnapMode::Bar, clock, 96000u, 192.0f), 192000u);
-    EXPECT_EQ(ui::dragged_start_frame(scale, ui::SnapMode::None, clock, 96000u, 100.0f), 146000u);
-    EXPECT_EQ(ui::dragged_start_frame(scale, ui::SnapMode::Bar, clock, 96000u, 0.0f), 96000u);
-    EXPECT_EQ(ui::dragged_start_frame(scale, ui::SnapMode::Bar, clock, 96000u, -1000.0f), 0u);
+TEST(Small_ArrangementLayout, ArrangementLayoutClampsADropLeftOfTheCanvasToTheStart)
+{
+    EXPECT_EQ(dropped_at(ui::SnapMode::Bar, -80.0f), 0u);
+}
+
+TEST(Small_ArrangementLayout, ArrangementLayoutMovesADraggedClipToTheSnappedBar)
+{
+    EXPECT_EQ(dragged_by(ui::SnapMode::Bar, 192.0f), 192000u);
+}
+
+TEST(Small_ArrangementLayout, ArrangementLayoutMovesAFreelyDraggedClipByItsPixels)
+{
+    EXPECT_EQ(dragged_by(ui::SnapMode::None, 100.0f), 146000u);
+}
+
+TEST(Small_ArrangementLayout, ArrangementLayoutKeepsAClipDraggedByZeroWhereItIs)
+{
+    EXPECT_EQ(dragged_by(ui::SnapMode::Bar, 0.0f), 96000u);
+}
+
+TEST(Small_ArrangementLayout, ArrangementLayoutClampsAClipDraggedLeftOfTheStartToTheStart)
+{
+    EXPECT_EQ(dragged_by(ui::SnapMode::Bar, -1000.0f), 0u);
 }
 
 TEST(Small_ArrangementLayout, ArrangementLayoutNamesTheLaneAScreenPositionFallsOn)

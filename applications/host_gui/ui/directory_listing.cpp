@@ -32,6 +32,7 @@
 #include <algorithm>
 #include <cctype>
 #include <filesystem>
+#include <utility>
 
 #include <SushiDSP/foundation/log/log.hpp>
 
@@ -105,26 +106,64 @@ namespace ui
         return list_directory(directory, std::vector<std::string>{extension});
     }
 
+    std::vector<DirectoryEntry> FileSystemDirectorySource::read(const std::string& directory) const
+    {
+        std::vector<DirectoryEntry> entries;
+        const std::filesystem::path root(directory);
+        if (!std::filesystem::is_directory(root))
+        {
+            return entries;
+        }
+        for (const std::filesystem::directory_entry& item : std::filesystem::directory_iterator(root))
+        {
+            entries.push_back(DirectoryEntry{item.path().filename().string(), item.is_directory()});
+        }
+        return entries;
+    }
+
+    void InMemoryDirectorySource::add_directory(const std::string& directory,
+                                                std::vector<DirectoryEntry> entries)
+    {
+        directories_[directory] = std::move(entries);
+    }
+
+    void InMemoryDirectorySource::refuse(const std::string& directory, std::error_code cause)
+    {
+        refusals_[directory] = cause;
+    }
+
+    std::vector<DirectoryEntry> InMemoryDirectorySource::read(const std::string& directory) const
+    {
+        const auto refusal = refusals_.find(directory);
+        if (refusal != refusals_.end())
+        {
+            throw std::filesystem::filesystem_error("directory refused", directory, refusal->second);
+        }
+        const auto found = directories_.find(directory);
+        return found == directories_.end() ? std::vector<DirectoryEntry>{} : found->second;
+    }
+
     std::vector<DirectoryEntry> list_directory(const std::string& directory,
                                                const std::vector<std::string>& extensions)
+    {
+        static const FileSystemDirectorySource file_system;
+        return list_directory(directory, extensions, file_system);
+    }
+
+    std::vector<DirectoryEntry> list_directory(const std::string& directory,
+                                               const std::vector<std::string>& extensions,
+                                               const DirectorySource& source)
     {
         std::vector<DirectoryEntry> entries;
         try
         {
-            const std::filesystem::path root(directory);
-            if (!std::filesystem::is_directory(root))
+            for (const DirectoryEntry& item : source.read(directory))
             {
-                return entries;
-            }
-            for (const std::filesystem::directory_entry& item :
-                 std::filesystem::directory_iterator(root))
-            {
-                const bool is_directory = item.is_directory();
-                if (!is_directory && !extension_matches(item.path(), extensions))
+                if (!item.is_directory && !extension_matches(std::filesystem::path(item.name), extensions))
                 {
                     continue;
                 }
-                entries.push_back(DirectoryEntry{item.path().filename().string(), is_directory});
+                entries.push_back(item);
             }
         }
         catch (const std::filesystem::filesystem_error& error)

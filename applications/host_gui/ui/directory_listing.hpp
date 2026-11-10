@@ -29,7 +29,9 @@
 
 #pragma once
 
+#include <map>
 #include <string>
+#include <system_error>
 #include <vector>
 
 namespace ui
@@ -39,6 +41,50 @@ namespace ui
     {
             std::string name; ///< The entry's own name, not a full path.
             bool is_directory;
+    };
+
+    /// @brief Where a listing reads a directory's entries from.
+    class DirectorySource
+    {
+        public:
+            virtual ~DirectorySource() = default;
+
+            /// @brief Reads every entry of a directory, unfiltered and in no particular order.
+            /// @param directory The directory to read.
+            /// @return The entries, or an empty vector when directory does not exist or is not a
+            /// directory.
+            /// @throws std::filesystem::filesystem_error when the file system refuses the path.
+            virtual std::vector<DirectoryEntry> read(const std::string& directory) const = 0;
+    };
+
+    /// @brief The source the application uses: the file system.
+    class FileSystemDirectorySource final : public DirectorySource
+    {
+        public:
+            std::vector<DirectoryEntry> read(const std::string& directory) const override;
+    };
+
+    /// @brief A source that serves directories from memory, for tests.
+    class InMemoryDirectorySource final : public DirectorySource
+    {
+        public:
+            /// @brief Makes a directory exist with the given entries.
+            /// @param directory The directory's name as the caller will pass it.
+            /// @param entries Its entries, in any order.
+            void add_directory(const std::string& directory, std::vector<DirectoryEntry> entries);
+
+            /// @brief Makes the file system refuse a directory, as it does an overlong path.
+            /// @param directory The directory's name as the caller will pass it.
+            /// @param cause The error the refusal carries.
+            void refuse(const std::string& directory, std::error_code cause);
+
+            /// @brief Reads a directory added with add_directory; a missing one reads empty.
+            /// @throws std::filesystem::filesystem_error when the directory was refused.
+            std::vector<DirectoryEntry> read(const std::string& directory) const override;
+
+        private:
+            std::map<std::string, std::vector<DirectoryEntry>> directories_;
+            std::map<std::string, std::error_code> refusals_;
     };
 
     /// @brief Lists a directory for the browser: subdirectories first, then the files whose
@@ -59,4 +105,13 @@ namespace ui
     /// @return The entries, ordered as the single-extension listing orders them.
     std::vector<DirectoryEntry> list_directory(const std::string& directory,
                                                const std::vector<std::string>& extensions);
+
+    /// @brief Lists a directory read from a given source, keeping the files of several extensions.
+    /// @param directory The directory to read.
+    /// @param extensions Lowercase extensions to keep; an empty list keeps every file.
+    /// @param source Where the entries come from.
+    /// @return The entries, ordered as the single-extension listing orders them.
+    std::vector<DirectoryEntry> list_directory(const std::string& directory,
+                                               const std::vector<std::string>& extensions,
+                                               const DirectorySource& source);
 } // namespace ui

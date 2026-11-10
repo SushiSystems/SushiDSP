@@ -27,6 +27,8 @@
  * @author Mustafa Garip
  */
 
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -34,6 +36,12 @@
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 
 #include "ui/level_probe.hpp"
+
+namespace
+{
+    /// @brief The length of the block the allocation trap watches one report of.
+    constexpr std::size_t K_ALLOCATION_TRAP_BLOCK_SAMPLES = 16384;
+} // namespace
 
 TEST(Small_LevelProbe, LevelProbeReportsTheLargestMagnitudeIncludingNegativeSamples)
 {
@@ -74,17 +82,14 @@ TEST(Small_LevelProbe, LevelProbeReportsZeroForAnEmptyBlock)
     EXPECT_FLOAT_EQ(probe.read_peak(), 0.0f);
 }
 
-TEST(Medium_LevelProbe, ReportPerformsNoHeapAllocation)
+TEST(Small_LevelProbe, ReportPerformsNoHeapAllocation)
 {
     ui::LevelProbe probe;
-    std::vector<float> block(256, 0.25f);
+    const std::vector<float> block(K_ALLOCATION_TRAP_BLOCK_SAMPLES, 0.25f);
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-    for (int i = 0; i < 64; ++i)
-    {
-        probe.report(block.data(), 256);
-    }
+    probe.report(block.data(), static_cast<std::uint32_t>(block.size()));
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);

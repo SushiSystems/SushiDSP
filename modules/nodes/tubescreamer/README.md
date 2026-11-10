@@ -20,6 +20,7 @@ meaningless.
 | --- | --- | --- |
 | Clip stage | `tube_screamer_circuits::ClipCircuit` + `DiodePairPort` | Op-amp clipper with a diode feedback pair; `kClipNodeFeedbackMiddle` splits the feedback resistor into its fixed 51 kΩ part and the 500 kΩ Drive-pot part, since `DkNetlist::potentiometer` is three-terminal and the real feedback element is a two-terminal variable resistor |
 | Tone stage | `tube_screamer_circuits::ToneCircuit` + `LinearPort` | Passive tone/output network |
+| Port adapters | `tube_screamer_circuits::StiffDiodePairPort`, `RecordingDiodePairPort` | In-memory adapters of the diode-pair port (`diode_pair_port_adapters.hpp`): a diode nine times stiffer than a 1N914 that records its evaluation trail, and a recorder of what the update hook is handed; tests drive the clip block through them |
 
 Both blocks run inside one 4x-oversampled region (`Oversampler4x`), built once in `prepare()`
 and cleared, along with both DK blocks, in `reset()`.

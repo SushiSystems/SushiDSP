@@ -31,6 +31,8 @@
 
 #include <clap/clap.h>
 
+#include <SushiDSP/foundation/log_capture/log_capture.hpp>
+
 #include "clap_plugin.hpp"
 
 #include <memory>
@@ -66,21 +68,49 @@ namespace
     }
 } // namespace
 
-TEST(Small_ClapPlugin, ABlockWithNoAudioPortsIsAnErrorAndIsCounted)
+namespace
+{
+    /// @brief Builds a plugin on a host that offers nothing, initialised and active at 48 kHz.
+    /// @param host The host the plugin talks to.
+    /// @return The plugin, ready to take blocks.
+    std::unique_ptr<SushiDSP::Plugin::ClapRigPlugin> make_active_plugin(const clap_host_t& host)
+    {
+        auto plugin = std::make_unique<SushiDSP::Plugin::ClapRigPlugin>(&host, std::nullopt);
+        const bool ready = plugin->init() && plugin->activate(48000.0, 256);
+        EXPECT_TRUE(ready);
+        return plugin;
+    }
+
+    /// @brief A block of 256 frames that names no audio port.
+    clap_process_t block_without_ports()
+    {
+        clap_process_t block{};
+        block.frames_count = 256;
+        block.audio_inputs_count = 0;
+        block.audio_outputs_count = 0;
+        return block;
+    }
+} // namespace
+
+TEST(Small_ClapPlugin, ABlockWithNoAudioPortsIsAnError)
 {
     const clap_host_t host = make_host();
-    SushiDSP::Plugin::ClapRigPlugin plugin(&host, std::nullopt);
-    ASSERT_TRUE(plugin.init());
-    ASSERT_TRUE(plugin.activate(48000.0, 256));
-    clap_process_t block{};
-    block.frames_count = 256;
-    block.audio_inputs_count = 0;
-    block.audio_outputs_count = 0;
+    const auto plugin = make_active_plugin(host);
+    const clap_process_t block = block_without_ports();
 
-    EXPECT_EQ(plugin.process(block), CLAP_PROCESS_ERROR);
-    EXPECT_EQ(plugin.process(block), CLAP_PROCESS_ERROR);
+    EXPECT_EQ(plugin->process(block), CLAP_PROCESS_ERROR);
+}
 
-    EXPECT_EQ(plugin.bad_block_count().value(), 2U);
+TEST(Small_ClapPlugin, ABlockWithNoAudioPortsIsCounted)
+{
+    const clap_host_t host = make_host();
+    const auto plugin = make_active_plugin(host);
+    const clap_process_t block = block_without_ports();
+
+    static_cast<void>(plugin->process(block));
+    static_cast<void>(plugin->process(block));
+
+    EXPECT_EQ(plugin->bad_block_count().value(), 2U);
 }
 
 TEST(Small_ClapPlugin, OnMainThreadRunsWithNothingToReport)
@@ -88,8 +118,9 @@ TEST(Small_ClapPlugin, OnMainThreadRunsWithNothingToReport)
     const clap_host_t host = make_host();
     SushiDSP::Plugin::ClapRigPlugin plugin(&host, std::nullopt);
     ASSERT_TRUE(plugin.init());
+    SushiDSP::LogCapture capture;
 
     plugin.on_main_thread();
 
-    EXPECT_EQ(plugin.bad_block_count().value(), 0U);
+    EXPECT_TRUE(capture.lines().empty());
 }

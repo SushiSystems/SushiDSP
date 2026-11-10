@@ -33,7 +33,9 @@ A new instance holds an empty rig, which copies each input channel to its output
 environment, so a test builds one with the rig it names. `init()` loads that text as the rig. A
 file that is missing, or that the adapter refuses, leaves the empty rig in place. The variable is
 read once for each instance, before `init()`, so that the host's first parameter scan already
-lists the rig's parameters.
+lists the rig's parameters. `read_startup_rig(value, reader)` takes the variable's value and a
+`RigFileReader`, so a test reads a rig from `InMemoryRigFileReader` without the environment or a
+disk; `read_startup_rig()` is that call with the environment and `FileRigFileReader`.
 
 A host that has a saved session then calls the state extension's load, and the state replaces
 whatever `init()` loaded. The state is the preset text itself, byte for byte what

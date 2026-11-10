@@ -27,6 +27,10 @@
  * @author Mustafa Garip
  */
 
+#include <cstddef>
+#include <string>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include "ui/gear_filter.hpp"
@@ -64,13 +68,30 @@ namespace
         }
         return count;
     }
+
+    /// @brief Counts the items of a grouped result that carry an id.
+    /// @param groups The grouped result to search.
+    /// @param id The id to count.
+    /// @return How many items carry it.
+    std::size_t count_with_id(const std::vector<ui::GearGroup>& groups, const std::string& id)
+    {
+        std::size_t count = 0;
+        for (const ui::GearGroup& group : groups)
+        {
+            for (const ui::GearItem* item : group.items)
+            {
+                count += item->id == id ? 1u : 0u;
+            }
+        }
+        return count;
+    }
 } // namespace
 
 TEST(Small_GearFilter, GearFilterAllTabKeepsEveryNonRoutingItem)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "");
-    // The splitter, the mixer and the room are placed by the rig itself.
+    // The splitter, the mixer, the pan and the room are placed by the rig itself.
     EXPECT_EQ(total_items(groups), catalog.size() - 4u);
 }
 
@@ -106,12 +127,5 @@ TEST(Small_GearFilter, GearFilterNeverListsSplitterOrMixer)
 {
     const std::vector<ui::GearItem> catalog = sample_catalog();
     const std::vector<ui::GearGroup> groups = ui::filter_gear(catalog, ui::GearTab::All, "");
-    for (const ui::GearGroup& group : groups)
-    {
-        for (const ui::GearItem* item : group.items)
-        {
-            EXPECT_NE(item->id, "sushidsp.splitter");
-            EXPECT_NE(item->id, "sushidsp.mixer");
-        }
-    }
+    EXPECT_EQ(count_with_id(groups, "sushidsp.splitter") + count_with_id(groups, "sushidsp.mixer"), 0u);
 }

@@ -186,6 +186,7 @@ add_executable(sushidsp_tests
     foundation/math/dk/test_dk_circuit/test_behaviour.cpp
     foundation/circuits/stages/test_triode_stage/test_dk_netlist.cpp
     foundation/math/dk/test_dk_circuit/test_op_amp.cpp
+    nodes/tubescreamer/test_diode_pair_port_adapters.cpp
     nodes/tubescreamer/test_tube_screamer_circuits/test_clip_stage.cpp
     nodes/tubescreamer/test_tube_screamer_circuits/test_tone_stage.cpp
 
@@ -447,7 +448,7 @@ if(SUSHIDSP_BUILD_PLUGIN)
     target_sources(sushidsp_tests PRIVATE
         applications/plugin/test_clap_boundary.cpp
         applications/plugin/test_clap_plugin.cpp
-        applications/plugin/test_plugin_log_category.cpp
+        applications/plugin/compile_plugin_log_category.cpp
         applications/plugin/test_startup_rig.cpp
         ${CMAKE_SOURCE_DIR}/applications/plugin/clap_extensions.cpp
         ${CMAKE_SOURCE_DIR}/applications/plugin/clap_plugin.cpp

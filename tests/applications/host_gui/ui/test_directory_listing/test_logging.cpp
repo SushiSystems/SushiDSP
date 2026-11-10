@@ -27,8 +27,8 @@
  * @author Mustafa Garip
  */
 
-#include <memory>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -36,33 +36,39 @@
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include "ui/directory_listing.hpp"
 
-TEST(Medium_DirectoryListing, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFileSystemRefusesThePath)
+namespace
 {
-    // A name of 40 000 characters is longer than any file system here accepts.
-    const std::string overlong(40000, 'a');
+    /// @brief The directory name the source refuses.
+    const std::string K_REFUSED_DIRECTORY = "refused";
 
+    /// @brief The cause the source refuses it with.
+    const std::error_code K_REFUSAL = std::make_error_code(std::errc::filename_too_long);
+} // namespace
+
+TEST(Small_DirectoryListing, ListDirectoryShowsARefusedPathAsEmpty)
+{
+    ui::InMemoryDirectorySource source;
+    source.refuse(K_REFUSED_DIRECTORY, K_REFUSAL);
     SushiDSP::LogCapture capture;
-    std::vector<ui::DirectoryEntry> entries;
-    {
-        entries = ui::list_directory(overlong, ".wav");
-    }
+
+    const std::vector<ui::DirectoryEntry> entries =
+        ui::list_directory(K_REFUSED_DIRECTORY, std::vector<std::string>{".wav"}, source);
+
     EXPECT_TRUE(entries.empty());
+}
+
+TEST(Small_DirectoryListing, ListDirectoryLogsOneWarningNamingTheCauseWhenTheFileSystemRefusesThePath)
+{
+    ui::InMemoryDirectorySource source;
+    source.refuse(K_REFUSED_DIRECTORY, K_REFUSAL);
+    SushiDSP::LogCapture capture;
+
+    static_cast<void>(ui::list_directory(K_REFUSED_DIRECTORY, std::vector<std::string>{".wav"}, source));
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
-    if (lines.empty())
-    {
-        GTEST_SKIP() << "this platform reports an overlong path as missing instead of raising "
-                        "filesystem_error, so the logged path cannot be provoked here";
-    }
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
     EXPECT_EQ(lines[0].category, "host_gui");
-
-    const std::string prefix = "could not list a directory: ";
-    const std::string suffix = "; it is shown as empty: 'aaaa";
-    const std::size_t suffix_at = lines[0].message.find(suffix);
-    ASSERT_EQ(lines[0].message.rfind(prefix, 0), 0u) << lines[0].message;
-    ASSERT_NE(suffix_at, std::string::npos) << lines[0].message;
-    // The text between the two is the cause the file system gave, and it is not empty.
-    EXPECT_GT(suffix_at, prefix.size()) << lines[0].message;
+    EXPECT_EQ(lines[0].message, "could not list a directory: " + K_REFUSAL.message() +
+                                    "; it is shown as empty: '" + K_REFUSED_DIRECTORY + "'");
 }

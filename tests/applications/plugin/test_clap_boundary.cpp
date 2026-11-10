@@ -37,28 +37,63 @@
 #include <string>
 #include <vector>
 
-TEST(Small_ClapBoundary, ACallThatReturnsKeepsItsOwnResultAndWritesNothing)
+namespace
+{
+    /// @brief The failure value the guarded calls return when they throw.
+    constexpr int K_FALLBACK = -1;
+
+    /// @brief Runs a call that throws a std::exception under the guard.
+    int guarded_std_throw()
+    {
+        return SushiDSP::Plugin::guarded(
+            "state.load", K_FALLBACK,
+            []() -> int
+            {
+                throw std::runtime_error("bad preset");
+            });
+    }
+
+    /// @brief Runs a call that throws something that is not a std::exception under the guard.
+    bool guarded_non_std_throw()
+    {
+        return SushiDSP::Plugin::guarded(
+            "params.flush", false,
+            []() -> bool
+            {
+                throw 42;
+            });
+    }
+} // namespace
+
+TEST(Small_ClapBoundary, ACallThatReturnsKeepsItsOwnResult)
 {
     SushiDSP::LogCapture capture;
 
-    const int result = SushiDSP::Plugin::guarded("test.fine", -1, [] { return 7; });
+    EXPECT_EQ(SushiDSP::Plugin::guarded("test.fine", K_FALLBACK, [] { return 7; }), 7);
+}
 
-    EXPECT_EQ(result, 7);
+TEST(Small_ClapBoundary, ACallThatReturnsWritesNothing)
+{
+    SushiDSP::LogCapture capture;
+
+    static_cast<void>(SushiDSP::Plugin::guarded("test.fine", K_FALLBACK, [] { return 7; }));
+
     EXPECT_TRUE(capture.lines().empty());
 }
 
-TEST(Small_ClapBoundary, AStdExceptionReturnsTheFallbackAndWritesOneErrorNamingTheCallback)
+TEST(Small_ClapBoundary, AStdExceptionReturnsTheFallback)
 {
     SushiDSP::LogCapture capture;
 
-    const int result = SushiDSP::Plugin::guarded(
-        "state.load", -1,
-        []() -> int
-        {
-            throw std::runtime_error("bad preset");
-        });
+    EXPECT_EQ(guarded_std_throw(), K_FALLBACK);
+}
 
-    EXPECT_EQ(result, -1);
+TEST(Small_ClapBoundary, AStdExceptionWritesOneErrorNamingTheCallback)
+{
+    SushiDSP::LogCapture capture;
+
+    static_cast<void>(guarded_std_throw());
+
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
@@ -67,18 +102,19 @@ TEST(Small_ClapBoundary, AStdExceptionReturnsTheFallbackAndWritesOneErrorNamingT
     EXPECT_NE(lines[0].message.find("bad preset"), std::string::npos) << lines[0].message;
 }
 
-TEST(Small_ClapBoundary, ANonStdThrowReturnsTheFallbackAndWritesOneError)
+TEST(Small_ClapBoundary, ANonStdThrowReturnsTheFallback)
 {
     SushiDSP::LogCapture capture;
 
-    const bool result = SushiDSP::Plugin::guarded(
-        "params.flush", false,
-        []() -> bool
-        {
-            throw 42;
-        });
+    EXPECT_FALSE(guarded_non_std_throw());
+}
 
-    EXPECT_FALSE(result);
+TEST(Small_ClapBoundary, ANonStdThrowWritesOneErrorNamingTheCallback)
+{
+    SushiDSP::LogCapture capture;
+
+    static_cast<void>(guarded_non_std_throw());
+
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_NE(lines[0].message.find("params.flush"), std::string::npos) << lines[0].message;
