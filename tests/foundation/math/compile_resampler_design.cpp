@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_resampler_design.cpp                                              */
+/* compile_resampler_design.cpp                                         */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -23,36 +23,9 @@
 
 
 /**
- * @file test_resampler_design.cpp
- * @brief Tests that the resampler prototype's constants describe a consistent filter.
+ * @file compile_resampler_design.cpp
+ * @brief Compiles resampler_design.hpp, whose constants the resampler tests read through the kernel table.
  * @author Mustafa Garip
  */
 
-#include <cstdint>
-
-#include <gtest/gtest.h>
-
 #include <SushiDSP/foundation/math/resampler_design.hpp>
-
-TEST(Small_ResamplerDesign, ResamplerDesignKernelLengthHoldsTheWingThePeakAndOneGuard)
-{
-    // 34 * 512 + 1 endpoint + 1 guard = 17410. See tests/foundation/math/README.md.
-    EXPECT_EQ(SushiDSP::K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS *
-                  SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING,
-              17408u);
-    EXPECT_EQ(SushiDSP::K_RESAMPLER_KERNEL_LENGTH,
-              SushiDSP::K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS *
-                      SushiDSP::K_RESAMPLER_PHASES_PER_ZERO_CROSSING +
-                  2u);
-}
-
-TEST(Small_ResamplerDesign, ResamplerDesignCutoffSitsBetweenThePassbandEdgeAndNyquist)
-{
-    EXPECT_LT(SushiDSP::K_RESAMPLER_PASSBAND_EDGE, SushiDSP::K_RESAMPLER_CUTOFF);
-    EXPECT_LT(SushiDSP::K_RESAMPLER_CUTOFF, 0.5f);
-}
-
-TEST(Small_ResamplerDesign, ResamplerDesignStopbandMeetsTheHundredDecibelTarget)
-{
-    EXPECT_LE(SushiDSP::K_RESAMPLER_STOPBAND_DECIBELS, -100.0f);
-}

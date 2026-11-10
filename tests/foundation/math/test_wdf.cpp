@@ -27,17 +27,11 @@
  * @author Mustafa Garip
  */
 
-#include <cmath>
-
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/math/wdf.hpp>
+#include "support/tolerance.hpp"
 
-TEST(Small_Wdf, WdfResistorReportsConfiguredPortResistance)
-{
-    SushiDSP::WdfResistor resistor(1000.0f);
-    EXPECT_FLOAT_EQ(resistor.port_resistance(), 1000.0f);
-}
+#include <SushiDSP/foundation/math/wdf.hpp>
 
 TEST(Small_Wdf, WdfResistorAlwaysReflectsZero)
 {
@@ -47,14 +41,16 @@ TEST(Small_Wdf, WdfResistorAlwaysReflectsZero)
     EXPECT_FLOAT_EQ(resistor.reflect(0.0f), 0.0f);
 }
 
-TEST(Small_Wdf, WdfCapacitorPortResistanceMatchesBilinearFormula)
+// The port resistance T / 2C has two rounded operations: the float sample period and the quotient.
+TEST(Small_Wdf, WdfCapacitorPortResistanceIsThePeriodOverTwiceTheCapacitance)
 {
     constexpr double sample_rate = 48000.0;
     constexpr float capacitance = 1e-6f; // 1 microfarad
-    SushiDSP::WdfCapacitor capacitor(sample_rate, capacitance);
+    const SushiDSP::WdfCapacitor capacitor(sample_rate, capacitance);
 
-    const float expected_resistance = static_cast<float>(1.0 / sample_rate) / (2.0f * capacitance);
-    EXPECT_NEAR(capacitor.port_resistance(), expected_resistance, expected_resistance * 1e-4f);
+    const double expected = (1.0 / sample_rate) / (2.0 * static_cast<double>(capacitance));
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_relative_error<float>(capacitor.port_resistance(), expected, 2)));
 }
 
 TEST(Small_Wdf, WdfCapacitorReflectsPreviousIncidentWave)

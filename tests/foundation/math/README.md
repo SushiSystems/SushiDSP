@@ -44,7 +44,7 @@ uses y[n] = y[0] R^n after the first sample (b0 + b1 is exactly zero, so the rec
 multiplication by R); the relative bound is 2 u_f for the two float roundings plus 3 n u_d for the
 state recursion and the library's one-ulp error in R.
 
-### `SetCoefficientsLoadsThemVerbatim`
+### `BiquadSetCoefficientsLoadsThemVerbatim`
 
 `// The impulse response is 1, 1/2, 1/4, 1/8.`
 
@@ -73,6 +73,18 @@ input has sqrt(N) less norm than the spectrum, so it adds log2(N) eta of ||x|| a
 A real cosine at bin k has N/2 at bins k and N - k and zero elsewhere. The float rounding of the
 input adds sqrt(N) u ||x|| to the bound.
 
+## `test_partitioned_convolution.cpp` and `test_streaming_convolution.cpp`
+
+Both compare the float FFT convolution with the direct form in double precision. The bound is
+`TestSupport::partitioned_block_error_bound` in `fft_error_bound.hpp`: per output block, the
+2-norm error is at most (3 r + (P + 2) u) times P times the largest input-block 2-norm times the
+largest impulse-response-slice l1 norm, where r is the relative bound of the 2N-point float FFT
+(`fft_relative_bound`) and P the partition count. The three r are the two forward transforms and
+the inverse; the (P + 2) u is the float sum of the P spectra and the overlap-add. The product error
+is taken against the larger spectrum, whose sup norm is at most the slice's l1 norm. A sample's
+error is at most its block's 2-norm error. The streaming test adds nothing to the bound: its
+re-blocking only copies samples.
+
 ## `test_newton_raphson_solver.cpp`
 
 ### `JointOverloadMatchesSplitOverloadBitForBit`
@@ -84,74 +96,66 @@ that must be a pure cost change, so both forms must walk identical iterates.
 
 ## `test_oversampler.cpp`
 
-### `HalfbandDesignsHaveExactZeroTapsAndUnityDcGain`
+The rejection and droop limits are the spec levels of D6a, named in the file
+(`K_SPEC_REJECTION_DB` = -90 dB, `K_SPEC_DROOP_DB` = 0.1 dB), not tolerances of the arithmetic.
+The halfband stages are checked against the direct form with a derived bound: the float
+accumulator sums (taps - 1)/4 + 1 pair terms, each with the rounding of its pair sum and of its
+product, and the double-precision reference is rounded to float once, so the error is at most
+(pairs + 4) u Σ|h| max|x'|, with x' the zero-stuffed input. The zero taps and the unity DC gain of
+the designs are held by `test_halfband_coefficients.cpp`.
 
-`// The halfband zeros sit at even centre distances.`
-
-tap_count = 4M-1 puts the centre at index 2M-1. The halfband zeros sit at even distances from
-the centre; the surviving taps are at odd distances 1, 3, 5, ...
-
-### `Oversampler8xImagesOfInBandTonesAreBelowMinus90dB`
+### `ImagesOfAnInBandToneAreBelowTheSpecRejection`
 
 `// A tone's images sit at k*f_base +- f.`
 
 Spec D6a: image rejection >= 90 dB at 0.3\*f_base and beyond. A tone's images sit at k\*f_base
 +- f; every line in the 8x spectrum other than the tone must be >= 90 dB down.
 
-### `Oversampler8xAliasesOfOutOfBandTonesAreBelowMinus90dB`
+### `AliasesOfAnOutOfBandToneAreBelowTheSpecRejection`
 
-`// Folds into (0.45..0.5)*f_base are skipped.`
+`// Folds into (0.45..0.5)*f_base are not in the rows.`
 
 Tones at the 8x rate from 0.55\*f_base to 3.95\*f_base in 0.05 steps, decimated to base rate:
 whatever folds into [0, 0.45\*f_base] must be >= 90 dB below the tone. Folds that land in the
-stage-1 transition band (0.45..0.5)\*f_base are the filter's don't-care region and are skipped.
+stage-1 transition band (0.45..0.5)\*f_base are the filter's don't-care region and have no row.
+The reference level is the same-amplitude tone analysed with the same window at base rate; it is
+bin-exact, as the folded aliases are, because a tone off-bin loses up to 0.83 dB to
+Blackman-Harris scalloping and would flatter every alias by that much. The steps are integers:
+accumulating 0.05 in double drifts, and near-integer fractions then fold to ~1e-7 instead of ~0.
 
-`// The reference tone is bin-exact, as the aliases are.`
-
-Reference level: the same-amplitude tone analysed with the same window at base rate. It has to
-be bin-exact, as the folded aliases are; a tone off-bin loses up to 0.83 dB to Blackman-Harris
-scalloping, which would flatter every alias by that much.
-
-`// The sweep steps in integers; += 0.05 drifts.`
-
-Integer-stepped: accumulating += 0.05 in double drifts, and near-integer fractions then fold to
-\~1e-7 instead of \~0, where the sweep would assert nothing.
-
-### `Oversampler4xRoundTripDroopAt20kIsWithinTenthOfADecibel`
+### `RoundTripDroopAt20kIsWithinTheSpecDroop`
 
 `// 20 kHz is 0.4167*f_base, inside the 0.45 passband.`
 
-20 kHz at 48 kHz is 0.4167\*f_base, inside the 0.45 passband; round trip through the two stages
-shared with Oversampler8x's own stages 1 and 2.
+20 kHz at 48 kHz is 0.4167\*f_base, inside the 0.45 passband. The tone is bin-exact over the
+65536-sample window, so the power ratio of the settled half is free of leakage. The rows are
+Oversampler4x (two stages) and Oversampler8x (six).
 
-### `Oversampler4xLatencyMatchesMeasuredImpulseDelay`
+### `LatencyMatchesMeasuredImpulseDelay`
 
-`// The round trip is 63.5 base-rate samples.`
+`// The reported floor is within one sample of the peak.`
 
-The impulse peak is the round trip: 31.75 base-rate samples up and 31.75 back, 63.5 in all. The
-27-tap stage is what makes it fractional - it runs at 4x, so its 13 taps of delay are 3.25
-base-rate samples each way and 6.5 together. The 115-tap stage contributes 28.5 each way, a
-whole 57. See the derivation in Oversampler4x::latency_samples. The reported floor is within one
-sample of the peak.
+The 4x impulse peak is the round trip: 31.75 base-rate samples up and 31.75 back, 63.5 in all. The
+27-tap stage makes it fractional - it runs at 4x, so its 13 taps of delay are 3.25 base-rate
+samples each way and 6.5 together. The 115-tap stage contributes 28.5 each way, a whole 57. See the
+derivation in Oversampler4x::latency_samples. The reported floor is within one sample of the peak,
+for both classes.
 
-### `ResetReturnsEveryStageToItsAsConstructedState`
+### `ReturnsTheStageToItsAsConstructedState`
 
 `// A reset instance matches a never-used one bit for bit.`
 
 An instance that has processed a burst and then been reset must produce bit-identical output to
-a never-used instance, on all four classes. Oversampler4x is here because it is what every
-shipping D6c node runs; TubeScreamer::reset() is only as good as this.
+a never-used instance, on the halfband upsampler and downsampler and on both oversamplers.
+Oversampler4x is here because it is what every shipping D6c node runs; TubeScreamer::reset() is
+only as good as this. The oversamplers' buffers are internal and reused, so the oversampled block
+is copied out before it is decimated.
 
-`// The 4x buffer is reused, so each block is copied.`
+### `Oversampler8xPassesDcAtUnity`
 
-The 4x buffer is internally owned and reused, so each block is copied out before the next call
-overwrites it. The two halfband blocks above need no such copy because process() writes to a
-caller-owned buffer.
-
-`// The 8x buffer is reused, so each block is copied.`
-
-The 8x buffer is internally owned and reused, so each block is copied out before the next call
-overwrites it.
+The bound is the sum over the three designs of u (pairs + 3) 3 Σ|h| + 2 u Σ|h|: the accumulators
+of the up and the down stage, whose terms add to at most 3 Σ|h|, and the table's float rounding in
+each direction.
 
 ## `test_resampler.cpp`
 
@@ -289,17 +293,14 @@ set_rates 32 times; a ratio change that rebuilt a filter bank would put the node
 thread entirely. The sweep runs the VCO's whole 20-82.5 kHz range, so the ratio reaches both
 ends of the clamp prepare() was given.
 
-## `test_resampler_design.cpp`
+## `compile_resampler_design.cpp`
 
-### `ResamplerDesignKernelLengthHoldsTheWingThePeakAndOneGuard`
-
-`// 34 * 512 + 1 endpoint + 1 guard = 17410.`
-
-34 zero crossings \* 512 entries + 1 endpoint + 1 guard = 17410. HALF_WIDTH is 34 rather than
-32 so the stopband clears its -100 dB target with margin. The table's own properties, a unity
-DC sum on every polyphase branch and a linear-interpolation error bound of 3.8127e-6, are
-measured by `tools/dsp/design_resampler.py` when it writes the table, and reach the tests through
-`Resampler` in `test_resampler.cpp`.
+The kernel is 34 zero crossings \* 512 entries + 1 endpoint + 1 guard = 17410 long. HALF_WIDTH is
+34 rather than 32 so the stopband clears its -100 dB target with margin. The table's own
+properties, a unity DC sum on every polyphase branch and a linear-interpolation error bound of
+3.8127e-6, are measured by `tools/dsp/design_resampler.py` when it writes the table, and reach the
+tests through `Resampler` in `test_resampler.cpp`. The header has no test of its own: its
+constants are not behaviour, and the file only keeps it compiling.
 
 ## `benchmark_resampler.cpp`
 

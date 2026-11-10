@@ -36,6 +36,7 @@
 #include <string>
 #include <vector>
 
+#include "foundation/math/fft_error_bound.hpp"
 #include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
@@ -48,15 +49,10 @@ namespace
     /// Pi to double precision, spelled out so the tests do not depend on M_PI being visible.
     constexpr double K_PI = 3.14159265358979323846;
 
-    /// @brief Returns the relative 2-norm bound of a radix-2 FFT, log2(N) eta / (1 - log2(N) eta) with
-    /// eta = mu + gamma4 (sqrt 2 + mu) and mu = u for twiddles rounded to float (Higham, Accuracy and
-    /// Stability of Numerical Algorithms, theorem 24.2).
+    /// @brief Returns the relative 2-norm bound of a float radix-2 FFT of the given size.
     double fft_relative_bound(std::uint32_t size)
     {
-        const double stages = std::log2(static_cast<double>(size));
-        const double gamma4 = 4.0 * kU / (1.0 - 4.0 * kU);
-        const double eta = kU + gamma4 * (std::sqrt(2.0) + kU);
-        return stages * eta / (1.0 - stages * eta);
+        return TestSupport::fft_relative_bound(size);
     }
 
     /// @brief Returns count deterministic samples in [-0.5, 0.5) from a linear congruential generator.

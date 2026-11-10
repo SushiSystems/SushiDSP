@@ -499,7 +499,7 @@ TEST_P(Small_BiquadLowCorner, PassbandGainMatchesTheAnalogRc)
 
 INSTANTIATE_TEST_SUITE_P(Corners, Small_BiquadLowCorner, ::testing::ValuesIn(kLowCornerRows), row_name);
 
-TEST(Small_Biquad, SetCoefficientsLoadsThemVerbatim)
+TEST(Small_Biquad, BiquadSetCoefficientsLoadsThemVerbatim)
 {
     // b = {0.5, 0.5, 0}, a = {0, 0} is a two-tap average whose impulse response is 0.5, 0.5, 0.
     SushiDSP::Biquad average;

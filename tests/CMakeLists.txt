@@ -219,7 +219,7 @@ add_executable(sushidsp_tests
     foundation/math/test_partitioned_convolution.cpp
     foundation/math/test_streaming_convolution.cpp
     foundation/math/test_sinc_resampler.cpp
-    foundation/math/test_resampler_design.cpp
+    foundation/math/compile_resampler_design.cpp
     foundation/math/test_resampler.cpp
     foundation/math/test_smoothed_parameter.cpp
     foundation/math/test_wdf.cpp

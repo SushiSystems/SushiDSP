@@ -27,155 +27,187 @@
  * @author Mustafa Garip
  */
 
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
-#include <gtest/gtest.h>
+#include "foundation/math/fft_error_bound.hpp"
+#include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/foundation/math/partitioned_convolution.hpp>
 
 namespace
 {
-    std::vector<float> direct_convolution(const std::vector<float>& x, const std::vector<float>& h)
+    constexpr std::uint32_t K_PARTITION = 64;
+
+    /// @brief Returns the full convolution of x and h in double precision.
+    std::vector<double> direct_convolution(const std::vector<float>& x, const std::vector<float>& h)
     {
-        std::vector<float> y(x.size() + h.size() - 1, 0.0f);
+        std::vector<double> y(x.size() + h.size() - 1, 0.0);
         for (std::size_t n = 0; n < x.size(); ++n)
         {
             for (std::size_t k = 0; k < h.size(); ++k)
             {
-                y[n + k] += x[n] * h[k];
+                y[n + k] += static_cast<double>(x[n]) * h[k];
             }
         }
         return y;
     }
+
+    /// @brief Returns count samples in [-1, 1) from a linear congruential generator with a fixed seed.
+    std::vector<float> noise(std::size_t count, unsigned seed)
+    {
+        std::vector<float> samples(count);
+        for (float& sample : samples)
+        {
+            seed = seed * 1664525u + 1013904223u;
+            sample = (static_cast<float>(seed >> 8) / static_cast<float>(1u << 24)) * 2.0f - 1.0f;
+        }
+        return samples;
+    }
+
+    /// @brief Returns the impulse response 0.5 sin(0.1 i) of the given length.
+    std::vector<float> sine_response(std::size_t length)
+    {
+        std::vector<float> response(length);
+        for (std::size_t i = 0; i < length; ++i)
+        {
+            response[i] = std::sin(0.1f * static_cast<float>(i)) * 0.5f;
+        }
+        return response;
+    }
+
+    /// @brief Feeds the input through the convolution block by block and returns what it emitted.
+    std::vector<float> stream(SushiDSP::PartitionedConvolution& convolution, const std::vector<float>& input)
+    {
+        std::vector<float> streamed;
+        for (std::size_t position = 0; position < input.size(); position += K_PARTITION)
+        {
+            std::vector<float> output(K_PARTITION, 0.0f);
+            convolution.process(input.data() + position, output.data());
+            streamed.insert(streamed.end(), output.begin(), output.end());
+        }
+        return streamed;
+    }
+
+    /// @brief Returns four blocks of a unit impulse followed by silence.
+    std::vector<float> impulse_blocks()
+    {
+        std::vector<float> input(K_PARTITION * 4, 0.0f);
+        input[0] = 1.0f;
+        return input;
+    }
+
+    /// @brief Returns the largest absolute difference between a stream and a reference over [begin, end).
+    template <typename Reference>
+    double worst_difference(const std::vector<float>& streamed, const std::vector<Reference>& reference,
+                            std::size_t begin, std::size_t end)
+    {
+        double worst = 0.0;
+        for (std::size_t i = begin; i < end; ++i)
+        {
+            worst = std::max(worst, std::abs(static_cast<double>(streamed[i]) - static_cast<double>(reference[i])));
+        }
+        return worst;
+    }
+
+    /// The impulse response of 100 samples convolved with a unit impulse, over four blocks.
+    struct ImpulseRun
+    {
+            std::vector<float> response = sine_response(100);
+            std::vector<float> collected;
+            double bound = 0.0;
+
+            ImpulseRun()
+            {
+                SushiDSP::PartitionedConvolution convolution(K_PARTITION, response.data(),
+                                                             static_cast<std::uint32_t>(response.size()));
+                collected = stream(convolution, impulse_blocks());
+                bound = TestSupport::partitioned_block_error_bound(K_PARTITION, 2, 1.0,
+                                                                   TestSupport::largest_slice_l1(response, K_PARTITION));
+            }
+    };
+
+    /// @brief Runs a reset-after-one-block convolution and returns the block it emits for silence.
+    std::vector<float> output_for_silence_after_reset()
+    {
+        const float response[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+        SushiDSP::PartitionedConvolution convolution(4, response, 4);
+        const float block[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+        const float silence[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        std::vector<float> output(4, 0.0f);
+        convolution.process(block, output.data());
+        convolution.reset();
+        convolution.process(silence, output.data());
+        return output;
+    }
 } // namespace
 
-TEST(Small_PartitionedConvolution, PartitionedConvolutionOfImpulseReproducesImpulseResponse)
+TEST(Small_PartitionedConvolution, ImpulseReproducesTheImpulseResponse)
 {
-    constexpr std::uint32_t partition_size = 64;
-    std::vector<float> impulse_response(100);
-    for (std::size_t i = 0; i < impulse_response.size(); ++i)
-    {
-        impulse_response[i] = std::sin(0.1f * static_cast<float>(i)) * 0.5f;
-    }
+    const ImpulseRun run;
 
-    SushiDSP::PartitionedConvolution convolution(
-        partition_size, impulse_response.data(),
-        static_cast<std::uint32_t>(impulse_response.size()));
-
-    std::vector<float> input(partition_size, 0.0f);
-    input[0] = 1.0f;
-
-    std::vector<float> collected;
-    for (int block = 0; block < 4; ++block)
-    {
-        std::vector<float> output(partition_size, 0.0f);
-        convolution.process(input.data(), output.data());
-        collected.insert(collected.end(), output.begin(), output.end());
-        std::fill(input.begin(), input.end(), 0.0f);
-    }
-
-    for (std::size_t i = 0; i < impulse_response.size(); ++i)
-    {
-        EXPECT_NEAR(collected[i], impulse_response[i], 1e-3f) << "sample " << i;
-    }
-    for (std::size_t i = impulse_response.size(); i < collected.size(); ++i)
-    {
-        EXPECT_NEAR(collected[i], 0.0f, 1e-3f) << "sample " << i;
-    }
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
+        worst_difference(run.collected, run.response, 0, run.response.size()), 0.0, run.bound)));
 }
 
-TEST(Small_PartitionedConvolution, PartitionedConvolutionMatchesDirectConvolutionForWhiteNoise)
+TEST(Small_PartitionedConvolution, ImpulseLeavesNothingAfterTheResponse)
 {
-    constexpr std::uint32_t partition_size = 64;
-    constexpr std::uint32_t impulse_length = 150; // spans 3 partitions, last one padded
-    constexpr int num_blocks = 6;
+    const ImpulseRun run;
 
-    std::vector<float> impulse_response(impulse_length);
-    unsigned seed = 12345u;
-    auto next_random = [&seed]() -> float
-    {
-        seed = seed * 1664525u + 1013904223u;
-        return (static_cast<float>(seed >> 8) / static_cast<float>(1u << 24)) * 2.0f - 1.0f;
-    };
-    for (float& h : impulse_response)
-    {
-        h = next_random() * 0.3f;
-    }
-
-    std::vector<float> input(partition_size * num_blocks);
-    for (float& x : input)
-    {
-        x = next_random();
-    }
-
-    SushiDSP::PartitionedConvolution convolution(partition_size, impulse_response.data(),
-                                                 impulse_length);
-    std::vector<float> streamed;
-    for (int block = 0; block < num_blocks; ++block)
-    {
-        std::vector<float> output(partition_size, 0.0f);
-        convolution.process(input.data() + block * partition_size, output.data());
-        streamed.insert(streamed.end(), output.begin(), output.end());
-    }
-
-    std::vector<float> full_input(input.begin(), input.end());
-    std::vector<float> reference = direct_convolution(full_input, impulse_response);
-
-    for (std::size_t i = 0; i < streamed.size(); ++i)
-    {
-        EXPECT_NEAR(streamed[i], reference[i], 1e-2f) << "sample " << i;
-    }
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
+        worst_difference(run.collected, std::vector<float>(run.collected.size(), 0.0f), run.response.size(),
+                         run.collected.size()),
+        0.0, run.bound)));
 }
 
-TEST(Small_PartitionedConvolution, PartitionedConvolutionResetClearsTail)
+// The impulse response of 150 samples spans three partitions, the last one padded.
+TEST(Small_PartitionedConvolution, MatchesDirectConvolutionForWhiteNoise)
 {
-    const float ir[4] = {0.0f, 0.0f, 0.0f, 1.0f};
-    SushiDSP::PartitionedConvolution convolution(4, ir, 4);
-    float block[4] = {1.0f, 0.0f, 0.0f, 0.0f};
-    float out[4];
-    convolution.process(block, out);
-    convolution.reset();
-    float silence[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    convolution.process(silence, out);
-    for (float sample : out)
-    {
-        EXPECT_NEAR(sample, 0.0f, 1e-7f);
-    }
+    const std::vector<float> response = [] {
+        std::vector<float> h = noise(150, 12345u);
+        std::transform(h.begin(), h.end(), h.begin(), [](float value) { return value * 0.3f; });
+        return h;
+    }();
+    const std::vector<float> input = noise(K_PARTITION * 6, 54321u);
+    SushiDSP::PartitionedConvolution convolution(K_PARTITION, response.data(),
+                                                 static_cast<std::uint32_t>(response.size()));
+
+    const std::vector<float> streamed = stream(convolution, input);
+
+    const std::vector<double> reference = direct_convolution(input, response);
+    const double bound = TestSupport::partitioned_block_error_bound(
+        K_PARTITION, 3, TestSupport::largest_block_norm(input, K_PARTITION),
+        TestSupport::largest_slice_l1(response, K_PARTITION));
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_error(worst_difference(streamed, reference, 0, streamed.size()), 0.0, bound)));
 }
 
-TEST(Medium_PartitionedConvolution, ProcessPerformsNoHeapAllocation)
+TEST(Small_PartitionedConvolution, ResetClearsTheTail)
 {
-    const std::uint32_t partition_size = 64;
+    EXPECT_EQ(output_for_silence_after_reset(), std::vector<float>(4, 0.0f));
+}
 
-    std::vector<float> impulse_response(160, 0.0f);
-    for (std::size_t i = 0; i < impulse_response.size(); ++i)
+TEST(Small_PartitionedConvolution, ProcessPerformsNoHeapAllocation)
+{
+    std::vector<float> response(160, 0.0f);
+    for (std::size_t i = 0; i < response.size(); ++i)
     {
-        impulse_response[i] = 1.0f / (1.0f + static_cast<float>(i));
+        response[i] = 1.0f / (1.0f + static_cast<float>(i));
     }
-
-    SushiDSP::PartitionedConvolution convolution(
-        partition_size, impulse_response.data(),
-        static_cast<std::uint32_t>(impulse_response.size()));
-
-    std::vector<float> input(partition_size, 0.0f);
-    std::vector<float> output(partition_size, 0.0f);
-    for (std::uint32_t i = 0; i < partition_size; ++i)
-    {
-        input[i] = static_cast<float>(i % 5) * 0.1f - 0.2f;
-    }
+    SushiDSP::PartitionedConvolution convolution(K_PARTITION, response.data(),
+                                                 static_cast<std::uint32_t>(response.size()));
+    const std::vector<float> input = noise(K_PARTITION, 7u);
+    std::vector<float> output(K_PARTITION, 0.0f);
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-
-    for (int block = 0; block < 1000; ++block)
-    {
-        convolution.process(input.data(), output.data());
-    }
-
+    convolution.process(input.data(), output.data());
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
