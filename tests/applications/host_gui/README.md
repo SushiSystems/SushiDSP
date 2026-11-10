@@ -113,7 +113,7 @@ which is 3 for a loop inside 100 ms.
 
 ## `test_rig_topology.cpp`
 
-### `RigTopologyOpeningAPathReportsItForTheCallerToFill`
+### `RigTopologyOpeningTheSecondPathReportsItAndLeavesItEmpty`
 
 `// The path the model opens starts empty.`
 
