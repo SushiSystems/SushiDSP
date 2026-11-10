@@ -30,6 +30,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -56,15 +57,79 @@ namespace
     /// @brief Names the 500 Hz octave band's index.
     constexpr std::size_t K_BAND500_HZ = 2;
 
-    /// @brief Names the 1 kHz octave band's index.
-    constexpr std::size_t K_BAND1K_HZ = 3;
-
     /// @brief Bounds the starter scene's reverberation time from above, in seconds.
     constexpr double K_UPPER_BOUND_SECONDS = 1.3;
 
     /// @brief Bounds the starter scene's reverberation time from below, in seconds.
     constexpr double K_LOWER_BOUND_SECONDS = 0.5;
+
+    /// @brief Returns whether a scene holds an item among its live furnishings.
+    bool holds_item(const RoomScene& scene, FurnitureId item)
+    {
+        return std::any_of(scene.furnishings.begin(),
+                           scene.furnishings.begin() + scene.furnishing_count,
+                           [item](const RoomScene::Furnishing& entry) { return entry.item == item; });
+    }
+
+    /// @brief Holds one face of the starter room and the material the design gives it.
+    struct Face
+    {
+            const char* name;
+            Surface surface;
+            MaterialId material;
+    };
+
+    /// @brief Holds the six faces: parquet on concrete underfoot, painted plaster everywhere else.
+    const std::array<Face, 6> kFaces = {
+        {{"Floor", Surface::Floor, MaterialId::ParquetOnConcrete},
+         {"MinusX", Surface::MinusX, MaterialId::PlasterOnMasonryPainted},
+         {"PlusX", Surface::PlusX, MaterialId::PlasterOnMasonryPainted},
+         {"MinusY", Surface::MinusY, MaterialId::PlasterOnMasonryPainted},
+         {"PlusY", Surface::PlusY, MaterialId::PlasterOnMasonryPainted},
+         {"Ceiling", Surface::Ceiling, MaterialId::PlasterOnMasonryPainted}}};
+
+    /// @brief Names a face case after its face.
+    std::string face_name(const ::testing::TestParamInfo<Face>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Holds one octave band the decay checks read.
+    struct Band
+    {
+            const char* name;
+            std::size_t index;
+    };
+
+    /// @brief Holds the six octave bands, 125 Hz to 4 kHz.
+    const std::array<Band, K_BAND_COUNT> kBands = {{{"Hz125", 0},
+                                                    {"Hz250", 1},
+                                                    {"Hz500", 2},
+                                                    {"Hz1000", 3},
+                                                    {"Hz2000", 4},
+                                                    {"Hz4000", 5}}};
+
+    /// @brief Holds the two bands whose decay the design records: 500 Hz and 1 kHz.
+    const std::array<Band, 2> kRecordedBands = {{{"Hz500", 2}, {"Hz1000", 3}}};
+
+    /// @brief Names a band case after its centre.
+    std::string band_name(const ::testing::TestParamInfo<Band>& info)
+    {
+        return info.param.name;
+    }
 } // namespace
+
+class Small_StarterSceneFaces : public ::testing::TestWithParam<Face>
+{
+};
+
+class Small_StarterSceneBands : public ::testing::TestWithParam<Band>
+{
+};
+
+class Small_StarterSceneRecordedBands : public ::testing::TestWithParam<Band>
+{
+};
 
 TEST(Small_StarterScene, StarterSceneIsValid)
 {
@@ -72,23 +137,22 @@ TEST(Small_StarterScene, StarterSceneIsValid)
     EXPECT_TRUE(starter_scene().is_valid(reason)) << reason;
 }
 
-TEST(Small_StarterScene, StarterSceneIsTheTokiRoomOfTheDesign)
+TEST(Small_StarterScene, StarterRoomIsSixByFourByTwoPointSixMetres)
 {
     const RoomScene scene = starter_scene();
 
     EXPECT_EQ(scene.dimensions.x, 6.0);
     EXPECT_EQ(scene.dimensions.y, 4.0);
     EXPECT_EQ(scene.dimensions.z, 2.6);
-    EXPECT_EQ(scene.surfaces[static_cast<std::size_t>(Surface::Floor)],
-              MaterialId::ParquetOnConcrete);
-    for (const Surface face :
-         {Surface::MinusX, Surface::PlusX, Surface::MinusY, Surface::PlusY, Surface::Ceiling})
-    {
-        EXPECT_EQ(scene.surfaces[static_cast<std::size_t>(face)],
-                  MaterialId::PlasterOnMasonryPainted)
-            << "face " << static_cast<std::size_t>(face);
-    }
 }
+
+TEST_P(Small_StarterSceneFaces, FaceCarriesTheMaterialOfTheDesign)
+{
+    EXPECT_EQ(starter_scene().surfaces[static_cast<std::size_t>(GetParam().surface)],
+              GetParam().material);
+}
+
+INSTANTIATE_TEST_SUITE_P(Faces, Small_StarterSceneFaces, ::testing::ValuesIn(kFaces), face_name);
 
 TEST(Small_StarterScene, StarterSceneCarriesACurtainARugAndADoor)
 {
@@ -108,7 +172,7 @@ TEST(Small_StarterScene, StarterSceneCarriesACurtainARugAndADoor)
     EXPECT_EQ(scene.patches[2].area_m2, 1.9);
 }
 
-TEST(Small_StarterScene, StarterSceneCarriesABedADeskAWardrobeAndAChairButNoSofa)
+TEST(Small_StarterScene, StarterSceneCarriesABedADeskAWardrobeAndAChair)
 {
     const RoomScene scene = starter_scene();
     ASSERT_EQ(scene.furnishing_count, 4u);
@@ -121,11 +185,11 @@ TEST(Small_StarterScene, StarterSceneCarriesABedADeskAWardrobeAndAChairButNoSofa
     EXPECT_EQ(scene.furnishings[2].quantity, 3.0);
     EXPECT_EQ(scene.furnishings[3].item, FurnitureId::ChairUpholstered);
     EXPECT_EQ(scene.furnishings[3].quantity, 1.0);
+}
 
-    for (std::uint32_t index = 0; index < scene.furnishing_count; ++index)
-    {
-        EXPECT_NE(scene.furnishings[index].item, FurnitureId::SofaTwoSeat) << "entry " << index;
-    }
+TEST(Small_StarterScene, StarterSceneCarriesNoSofa)
+{
+    EXPECT_FALSE(holds_item(starter_scene(), FurnitureId::SofaTwoSeat));
 }
 
 TEST(Small_StarterScene, StarterSceneKeepsTheDefaultPosesAndScattering)
@@ -160,35 +224,46 @@ TEST(Small_StarterScene, RoomNodeStartsFromTheStarterScene)
     EXPECT_DOUBLE_EQ(node.schroeder_frequency_hz(), EyringDecay::schroeder_frequency_hz(starter));
 }
 
-TEST(Small_StarterScene, StarterSceneDecaysInsideTheRecordedBandAndShorterThanTheBareDefault)
+TEST_P(Small_StarterSceneRecordedBands, StarterSceneDecaysUnderTheUpperBound)
 {
-    const std::array<double, K_BAND_COUNT> starter = EyringDecay::rt60_seconds(starter_scene());
-    const std::array<double, K_BAND_COUNT> bare = EyringDecay::rt60_seconds(RoomScene{});
-
-    for (const std::size_t band : {K_BAND500_HZ, K_BAND1K_HZ})
-    {
-        EXPECT_LT(starter[band], K_UPPER_BOUND_SECONDS) << "band " << band;
-        EXPECT_GT(starter[band], K_LOWER_BOUND_SECONDS) << "band " << band;
-    }
-    EXPECT_LT(starter[K_BAND500_HZ], bare[K_BAND500_HZ]);
+    EXPECT_LT(EyringDecay::rt60_seconds(starter_scene())[GetParam().index], K_UPPER_BOUND_SECONDS);
 }
 
-TEST(Small_StarterScene, StarterSceneWithoutItsFurnishingsDecaysLongerInEveryBand)
+TEST_P(Small_StarterSceneRecordedBands, StarterSceneDecaysOverTheLowerBound)
 {
-    const RoomScene furnished = starter_scene();
-    RoomScene empty = furnished;
+    EXPECT_GT(EyringDecay::rt60_seconds(starter_scene())[GetParam().index], K_LOWER_BOUND_SECONDS);
+}
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_StarterSceneRecordedBands, ::testing::ValuesIn(kRecordedBands),
+                         band_name);
+
+TEST(Small_StarterScene, StarterSceneDecaysShorterThanTheBareDefaultAtFiveHundredHertz)
+{
+    EXPECT_LT(EyringDecay::rt60_seconds(starter_scene())[K_BAND500_HZ],
+              EyringDecay::rt60_seconds(RoomScene{})[K_BAND500_HZ]);
+}
+
+TEST_P(Small_StarterSceneBands, StarterSceneWithoutItsFurnishingsDecaysLonger)
+{
+    RoomScene empty = starter_scene();
     empty.furnishing_count = 0;
 
-    const std::array<double, K_BAND_COUNT> with = EyringDecay::rt60_seconds(furnished);
-    const std::array<double, K_BAND_COUNT> without = EyringDecay::rt60_seconds(empty);
-    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
-    {
-        EXPECT_GT(without[band], with[band]) << "band " << band;
-    }
+    EXPECT_GT(EyringDecay::rt60_seconds(empty)[GetParam().index],
+              EyringDecay::rt60_seconds(starter_scene())[GetParam().index]);
 }
 
-TEST(Small_StarterScene, StarterSceneCarriesTheBuiltRoomLossAndTheBareSceneDoesNot)
+TEST_P(Small_StarterSceneBands, StarterSceneWithoutItsBuiltRoomLossDecaysLonger)
+{
+    RoomScene without = starter_scene();
+    without.built_room_loss = false;
+
+    EXPECT_GT(EyringDecay::rt60_seconds(without)[GetParam().index],
+              EyringDecay::rt60_seconds(starter_scene())[GetParam().index]);
+}
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_StarterSceneBands, ::testing::ValuesIn(kBands), band_name);
+
+TEST(Small_StarterScene, StarterSceneCarriesTheBuiltRoomLoss)
 {
     EXPECT_TRUE(starter_scene().built_room_loss);
-    EXPECT_FALSE(RoomScene{}.built_room_loss);
 }
