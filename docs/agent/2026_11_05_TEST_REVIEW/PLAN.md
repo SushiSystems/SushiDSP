@@ -1,6 +1,6 @@
 # Test review: plan
 
-**Status:** Open — every job is applied once and the whole tree builds and passes (2026-11-10, 84 s wall); M1, M21 and M28 are `failed`, because records listed under "Not done as written" are still not applied as written
+**Status:** Open — every job is applied once and the whole tree builds and passes (2026-11-10, 84 s wall); M1 and M21 are `failed`, because records listed under "Not done as written" are still not applied as written
 
 Applies the verdicts of `REPORT.md`, in hierarchy order: the shared helpers, adapters and seams the
 rewrites need come first, then the defects the review found, then each module's tests. A module job
@@ -45,7 +45,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M25 | the tests of `nodes/mesa_mark2c` (5 files): 22 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M26 | the tests of `nodes/microphone` (1 file): 3 rewrite, 1 split | T1, T2, T3, T4, T5, T6, T7 | done |
 | M27 | the tests of `nodes/peavey5150` (5 files): 20 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
-| M28 | the tests of `nodes/room` (52 files): 240 rewrite, 14 resize, 15 split, 8 merge, 19 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M28 | the tests of `nodes/room` (52 files): 240 rewrite, 14 resize, 15 split, 8 merge, 19 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M29 | the tests of `nodes/room_scenes` (2 files): 3 rewrite, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M30 | the tests of `nodes/routing` (7 files): 34 rewrite, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M31 | the tests of `nodes/tubescreamer` (7 files): 34 rewrite, 2 resize, 4 split, 1 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | done |
@@ -67,15 +67,12 @@ the owner-reserved items as ports with in-memory adapters beside the production 
 - **M21.** Decision 301: the writer port exists (`AudioFileWriterOpener`), but `TrackRecorder` takes
   no log sink port; its logging case still installs `LogCapture` on the process-wide logger
   (RW-98).
-- **M28.** Decision 501: the binaural decoder reports through no allocation counter. Its convolvers
-  are `PartitionedConvolution` in `foundation/math`, and a counter fed by an injected allocator
-  cannot see a plain `new` in `process()`; the counter's shape is the owner's (RW-99).
 
 Applied on 2026-11-10: M13 (decision 110, `EnvironmentReader` on the SushiDSP side;
 `apply_log_level_setting` has no production caller yet), M20 (decision 300, `CabinetLog`), M31
 (decision 801, an independent BDF2 solve; the floors gain a derived 0.035), M1 decisions 708 and
 712 for tracks, clips, export, preset and project files, and M28 decisions 605, 610, 611, 614 and
-616.
+616, with 501 replaced by REPORT decision 1301.
 
 ## Acceptance
 

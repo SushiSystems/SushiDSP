@@ -18,7 +18,6 @@
 | RW-25 | P2 | open | Bound the raw octave step at the seam | a bound derived from the reference's own step holds the raw step across f_s |  |  | 2026-10-19 |
 | RW-26 | P2 | open | Shorten the tail's lines by the direct-delay compensation | the designer is told the compensation and the tail lands with the direct sound |  |  | 2026-10-19 |
 | RW-94 | P2 | open | Derive the early step-ratio bound of the moved-cabinet wave fade | The Medium_ wave-fade case reads a derived ceiling or swaps late enough to hold 1.01, instead of the characterised 1.025 |  |  | 2026-11-10 |
-| RW-99 | P2 | open | Count the binaural decoder's allocations through a counter it reports to | The decoder reports allocations through a counter whose shape the owner chose, and its trap test reads it |  |  | 2026-11-10 |
 
 ## Known issues
 
