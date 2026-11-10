@@ -54,8 +54,10 @@ namespace
         return SushiDSP::PrepareInfo{48000.0, 64, 1};
     }
 
-    /// @brief Holds the rigs the cases build, on the catalogue of the fixture.
-    class Small_TopologyApplier : public TestSupport::RigProducts
+    /// @brief Holds the rigs the cases build, on the catalogue of the fixture. The room is its
+    /// in-memory adapter: every case reads how the applier wires and fills the room, never what it
+    /// renders, and a rendered room costs seconds in a debug build.
+    class Small_TopologyApplier : public TestSupport::RigProductsInMemoryRoom
     {
     };
 

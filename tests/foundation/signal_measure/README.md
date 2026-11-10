@@ -13,6 +13,17 @@ A 20 kHz tone through tanh at 48 kHz folds its harmonics straight back into band
 third harmonic (60 kHz -> 12 kHz) is tens of dB up. This pins that the sweep counts folded
 harmonics as aliases rather than masking them.
 
+### `OneToneOfAnUnoversampledTanhIsPoorAtFifteenKilohertz`
+
+`// The 3rd harmonic of 15 kHz folds to 3 kHz at 48 kHz.`
+
+The drive into the tanh is 4 x 0.251189 = 1.005, so the stimulus is tanh(sin t) to within half a
+percent. The Fourier series of tanh(sin t) gives a first harmonic of about 0.80 and a third of about
+0.055, which is -23 dB. At 15 kHz the only harmonic below 24 kHz is the fundamental, so the third
+harmonic at 45 kHz folds to 3 kHz, outside every mask, and the line reads about -23 dB, above the
+-40 dB the sweep case also uses. The case exists for `alias_floor_at_tone`, which the tube screamer
+case at its worst tone calls.
+
 ## `test_frequency_response.cpp`
 
 ### `TracksAOnePoleLowpass`
@@ -46,3 +57,8 @@ The rows are a noise copy at delay 3 and a tone copy at delay 37 with gain 0.25 
 the last row b is inverted as well as delayed and scaled, as it would be after an odd number of
 inverting stages. The lag search has to match on correlation magnitude to find 37 here; matching on the
 signed correlation picks whatever lag is least negative and the residual never nulls.
+
+## Sizes, 2026-11-10
+
+The four `frequency_response` cases took 0.22 to 0.97 s in the Debug run and are `Medium_FrequencyResponse`. `UnoversampledTanhIsPoor` took 0.115 s (20 tones of one
+second and a frame) and is `Medium_AliasFloor`.

@@ -799,11 +799,11 @@ INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsClipPosition,
                                            PositionRow{"Drive0p9", 0.9}, PositionRow{"TopStop", 1.0}),
                          row_name<PositionRow>);
 
-class Small_TubeScreamerCircuitsClipSmallSignal : public ::testing::TestWithParam<SmallSignalRow>
+class Medium_TubeScreamerCircuitsClipSmallSignal : public ::testing::TestWithParam<SmallSignalRow>
 {
 };
 
-TEST_P(Small_TubeScreamerCircuitsClipSmallSignal, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
+TEST_P(Medium_TubeScreamerCircuitsClipSmallSignal, DkTsClipBlockSmallSignalResponseMatchesItsClosedForm)
 {
     // At 1e-4 V the diodes stay on zero-bias conductance. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     const SmallSignalRow& row = GetParam();
@@ -812,7 +812,7 @@ TEST_P(Small_TubeScreamerCircuitsClipSmallSignal, DkTsClipBlockSmallSignalRespon
     EXPECT_NEAR(small_signal_gain_db(drive, row.frequency), clip_closed_form_db(row.frequency, drive), K_CLOSED_FORM_TOLERANCE_DB);
 }
 
-INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsClipSmallSignal,
+INSTANTIATE_TEST_SUITE_P(Rows, Medium_TubeScreamerCircuitsClipSmallSignal,
                          ::testing::Values(SmallSignalRow{"Drive0p1At100Hz", 0, 100.0}, SmallSignalRow{"Drive0p1At1000Hz", 0, 1000.0},
                                            SmallSignalRow{"Drive0p5At100Hz", 1, 100.0}, SmallSignalRow{"Drive0p5At1000Hz", 1, 1000.0},
                                            SmallSignalRow{"Drive0p9At100Hz", 2, 100.0}, SmallSignalRow{"Drive0p9At1000Hz", 2, 1000.0}),
@@ -836,7 +836,7 @@ INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsClipPeak,
                                            SettingRow{"Drive0p9", 2, 0.491758}),
                          row_name<SettingRow>);
 
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
+TEST(Medium_TubeScreamerCircuits, DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples)
 {
     // The stimulus is a sweep and three bursts at 384 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     const ConvergenceRun run = measure_clip_convergence<DiodePairPort>();
@@ -846,7 +846,7 @@ TEST(Small_TubeScreamerCircuits, DkTsClipBlockNewtonConvergesOnNinetyNinePointNi
     EXPECT_EQ(run.nan_fallbacks, 0u);
 }
 
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockAdaaPortKeepsTheNewtonMissShareUnderTwiceThePlainBound)
+TEST(Medium_TubeScreamerCircuits, DkTsClipBlockAdaaPortKeepsTheNewtonMissShareUnderTwiceThePlainBound)
 {
     // The ADAA port measures 0.0105 % against 0.0054 %. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     const ConvergenceRun run = measure_clip_convergence<AdaaDiodePairPort>();
@@ -989,7 +989,7 @@ TEST(Small_TubeScreamerCircuits, AdaaDiodePairPortResetDropsItsSampleIntervalHis
     EXPECT_NEAR(currents[0] - currents[1], endpoint_at_five, K_ENDPOINT_RELATIVE_BOUND * std::fabs(endpoint_at_five));
 }
 
-TEST(Small_TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases)
+TEST(Medium_TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases)
 {
     // The reference is the block's own model at 1.92 MHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_TONE = 15000.0;

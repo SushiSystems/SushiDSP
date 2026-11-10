@@ -97,8 +97,18 @@ stamp: the arrangement view design spec in the version history section 5.
 
 ## `test_rig_controller/test_room.cpp`
 
-The room node is built by every case, and the HRTF cases read a fixture file, so the suite is
-`Medium_`.
+### The room is its in-memory adapter, in all but one case
+
+The cases check what the rig keeps, saves and loads of a room: the scene, the arrangement, the
+furnishings, the format of the edges, the publish interval and the HRTF set it hands to the rooms it
+holds. None reads a rendered sample. Appending a real room to a rig prepared it and solved every
+pair, which took 5 s for a bare room and 13 s for the arrangement round trip in the Debug run of
+2026-11-10, against a limit of 5 s. Nineteen cases now run on `RigProductsInMemoryRoom` as
+`Small_RigControllerRoom` (they read no file), and the five cases that read an HRTF file run on it as
+`Medium_RigControllerRoomHrtf`. `InstallsAMeasuredHrtfIntoTheRoomsItHolds` stays on the real room as
+`Medium_RigControllerRoom`, so one case still hands a measured set to a real room node, which
+checks the decoder and the render set the adapter does not build. The adapter does not refuse a set at
+another sample rate; that refusal is `RoomNode::set_hrtf`'s, tested in `tests/nodes/room/`.
 
 ### `LoadsAPresetWithNoRoomAsTheStarterScene`
 
@@ -131,6 +141,19 @@ The model holds identities, so the path it opens starts empty: filling it from t
 the caller's work.
 
 ## `test_topology_applier.cpp`
+
+### The room is its in-memory adapter
+
+The cases read how the applier wires the room strips and fills the arrangement, and none reads a
+rendered sample. The fixture is `RigProductsInMemoryRoom`, whose catalogue lists
+`TestSupport::InMemoryRoom` (`tests/support/in_memory_room.hpp`) under the room's id. It is an
+adapter of the `RoomHost` port that declares the real room's nine output ports, keeps the
+arrangement it is given after `Arrangement::is_valid`, and writes silence. The real room solves every
+source and microphone pair on each publish, and a case that adds a microphone publishes once more.
+In the run of 2026-11-10 the cases that added eight or nine microphones took 20 s, and the ones that
+built a cabinet rig took 4 to 9 s against 2 s for a rig of two pedals. The acoustics of the real room
+are checked in `tests/nodes/room/`, and the rig's own use of the real room in
+`test_rig_controller/test_room.cpp`, so no promise leaves the suite.
 
 ### `TopologyApplierOpeningAPathCopiesTheMainPathWithItsParameters`
 

@@ -255,6 +255,12 @@ The 0.25 dB tolerance is the sweep measurement's own accuracy - D6a puts its wor
 20 Hz at 0.17 dB - not the block's. The block is linear, so any drive level measures the same
 response; -40 dBFS is what measure::frequency_response uses.
 
+The closed-form rows, the bright-end case and the monotonic case sweep the block through
+`measure::frequency_response` at 384 kHz, the rate the sweep accuracy above is derived at: 3 s of
+sweep, 1.15 million samples of the solver per call. A call took 2.2 s in the Debug run of 2026-11-10
+(4.5 s for the two of the bright-end case) against 0.1 s for a `Small_` case, and the sweep length
+is fixed by `frequency_response`, so no input is smaller. They are `Medium_`.
+
 ### `DkTsToneBlockBrightEndExceedsTheDarkEndAtTheLegsTurnoverFrequency`
 
 `// The wiper leg's turnover sits at about 3.2 kHz.`
@@ -306,3 +312,11 @@ block's procedure, for the same reason.
 Both signals are low-passed at 10 kHz by the same 4th-order Butterworth before comparison, so
 the band-limiting cannot flatter either one. The block is linear, so a residual anywhere near
 the -60 dB gate means a component value or a node index is wrong, not that a solver drifted.
+
+## Sizes of the clip cases, 2026-11-10
+
+`DkTsClipBlockAdaaPortKeepsTheNewtonMissShareUnderTwiceThePlainBound` (0.96 s),
+`DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples` (0.92 s),
+`DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases` (0.29 s) and the two
+`DkTsClipBlockSmallSignalResponseMatchesItsClosedForm` rows (0.12 s) are `Medium_TubeScreamerCircuits` and
+`Medium_TubeScreamerCircuitsClipSmallSignal`.

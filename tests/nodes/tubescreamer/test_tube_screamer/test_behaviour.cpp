@@ -538,7 +538,7 @@ TEST(Small_TubeScreamer, TubeScreamerInputTrimCutLowersTheSettledPeak)
     EXPECT_LT(settled_peak_at_trim(-12.0f), settled_peak_at_trim(0.0f) * K_TRIM_CUT_MAX_RATIO);
 }
 
-TEST(Small_TubeScreamer, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
+TEST(Medium_TubeScreamer, TubeScreamerSmoothingTimeIsBlockSizeIndependent)
 {
     // The 63 % crossing must not depend on the block size. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     const double at_64 = level_step_crossing_ms(64);
@@ -615,7 +615,7 @@ TEST(Small_TubeScreamer, TubeScreamerUnknownParameterIsSafeNoOp)
     EXPECT_FLOAT_EQ(node.get_parameter("does_not_exist"), 0.0f);
 }
 
-TEST(Small_TubeScreamer, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput)
+TEST(Medium_TubeScreamer, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput)
 {
     // At default drive the pedal is near unity at 82 Hz. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     const float peak_decibels = default_node_peak_dbfs();
@@ -624,7 +624,7 @@ TEST(Small_TubeScreamer, TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAM
     EXPECT_LT(peak_decibels, K_DEFAULT_PEAK_HIGH_DBFS) << "measured peak " << peak_decibels << " dBFS";
 }
 
-TEST(Small_TubeScreamer, TubeScreamerInputResponseIsFlatBetweenTenAndThirtyHertz)
+TEST(Medium_TubeScreamer, TubeScreamerInputResponseIsFlatBetweenTenAndThirtyHertz)
 {
     // The input corner is 0.312069 Hz, so 20 Hz is flat. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     const double rms_at_30_hz = settled_rms_at_frequency(30.0);
@@ -633,7 +633,7 @@ TEST(Small_TubeScreamer, TubeScreamerInputResponseIsFlatBetweenTenAndThirtyHertz
     EXPECT_LT(rms_at_30_hz / rms_at_10_hz, K_LOW_END_RATIO_CEILING) << "30 Hz " << rms_at_30_hz << ", 10 Hz " << rms_at_10_hz;
 }
 
-TEST(Small_TubeScreamer, TubeScreamerDriveSweepStepsNoMoreThanTwiceTheLoudestStillRender)
+TEST(Medium_TubeScreamer, TubeScreamerDriveSweepStepsNoMoreThanTwiceTheLoudestStillRender)
 {
     // A drive sweep must not produce a sample-to-sample step. See tests/nodes/tubescreamer/test_tube_screamer/README.md.
     const double still = largest_first_difference(false);

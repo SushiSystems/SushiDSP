@@ -409,7 +409,7 @@ TEST(Small_RoomNodeCounters, AnUnpreparedNodeCountsABlockWithNoRenderSet)
     EXPECT_EQ(counts.no_render_set.value(), 1U);
 }
 
-TEST(Small_RoomNodeCounters, APreparedNodeWithASetCountsNothing)
+TEST(Medium_RoomNodeCounters, APreparedNodeWithASetCountsNothing)
 {
     SushiDSP::room::RoomNode::Counters counts;
     SushiDSP::room::RoomNode node(counts);

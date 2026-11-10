@@ -177,3 +177,8 @@ window driven 3x and 12x past, folds under -60 dB and -40 dB. On the Norman grid
 -81.2 dB at 6 V and -53.7 dB at 24 V on 2026-09-07, and -102.4 and -79.8 dB once the stage's
 composite transfer was antialiased (DA5 part 4); the room-temperature Shockley knee read -37.3
 dB and -13.7 dB at the same drives.
+The sweep is 20 tones of one second and one analysis frame, rendered through the stage's 8x region,
+so no input of it is smaller without leaving the claim: the spec's acceptance is the worst of the
+1 to 20 kHz tones. The cases took 4.7 s (V5A) and 4.0 s (EL34) in the Debug run of 2026-11-10 against
+0.1 s for a `Small_` case, so they are `Medium_` (limit 5 s). They are two rows of one promise at two
+drives, kept as two cases because each has its own bound.

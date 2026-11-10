@@ -431,7 +431,7 @@ namespace
     {
     };
 
-    class Small_ResamplerRoundTrip : public ::testing::TestWithParam<RoundTripRow>
+    class Medium_ResamplerRoundTrip : public ::testing::TestWithParam<RoundTripRow>
     {
     };
 
@@ -628,16 +628,16 @@ TEST_P(Small_ResamplerDcLevel, ResamplerHoldsADcLevelAtEveryRatio)
 INSTANTIATE_TEST_SUITE_P(Clocks, Small_ResamplerDcLevel, ::testing::ValuesIn(kDcRows), dc_name);
 
 // The round trip is limited by the kernel's own error. See tests/foundation/math/README.md.
-TEST_P(Small_ResamplerRoundTrip, ResamplerRoundTripNulls)
+TEST_P(Medium_ResamplerRoundTrip, ResamplerRoundTripNulls)
 {
     EXPECT_LE(round_trip_residual_db(GetParam()), K_ROUND_TRIP_LEVEL_DB);
 }
 
-INSTANTIATE_TEST_SUITE_P(Clocks, Small_ResamplerRoundTrip, ::testing::ValuesIn(kRoundTripRows),
+INSTANTIATE_TEST_SUITE_P(Clocks, Medium_ResamplerRoundTrip, ::testing::ValuesIn(kRoundTripRows),
                          round_trip_name);
 
 // The history is sized on min(1, minimum_ratio). See tests/foundation/math/README.md.
-TEST(Small_Resampler, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
+TEST(Medium_Resampler, ResamplerSizesTheHistoryForAnUpsampleOnlyInstance)
 {
     EXPECT_LE(round_trip_residual_db(kUpsampleOnlyRow), K_ROUND_TRIP_LEVEL_DB);
 }
@@ -744,7 +744,7 @@ TEST(Small_Resampler, ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall)
 }
 
 // y[n-1] + y[n+1] = 2*cos(w)*y[n] for a sampled sinusoid. See tests/foundation/math/README.md.
-TEST(Small_Resampler, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
+TEST(Medium_Resampler, ResamplerReclampsThePhaseWhenARateChangeWidensTheKernel)
 {
     const ReclampRun run = run_reclamped(tone(100.0, 48000.0, 262144u, 1.0));
     ASSERT_GT(run.output.size(), 1000u);

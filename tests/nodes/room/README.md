@@ -21,6 +21,8 @@ targets are one band cut with its neighbours flat; the third is the reference ga
 path through the 4x12, whose 2 kHz octave the array null pulls down. Measured: 0.20, 0.45 and
 0.10 dB.
 
+`BandResponseFitMovesCoefficientsContinuouslyWithTheTarget` took 0.43 s (Debug, 2026-11-10): `Medium_BandResponseFit`.
+
 ## `test_cabinet_directivity.cpp`
 
 ### `CabinetDirectivityBeamsAtTwoKilohertz`
@@ -168,6 +170,21 @@ The garage's mean absorption never exceeds 0.09, so its Sabine and Eyring decays
 
 Every surface OpenDoorway: mean alpha is 1, -ln(0) is infinite, and the decay is 0 s in every
 band rather than a NaN, so the Schroeder frequency is 0 Hz as well.
+
+## `test_environment_render_set.cpp`
+
+A prepared room node cost about 2.2 s in the Debug run of 2026-11-10, 2.1 s of it the spherical head
+that `prepare` builds, against 0.1 s for a `Small_` case. Three rules follow.
+
+1. `prepared()` sets the arrangement before `prepare`, so the first publish solves the pairs and no
+   second one does. A case that renders twice resets one node between the renders and builds one head.
+2. A case that reads an arrangement back or refuses one (`RoomEnvironmentSetScene...`,
+   `RoomEnvironmentRefusesAnArrangementOutsideTheShellAndKeepsTheOldOne`) holds it on a node that is not
+   prepared (`unprepared_holding()`): `set_scene` and `set_arrangement` build and validate the new
+   arrangement before any publish, so the case keeps its whole promise and solves nothing. It is
+   `Small_`.
+3. A case that renders is `Medium_`. Cases that read different assertions of one render share it from
+   `SetUpTestSuite`: `Medium_EnvironmentRenderSetCabinets`, `...Ports`, `...MovedMicrophone`, `...RigGraph`.
 
 ## `test_hrtf_set.cpp`
 
@@ -704,7 +721,14 @@ that is cos(pi / 6) = 0.8660254, cos(pi / 8) = 0.9238795 and cos(pi / 5) = 0.809
 read cos(0.9 pi) = -0.9510565 along x, cos(pi 3.485 / 4) = -0.9193071 and cos(pi 3.315 / 4) =
 -0.8587364 along y, and cos(0.8 pi) = -0.8090170 along z.
 
+## `test_receiver_output.cpp`
+
+The two `HeadHolder` cases that build the fallback head are `Medium_ReceiverOutputHead`; the others hold `six_axis_set()`.
+
 ## `test_spherical_head_hrtf.cpp`
+
+The set is built once for the process and takes 2.1 s in a debug build. Each suite builds it in
+`SetUpTestSuite`, so no case is charged for it.
 
 ### `MatchesWoodworthsInterauralDelay`
 

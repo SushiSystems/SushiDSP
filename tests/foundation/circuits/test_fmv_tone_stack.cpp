@@ -475,11 +475,11 @@ TEST_P(Small_FmvToneStackLoading, FmvToneStackLoadingAttenuatesTheDeck)
 INSTANTIATE_TEST_SUITE_P(Probes, Small_FmvToneStackLoading, ::testing::ValuesIn(kDeckFrequencies),
                          [](const ::testing::TestParamInfo<DeckFrequency>& info) { return std::string(info.param.name); });
 
-class Small_FmvToneStackLoadingDeck : public ::testing::TestWithParam<Deck>
+class Medium_FmvToneStackLoadingDeck : public ::testing::TestWithParam<Deck>
 {
 };
 
-TEST_P(Small_FmvToneStackLoadingDeck, FmvToneStackLoadingTiltIsTheDecksOwn)
+TEST_P(Medium_FmvToneStackLoadingDeck, FmvToneStackLoadingTiltIsTheDecksOwn)
 {
     const Deck& deck = GetParam();
     const double tilt = std::fabs(loading_deviation_db(*deck.components, 10000.0) -
@@ -489,12 +489,12 @@ TEST_P(Small_FmvToneStackLoadingDeck, FmvToneStackLoadingTiltIsTheDecksOwn)
     EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(tilt, deck.expected_tilt_db, bound)));
 }
 
-TEST_P(Small_FmvToneStackLoadingDeck, FmvToneStackLoadingCostsMoreThanOneDecibelAtOneKilohertz)
+TEST_P(Medium_FmvToneStackLoadingDeck, FmvToneStackLoadingCostsMoreThanOneDecibelAtOneKilohertz)
 {
     EXPECT_GT(std::fabs(loading_deviation_db(*GetParam().components, 1000.0)), K_MINIMUM_LEVEL_COST_DB);
 }
 
-INSTANTIATE_TEST_SUITE_P(Decks, Small_FmvToneStackLoadingDeck, ::testing::ValuesIn(kDecks),
+INSTANTIATE_TEST_SUITE_P(Decks, Medium_FmvToneStackLoadingDeck, ::testing::ValuesIn(kDecks),
                          [](const ::testing::TestParamInfo<Deck>& info) { return std::string(info.param.name); });
 
 TEST(Small_FmvToneStack, FmvToneStackThrowsWhenTheDerivationFails)

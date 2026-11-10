@@ -106,3 +106,7 @@ set_rates() on every speed change and one push per take frame consumed.
 
 The bursts are built before the trap window opens, so what is measured is the block: two atomic
 loads, a beat index and a copy out of a vector already sized.
+
+## Sizes, 2026-11-10
+
+`VariRateReaderHoldsItsRatioAtEveryLegalSpeed` took 0.5 to 1.0 s a row in the Debug run against 0.1 s for a `Small_` case, so its suite is `Medium_VariRateReaderRatio`.
