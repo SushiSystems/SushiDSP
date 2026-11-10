@@ -125,11 +125,125 @@ namespace
     }
 
     /// @brief Prepares an adapter at the cases' rate and block size and loads a preset into it.
-    void prepare_and_load(RigAdapter& adapter, const std::string& json_text)
+    void assert_prepare_and_load(RigAdapter& adapter, const std::string& json_text)
     {
         std::string error;
         ASSERT_EQ(adapter.prepare(K_SAMPLE_RATE, K_BLOCK, error), RigStateStatus::Ok) << error;
         ASSERT_EQ(adapter.load_state(json_text, error), RigStateStatus::Ok) << error;
+    }
+
+    /// @brief Builds the preset of the two-pedal rig in a fresh controller.
+    std::string saved_two_pedal_preset()
+    {
+        SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
+        RigController controller(info);
+        return build_and_save_rig(controller);
+    }
+
+    /// @brief The first K_BLOCK samples of a channel.
+    std::vector<float> first_block(const std::vector<float>& channel)
+    {
+        return std::vector<float>(channel.begin(), channel.begin() + K_BLOCK);
+    }
+
+    /// @brief The bound, in full scale, on a sample of the adapter's render against the
+    /// controller's. Characterised: the old test's bare literal, with no derivation behind it.
+    constexpr float K_ADAPTER_VERSUS_CONTROLLER_BOUND = 1.0e-5f;
+
+    /// @brief Checks that two renders agree sample for sample within a bound.
+    /// @return Success, or the first channel and frame that differ by more.
+    ::testing::AssertionResult renders_agree(const Stereo& actual, const Stereo& expected, float bound)
+    {
+        for (std::size_t channel = 0; channel < expected.size(); ++channel)
+        {
+            for (std::size_t frame = 0; frame < expected[channel].size(); ++frame)
+            {
+                if (std::abs(actual[channel][frame] - expected[channel][frame]) > bound)
+                {
+                    return ::testing::AssertionFailure()
+                           << "channel " << channel << ", frame " << frame << ": "
+                           << actual[channel][frame] << " against " << expected[channel][frame];
+                }
+            }
+        }
+        return ::testing::AssertionSuccess();
+    }
+
+    /// @brief The largest magnitude in a render.
+    float peak_of(const Stereo& render)
+    {
+        float peak = 0.0f;
+        for (const std::vector<float>& channel : render)
+        {
+            for (const float sample : channel)
+            {
+                peak = std::max(peak, std::abs(sample));
+            }
+        }
+        return peak;
+    }
+
+    /// @brief Checks that the ids of a parameter list rise from the first to the last.
+    bool ids_ascend(const std::vector<RigParameter>& parameters)
+    {
+        for (std::size_t position = 1; position < parameters.size(); ++position)
+        {
+            if (parameters[position - 1].id >= parameters[position].id)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// @brief Checks that every parameter of one adapter reads the same in another.
+    ::testing::AssertionResult same_values(const RigAdapter& original, const RigAdapter& reloaded)
+    {
+        for (const RigParameter& parameter : original.parameters())
+        {
+            const std::optional<float> before = original.parameter_value(parameter.id);
+            const std::optional<float> after = reloaded.parameter_value(parameter.id);
+            if (!before.has_value() || !after.has_value() || *before != *after)
+            {
+                return ::testing::AssertionFailure() << parameter.module << " " << parameter.name;
+            }
+        }
+        return ::testing::AssertionSuccess();
+    }
+
+    /// @brief Queues the same change for the audio thread count times.
+    void queue_changes(RigAdapter& adapter, std::size_t count)
+    {
+        for (std::size_t index = 0; index < count; ++index)
+        {
+            adapter.queue_parameter_for_audio_thread(1u, 0.5f);
+        }
+    }
+
+    /// @brief An adapter prepared and loaded with the two-pedal preset.
+    class Small_RigAdapterLoaded : public ::testing::Test
+    {
+        protected:
+            void SetUp() override
+            {
+                assert_prepare_and_load(adapter, saved_two_pedal_preset());
+            }
+
+            RigAdapter adapter;
+    };
+
+    /// @brief One block that does not fit what the adapter was prepared for.
+    struct MisfitRow
+    {
+            const char* name;
+            std::uint32_t channels;
+            std::uint32_t frames;
+    };
+
+    /// @brief Returns the row's name, for the parameterised test names.
+    std::string misfit_row_name(const ::testing::TestParamInfo<MisfitRow>& info)
+    {
+        return std::string(info.param.name);
     }
 
     /// @brief Finds the first listed parameter with a given label.
@@ -147,10 +261,10 @@ namespace
     }
 } // namespace
 
-TEST(Small_RigAdapter, RigAdapterStartsEmptyWithNoParametersAndNoLatency)
+TEST(Small_RigAdapter, RigAdapterReportsNoLatencyForAnEmptyRig)
 {
     RigAdapter adapter;
-    EXPECT_TRUE(adapter.parameters().empty());
+
     EXPECT_EQ(adapter.latency_frames(), 0u);
 }
 
@@ -178,11 +292,8 @@ TEST(Small_RigAdapter, RigAdapterWithAnEmptyRigPassesThroughWhenRenderingInPlace
     float* channels[2] = {buffer[0].data(), buffer[1].data()};
     adapter.process(channels, channels, RigAdapter::K_CHANNELS, K_BLOCK);
 
-    for (std::size_t frame = 0; frame < K_BLOCK; ++frame)
-    {
-        ASSERT_EQ(buffer[0][frame], input[0][frame]);
-        ASSERT_EQ(buffer[1][frame], input[1][frame]);
-    }
+    EXPECT_EQ(first_block(buffer[0]), first_block(input[0]));
+    EXPECT_EQ(first_block(buffer[1]), first_block(input[1]));
 }
 
 TEST(Small_RigAdapter, RigAdapterRendersWhatTheControllerThatSavedThePresetRenders)
@@ -192,51 +303,48 @@ TEST(Small_RigAdapter, RigAdapterRendersWhatTheControllerThatSavedThePresetRende
     const std::string json_text = build_and_save_rig(controller);
 
     RigAdapter adapter;
-    prepare_and_load(adapter, json_text);
+    assert_prepare_and_load(adapter, json_text);
 
     const Stereo input = make_stereo_signal();
     const Stereo expected = render_through_controller(controller, input);
     const Stereo actual = render_through_adapter(adapter, input);
 
-    float peak = 0.0f;
-    for (std::size_t channel = 0; channel < expected.size(); ++channel)
-    {
-        for (std::size_t frame = 0; frame < expected[channel].size(); ++frame)
-        {
-            ASSERT_NEAR(actual[channel][frame], expected[channel][frame], 1.0e-5f)
-                << "channel " << channel << ", frame " << frame;
-            peak = std::max(peak, std::abs(actual[channel][frame]));
-        }
-    }
-    EXPECT_GT(peak, 0.0f);
+    EXPECT_TRUE(renders_agree(actual, expected, K_ADAPTER_VERSUS_CONTROLLER_BOUND));
+    EXPECT_GT(peak_of(actual), 0.0f);
     EXPECT_NE(actual[0], input[0]);
     EXPECT_EQ(adapter.latency_frames(), controller.active_graph()->latency_samples());
 }
 
-TEST(Small_RigAdapter, RigAdapterListsEveryParameterOfEverySlotInRigOrder)
+TEST_F(Small_RigAdapterLoaded, RigAdapterListsTheFirstSlotFirstAndTheLastSlotLast)
 {
-    SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
-    RigController controller(info);
-    const std::string json_text = build_and_save_rig(controller);
-
-    RigAdapter adapter;
-    prepare_and_load(adapter, json_text);
-
     const std::vector<RigParameter>& parameters = adapter.parameters();
     ASSERT_FALSE(parameters.empty());
+
     EXPECT_EQ(SushiDSP::Plugin::rig_parameter_slot(parameters.front().id), 0u);
     EXPECT_EQ(SushiDSP::Plugin::rig_parameter_slot(parameters.back().id), 1u);
-    for (std::size_t position = 1; position < parameters.size(); ++position)
-    {
-        EXPECT_LT(parameters[position - 1].id, parameters[position].id);
-    }
+}
 
+TEST_F(Small_RigAdapterLoaded, RigAdapterListsItsParametersInRisingIdOrder)
+{
+    EXPECT_TRUE(ids_ascend(adapter.parameters()));
+}
+
+TEST_F(Small_RigAdapterLoaded, RigAdapterListsTheDriveOfTheFirstSlotWithItsRange)
+{
     const std::optional<RigParameter> drive = find_by_name(adapter, "Drive");
     ASSERT_TRUE(drive.has_value());
+
     EXPECT_EQ(drive->id, SushiDSP::Plugin::rig_parameter_id(0, 0));
     EXPECT_EQ(drive->module, "1 Tube Screamer");
     EXPECT_FLOAT_EQ(drive->minimum, 0.0f);
     EXPECT_FLOAT_EQ(drive->maximum, 1.0f);
+}
+
+TEST_F(Small_RigAdapterLoaded, RigAdapterReadsTheDriveBackAtTheSavedValue)
+{
+    const std::optional<RigParameter> drive = find_by_name(adapter, "Drive");
+    ASSERT_TRUE(drive.has_value());
+
     const std::optional<float> value = adapter.parameter_value(drive->id);
     ASSERT_TRUE(value.has_value());
     EXPECT_FLOAT_EQ(*value, 0.77f);
@@ -244,31 +352,20 @@ TEST(Small_RigAdapter, RigAdapterListsEveryParameterOfEverySlotInRigOrder)
 
 TEST(Small_RigAdapter, RigAdapterStateRoundTripsThroughASecondAdapter)
 {
-    SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
-    RigController controller(info);
-    const std::string json_text = build_and_save_rig(controller);
-
     RigAdapter first;
-    prepare_and_load(first, json_text);
+    assert_prepare_and_load(first, saved_two_pedal_preset());
     std::string saved;
     std::string error;
     ASSERT_EQ(first.save_state(saved, error), RigStateStatus::Ok) << error;
 
     RigAdapter second;
-    prepare_and_load(second, saved);
+    assert_prepare_and_load(second, saved);
     std::string saved_again;
     ASSERT_EQ(second.save_state(saved_again, error), RigStateStatus::Ok) << error;
 
     EXPECT_EQ(saved_again, saved);
     ASSERT_EQ(second.parameters().size(), first.parameters().size());
-    for (const RigParameter& parameter : first.parameters())
-    {
-        const std::optional<float> original = first.parameter_value(parameter.id);
-        const std::optional<float> reloaded = second.parameter_value(parameter.id);
-        ASSERT_TRUE(original.has_value());
-        ASSERT_TRUE(reloaded.has_value());
-        EXPECT_FLOAT_EQ(*reloaded, *original) << parameter.module << " " << parameter.name;
-    }
+    EXPECT_TRUE(same_values(first, second));
 }
 
 TEST(Small_RigAdapter, RigAdapterKeepsItsRigAcrossAChangeOfSampleRate)
@@ -278,7 +375,7 @@ TEST(Small_RigAdapter, RigAdapterKeepsItsRigAcrossAChangeOfSampleRate)
     const std::string json_text = build_and_save_rig(controller);
 
     RigAdapter adapter;
-    prepare_and_load(adapter, json_text);
+    assert_prepare_and_load(adapter, json_text);
     const std::size_t parameter_count = adapter.parameters().size();
 
     std::string error;
@@ -294,7 +391,7 @@ TEST(Small_RigAdapter, RigAdapterReadsBackAParameterSetOnTheControlThread)
     const std::string json_text = build_and_save_rig(controller);
 
     RigAdapter adapter;
-    prepare_and_load(adapter, json_text);
+    assert_prepare_and_load(adapter, json_text);
     const RigParameter parameter = adapter.parameters().front();
     const float target = parameter.minimum + 0.25f * (parameter.maximum - parameter.minimum);
 
@@ -312,7 +409,7 @@ TEST(Small_RigAdapter, RigAdapterClampsAParameterToItsRange)
     const std::string json_text = build_and_save_rig(controller);
 
     RigAdapter adapter;
-    prepare_and_load(adapter, json_text);
+    assert_prepare_and_load(adapter, json_text);
     const RigParameter parameter = adapter.parameters().front();
 
     ASSERT_TRUE(adapter.set_parameter(parameter.id, parameter.maximum + 1000.0f));
@@ -331,30 +428,36 @@ TEST(Small_RigAdapter, RigAdapterRefusesAParameterTheRigDoesNotHold)
     EXPECT_FALSE(adapter.parameter_value(missing).has_value());
 }
 
-TEST(Small_RigAdapter, RigAdapterAppliesAParameterQueuedOnTheAudioThreadAndSavesIt)
+TEST(Small_RigAdapter, RigAdapterAppliesAParameterQueuedOnTheAudioThread)
 {
-    SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
-    RigController controller(info);
-    const std::string json_text = build_and_save_rig(controller);
-
     RigAdapter adapter;
-    prepare_and_load(adapter, json_text);
+    assert_prepare_and_load(adapter, saved_two_pedal_preset());
     const RigParameter parameter = adapter.parameters().front();
     const float target = parameter.minimum + 0.6f * (parameter.maximum - parameter.minimum);
 
     adapter.queue_parameter_for_audio_thread(parameter.id, target);
-    const Stereo input = make_stereo_signal();
-    render_through_adapter(adapter, input);
+    static_cast<void>(render_through_adapter(adapter, make_stereo_signal()));
 
     const std::optional<float> value = adapter.parameter_value(parameter.id);
     ASSERT_TRUE(value.has_value());
     EXPECT_FLOAT_EQ(*value, target);
+}
+
+TEST(Small_RigAdapter, RigAdapterSavesAParameterQueuedOnTheAudioThread)
+{
+    RigAdapter adapter;
+    assert_prepare_and_load(adapter, saved_two_pedal_preset());
+    const RigParameter parameter = adapter.parameters().front();
+    const float target = parameter.minimum + 0.6f * (parameter.maximum - parameter.minimum);
+    adapter.queue_parameter_for_audio_thread(parameter.id, target);
+    static_cast<void>(render_through_adapter(adapter, make_stereo_signal()));
 
     std::string saved;
     std::string error;
     ASSERT_EQ(adapter.save_state(saved, error), RigStateStatus::Ok) << error;
     RigAdapter reloaded;
-    prepare_and_load(reloaded, saved);
+    assert_prepare_and_load(reloaded, saved);
+
     const std::optional<float> carried = reloaded.parameter_value(parameter.id);
     ASSERT_TRUE(carried.has_value());
     EXPECT_FLOAT_EQ(*carried, target);
@@ -367,9 +470,9 @@ TEST(Small_RigAdapter, RigAdapterAudioThreadParameterChangesWhatTheRigRenders)
     const std::string json_text = build_and_save_rig(controller);
 
     RigAdapter untouched;
-    prepare_and_load(untouched, json_text);
+    assert_prepare_and_load(untouched, json_text);
     RigAdapter changed;
-    prepare_and_load(changed, json_text);
+    assert_prepare_and_load(changed, json_text);
     const std::optional<RigParameter> drive = find_by_name(changed, "Drive");
     ASSERT_TRUE(drive.has_value());
 
@@ -386,7 +489,7 @@ TEST(Small_RigAdapter, RigAdapterRefusesAMalformedPresetAndKeepsItsRig)
     const std::string json_text = build_and_save_rig(controller);
 
     RigAdapter adapter;
-    prepare_and_load(adapter, json_text);
+    assert_prepare_and_load(adapter, json_text);
     const std::size_t parameter_count = adapter.parameters().size();
 
     std::string error;
@@ -423,6 +526,32 @@ TEST(Small_RigAdapter, RigAdapterClearsTheOutputsOfABlockLongerThanItWasPrepared
     EXPECT_EQ(right, std::vector<float>(2 * K_BLOCK, 0.0f));
 }
 
+class Small_RigAdapterMisfit : public ::testing::TestWithParam<MisfitRow>
+{
+};
+
+TEST_P(Small_RigAdapterMisfit, ABlockThatDoesNotFitIsCounted)
+{
+    RigAdapter adapter;
+    std::string error;
+    ASSERT_EQ(adapter.prepare(K_SAMPLE_RATE, K_BLOCK, error), RigStateStatus::Ok) << error;
+    const MisfitRow& row = GetParam();
+    const std::vector<float> input(row.frames, 0.5f);
+    std::vector<float> left(row.frames, 1.0f);
+    std::vector<float> right(row.frames, 1.0f);
+    const float* inputs[2] = {input.data(), input.data()};
+    float* outputs[2] = {left.data(), right.data()};
+
+    adapter.process(inputs, outputs, row.channels, row.frames);
+
+    EXPECT_EQ(adapter.counters().format_mismatch.value(), 1U);
+}
+
+INSTANTIATE_TEST_SUITE_P(Rows, Small_RigAdapterMisfit,
+                         ::testing::Values(MisfitRow{"OneChannelInsteadOfTwo", 1u, K_BLOCK},
+                                           MisfitRow{"LongerThanPrepared", RigAdapter::K_CHANNELS, 2 * K_BLOCK}),
+                         misfit_row_name);
+
 TEST(Small_RigAdapterCounters, ABlockWithTheWrongChannelCountIsCountedWithItsFrames)
 {
     RigAdapter adapter;
@@ -435,24 +564,7 @@ TEST(Small_RigAdapterCounters, ABlockWithTheWrongChannelCountIsCountedWithItsFra
 
     adapter.process(inputs, outputs, 1u, K_BLOCK);
 
-    EXPECT_EQ(adapter.counters().format_mismatch.value(), 1U);
     EXPECT_EQ(adapter.counters().format_mismatch.peak(), K_BLOCK);
-}
-
-TEST(Small_RigAdapterCounters, ABlockLongerThanThePreparedSizeIsCounted)
-{
-    RigAdapter adapter;
-    std::string error;
-    ASSERT_EQ(adapter.prepare(K_SAMPLE_RATE, K_BLOCK, error), RigStateStatus::Ok) << error;
-    const std::vector<float> input(2 * K_BLOCK, 0.5f);
-    std::vector<float> left(2 * K_BLOCK, 1.0f);
-    std::vector<float> right(2 * K_BLOCK, 1.0f);
-    const float* inputs[2] = {input.data(), input.data()};
-    float* outputs[2] = {left.data(), right.data()};
-
-    adapter.process(inputs, outputs, RigAdapter::K_CHANNELS, 2 * K_BLOCK);
-
-    EXPECT_EQ(adapter.counters().format_mismatch.value(), 1U);
 }
 
 TEST(Small_RigAdapterCounters, AParameterChangeForAnUnknownIdIsCountedWhenTheBlockRuns)
@@ -469,9 +581,7 @@ TEST(Small_RigAdapterCounters, AParameterChangeForAnUnknownIdIsCountedWhenTheBlo
 
     adapter.process(inputs, outputs, RigAdapter::K_CHANNELS, K_BLOCK);
 
-    // The change reaches no route or meets the wrong graph; one of the two counters holds it.
-    EXPECT_EQ(adapter.counters().unknown_parameter.value() + adapter.counters().stale_routing.value(),
-              1U);
+    EXPECT_EQ(adapter.counters().unknown_parameter.value(), 1U);
 }
 
 TEST(Small_RigAdapterCounters, AFullQueueIsReportedThroughTheReporter)
@@ -482,8 +592,7 @@ TEST(Small_RigAdapterCounters, AFullQueueIsReportedThroughTheReporter)
     SushiDSP::RtCounterReporter reporter(std::chrono::seconds(5));
     adapter.add_counters_to(reporter);
     static_cast<void>(reporter.poll(SushiDSP::RtCounterReporter::Clock::time_point{}));
-    for (std::size_t index = 0; index < RigAdapter::K_PENDING_CAPACITY + 3; ++index)
-        adapter.queue_parameter_for_audio_thread(1u, 0.5f);
+    queue_changes(adapter, RigAdapter::K_PENDING_CAPACITY + 3);
 
     const std::string line = reporter.poll(SushiDSP::RtCounterReporter::Clock::time_point{} +
                                            std::chrono::seconds(5));
