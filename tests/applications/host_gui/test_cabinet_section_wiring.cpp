@@ -114,29 +114,49 @@ namespace
     }
 } // namespace
 
-TEST(Small_CabinetSectionWiring, CabinetSectionNeedsFollowTheMicrophonesAndTheDiChoice)
+TEST(Small_CabinetSectionWiring, CabinetSectionNeedsNothingForABareSection)
 {
-    const std::vector<MicrophoneWire> none;
-    const std::vector<MicrophoneWire> close{{20, 40, false}};
-    const std::vector<MicrophoneWire> overhead{{20, 40, false}, {21, 41, true}};
+    const CabinetSectionNeeds bare = CabinetSectionNeeds::of({}, false, DiPosition::AfterEffects);
 
-    const CabinetSectionNeeds bare = CabinetSectionNeeds::of(none, false, DiPosition::AfterEffects);
     EXPECT_FALSE(bare.bus);
     EXPECT_FALSE(bare.room_strip);
     EXPECT_FALSE(bare.di_strip);
     EXPECT_FALSE(bare.master_bus);
+}
 
-    EXPECT_TRUE(CabinetSectionNeeds::of(close, false, DiPosition::AfterEffects).bus);
-    EXPECT_FALSE(CabinetSectionNeeds::of(close, false, DiPosition::AfterEffects).room_strip);
-    EXPECT_TRUE(CabinetSectionNeeds::of(overhead, false, DiPosition::AfterEffects).room_strip);
+TEST(Small_CabinetSectionWiring, CabinetSectionNeedsTheBusButNotTheRoomStripForAClosePair)
+{
+    const std::vector<MicrophoneWire> close{{20, 40, false}};
 
-    const CabinetSectionNeeds after = CabinetSectionNeeds::of(none, true, DiPosition::AfterEffects);
-    EXPECT_TRUE(after.di_strip);
-    EXPECT_TRUE(after.master_bus);
-    const CabinetSectionNeeds before =
-        CabinetSectionNeeds::of(none, true, DiPosition::BeforeEffects);
-    EXPECT_TRUE(before.di_strip);
-    EXPECT_FALSE(before.master_bus);
+    const CabinetSectionNeeds needs = CabinetSectionNeeds::of(close, false, DiPosition::AfterEffects);
+
+    EXPECT_TRUE(needs.bus);
+    EXPECT_FALSE(needs.room_strip);
+}
+
+TEST(Small_CabinetSectionWiring, CabinetSectionNeedsTheRoomStripForARoomMicrophone)
+{
+    const std::vector<MicrophoneWire> overhead{{20, 40, false}, {21, 41, true}};
+
+    const CabinetSectionNeeds needs = CabinetSectionNeeds::of(overhead, false, DiPosition::AfterEffects);
+
+    EXPECT_TRUE(needs.room_strip);
+}
+
+TEST(Small_CabinetSectionWiring, CabinetSectionNeedsTheDiStripAndTheMasterBusForADiAfterTheEffects)
+{
+    const CabinetSectionNeeds needs = CabinetSectionNeeds::of({}, true, DiPosition::AfterEffects);
+
+    EXPECT_TRUE(needs.di_strip);
+    EXPECT_TRUE(needs.master_bus);
+}
+
+TEST(Small_CabinetSectionWiring, CabinetSectionNeedsTheDiStripButNoMasterBusForADiBeforeTheEffects)
+{
+    const CabinetSectionNeeds needs = CabinetSectionNeeds::of({}, true, DiPosition::BeforeEffects);
+
+    EXPECT_TRUE(needs.di_strip);
+    EXPECT_FALSE(needs.master_bus);
 }
 
 TEST(Small_CabinetSectionWiring, CabinetSectionWiresOneCabinetAndTheListenerWithNoMicrophone)
@@ -212,23 +232,26 @@ TEST(Small_CabinetSectionWiring, CabinetSectionSumsRoomMicrophonesOnTheRoomStrip
     EXPECT_EQ(wiring.bus_feeders, (std::vector<Slot>{41, 42, K_ROOM_STRIP}));
 }
 
-TEST(Small_CabinetSectionWiring, CabinetSectionNeverGivesANodeMoreThanEightInputs)
+class Small_CabinetSectionEightInputs : public ::testing::TestWithParam<std::uint32_t>
 {
-    for (std::uint32_t room_count = 0; room_count <= 8; ++room_count)
-    {
-        CabinetSectionRequest request = base_request();
-        request.sources = {10, 11, 12};
-        request.di_strip = K_DI_STRIP;
-        request.di_position = DiPosition::BeforeEffects;
-        add_microphones(request, 8, room_count);
+};
 
-        const CabinetSectionWiring wiring = wire_cabinet_section(request);
+TEST_P(Small_CabinetSectionEightInputs, CabinetSectionNeverGivesANodeMoreThanEightInputs)
+{
+    const std::uint32_t room_count = GetParam();
+    CabinetSectionRequest request = base_request();
+    request.sources = {10, 11, 12};
+    request.di_strip = K_DI_STRIP;
+    request.di_position = DiPosition::BeforeEffects;
+    add_microphones(request, 8, room_count);
 
-        EXPECT_LE(widest_fan_in(wiring), 8u) << room_count << " room microphones";
-        EXPECT_EQ(wiring.bus_feeders.size() + wiring.room_sum_feeders.size(),
-                  8u + (room_count > 0 ? 1u : 0u));
-    }
+    const CabinetSectionWiring wiring = wire_cabinet_section(request);
+
+    EXPECT_LE(widest_fan_in(wiring), 8u);
+    EXPECT_EQ(wiring.bus_feeders.size() + wiring.room_sum_feeders.size(), 8u + (room_count > 0 ? 1u : 0u));
 }
+
+INSTANTIATE_TEST_SUITE_P(RoomMicrophones, Small_CabinetSectionEightInputs, ::testing::Range(0u, 9u));
 
 TEST(Small_CabinetSectionWiring, CabinetSectionPutsThePostStageAfterTheAmpBus)
 {
@@ -244,87 +267,101 @@ TEST(Small_CabinetSectionWiring, CabinetSectionPutsThePostStageAfterTheAmpBus)
     EXPECT_FALSE(has_edge(wiring, K_AMP_BUS, K_MASTER_STRIP));
 }
 
-TEST(Small_CabinetSectionWiring, CabinetSectionJoinsTheDiBeforeOrAfterTheEffects)
+TEST(Small_CabinetSectionWiring, CabinetSectionJoinsTheDiBeforeTheEffects)
 {
-    CabinetSectionRequest before = base_request();
-    before.post = {50};
-    before.di_strip = K_DI_STRIP;
-    before.di_position = DiPosition::BeforeEffects;
-    const CabinetSectionWiring early = wire_cabinet_section(before);
-    EXPECT_TRUE(has_edge(early, K_DI_STRIP, K_AMP_BUS));
-    EXPECT_TRUE(has_edge(early, 50, K_MASTER_STRIP));
-    EXPECT_EQ(early.amp_bus_feeders, (std::vector<Slot>{K_JOIN, K_LISTENER, K_DI_STRIP}));
-    EXPECT_TRUE(early.master_bus_feeders.empty());
+    CabinetSectionRequest request = base_request();
+    request.post = {50};
+    request.di_strip = K_DI_STRIP;
+    request.di_position = DiPosition::BeforeEffects;
 
-    CabinetSectionRequest after = base_request();
-    after.post = {50};
-    after.di_strip = K_DI_STRIP;
-    after.di_position = DiPosition::AfterEffects;
-    after.master_bus = K_MASTER_BUS;
-    const CabinetSectionWiring late = wire_cabinet_section(after);
-    EXPECT_FALSE(has_edge(late, K_DI_STRIP, K_AMP_BUS));
-    EXPECT_TRUE(has_edge(late, 50, K_MASTER_BUS));
-    EXPECT_TRUE(has_edge(late, K_DI_STRIP, K_MASTER_BUS));
-    EXPECT_TRUE(has_edge(late, K_MASTER_BUS, K_MASTER_STRIP));
-    EXPECT_EQ(late.master_bus_feeders, (std::vector<Slot>{50, K_DI_STRIP}));
+    const CabinetSectionWiring wiring = wire_cabinet_section(request);
+
+    EXPECT_TRUE(has_edge(wiring, K_DI_STRIP, K_AMP_BUS));
+    EXPECT_TRUE(has_edge(wiring, 50, K_MASTER_STRIP));
+    EXPECT_EQ(wiring.amp_bus_feeders, (std::vector<Slot>{K_JOIN, K_LISTENER, K_DI_STRIP}));
+    EXPECT_TRUE(wiring.master_bus_feeders.empty());
 }
 
-TEST(Small_CabinetSectionWiring, MixerModelListsTheStripsInDrawingOrderWithTheirFlags)
+TEST(Small_CabinetSectionWiring, CabinetSectionJoinsTheDiAfterTheEffects)
 {
-    HiddenSlots slots;
-    slots.room = K_ROOM;
-    slots.listener_strip = K_LISTENER;
-    slots.amp_bus = K_AMP_BUS;
-    slots.master_strip = K_MASTER_STRIP;
-    slots.bus = K_BUS;
-    slots.room_sum = K_ROOM_SUM;
-    slots.room_strip = K_ROOM_STRIP;
-    slots.di_strip = K_DI_STRIP;
-    slots.master_bus = K_MASTER_BUS;
-    slots.join = K_JOIN;
-    slots.microphones = {{20, 40}, {21, 41}};
-    slots.room_sum_feeders = {40};
-    slots.bus_feeders = {41, K_ROOM_STRIP};
-    slots.amp_bus_feeders = {K_JOIN, K_BUS, K_LISTENER};
-    slots.master_bus_feeders = {K_AMP_BUS, K_DI_STRIP};
+    CabinetSectionRequest request = base_request();
+    request.post = {50};
+    request.di_strip = K_DI_STRIP;
+    request.di_position = DiPosition::AfterEffects;
+    request.master_bus = K_MASTER_BUS;
 
-    const std::vector<ui::MixerStrip> strips = ui::mixer_strips(slots);
+    const CabinetSectionWiring wiring = wire_cabinet_section(request);
+
+    EXPECT_FALSE(has_edge(wiring, K_DI_STRIP, K_AMP_BUS));
+    EXPECT_TRUE(has_edge(wiring, 50, K_MASTER_BUS));
+    EXPECT_TRUE(has_edge(wiring, K_DI_STRIP, K_MASTER_BUS));
+    EXPECT_TRUE(has_edge(wiring, K_MASTER_BUS, K_MASTER_STRIP));
+    EXPECT_EQ(wiring.master_bus_feeders, (std::vector<Slot>{50, K_DI_STRIP}));
+}
+
+namespace
+{
+    /// @brief Returns the slots of a section with two microphones, one of them a room microphone.
+    HiddenSlots listed_slots()
+    {
+        HiddenSlots slots;
+        slots.room = K_ROOM;
+        slots.listener_strip = K_LISTENER;
+        slots.amp_bus = K_AMP_BUS;
+        slots.master_strip = K_MASTER_STRIP;
+        slots.bus = K_BUS;
+        slots.room_sum = K_ROOM_SUM;
+        slots.room_strip = K_ROOM_STRIP;
+        slots.di_strip = K_DI_STRIP;
+        slots.master_bus = K_MASTER_BUS;
+        slots.join = K_JOIN;
+        slots.microphones = {{20, 40}, {21, 41}};
+        slots.room_sum_feeders = {40};
+        slots.bus_feeders = {41, K_ROOM_STRIP};
+        slots.amp_bus_feeders = {K_JOIN, K_BUS, K_LISTENER};
+        slots.master_bus_feeders = {K_AMP_BUS, K_DI_STRIP};
+        return slots;
+    }
+} // namespace
+
+TEST(Small_CabinetSectionWiring, MixerModelListsTheStripsInDrawingOrder)
+{
+    const std::vector<ui::MixerStrip> strips = ui::mixer_strips(listed_slots());
 
     ASSERT_EQ(strips.size(), 8u);
     EXPECT_EQ(strips[0].label, "Mic 1");
+    EXPECT_EQ(strips[1].label, "Mic 2");
+    EXPECT_EQ(strips[1].microphone, std::optional<Slot>(21));
+    EXPECT_EQ(strips[2].kind, ui::MixerStripKind::Room);
+    EXPECT_TRUE(strips[2].stereo);
+    EXPECT_EQ(strips[3].kind, ui::MixerStripKind::Listener);
+    EXPECT_EQ(strips[4].kind, ui::MixerStripKind::Cabinet);
+    EXPECT_FALSE(strips[4].strip.has_value());
+    EXPECT_EQ(strips[5].kind, ui::MixerStripKind::Bus);
+    EXPECT_EQ(strips[6].kind, ui::MixerStripKind::Di);
+    EXPECT_EQ(strips[7].kind, ui::MixerStripKind::Master);
+}
+
+TEST(Small_CabinetSectionWiring, MixerModelGivesEachStripItsBusAndItsInputIndex)
+{
+    const std::vector<ui::MixerStrip> strips = ui::mixer_strips(listed_slots());
+
+    ASSERT_EQ(strips.size(), 8u);
     EXPECT_TRUE(strips[0].room_microphone);
+    EXPECT_FALSE(strips[1].room_microphone);
     ASSERT_TRUE(strips[0].flags.has_value());
     EXPECT_EQ(strips[0].flags->bus, K_ROOM_SUM);
     EXPECT_EQ(strips[0].flags->input, 0u);
-
-    EXPECT_EQ(strips[1].label, "Mic 2");
-    EXPECT_FALSE(strips[1].room_microphone);
-    ASSERT_TRUE(strips[1].flags.has_value());
     EXPECT_EQ(strips[1].flags->bus, K_BUS);
     EXPECT_EQ(strips[1].flags->input, 0u);
-    EXPECT_EQ(strips[1].microphone, std::optional<Slot>(21));
-
-    EXPECT_EQ(strips[2].kind, ui::MixerStripKind::Room);
-    EXPECT_TRUE(strips[2].stereo);
     EXPECT_EQ(strips[2].flags->bus, K_BUS);
     EXPECT_EQ(strips[2].flags->input, 1u);
-
-    EXPECT_EQ(strips[3].kind, ui::MixerStripKind::Listener);
     EXPECT_EQ(strips[3].flags->bus, K_AMP_BUS);
     EXPECT_EQ(strips[3].flags->input, 2u);
-
-    EXPECT_EQ(strips[4].kind, ui::MixerStripKind::Cabinet);
-    EXPECT_FALSE(strips[4].strip.has_value());
     EXPECT_EQ(strips[4].flags->input, 0u);
-
-    EXPECT_EQ(strips[5].kind, ui::MixerStripKind::Bus);
     EXPECT_EQ(strips[5].flags->input, 1u);
-
-    EXPECT_EQ(strips[6].kind, ui::MixerStripKind::Di);
     EXPECT_EQ(strips[6].flags->bus, K_MASTER_BUS);
     EXPECT_EQ(strips[6].flags->input, 1u);
-
-    EXPECT_EQ(strips[7].kind, ui::MixerStripKind::Master);
     EXPECT_FALSE(strips[7].flags.has_value());
 }
 
@@ -333,28 +370,72 @@ TEST(Small_CabinetSectionWiring, MixerModelIsEmptyForARigWithNoCabinetSection)
     EXPECT_TRUE(ui::mixer_strips(HiddenSlots{}).empty());
 }
 
-TEST(Small_CabinetSectionWiring, JoinContentNamesTheStripByWhetherACabinetFeedsIt)
+namespace
 {
-    EXPECT_EQ(join_content_of(1, 1), JoinContent::Cabinets);
-    EXPECT_EQ(join_content_of(3, 3), JoinContent::Cabinets);
-    EXPECT_EQ(join_content_of(0, 1), JoinContent::Line);
-    EXPECT_EQ(join_content_of(0, 0), JoinContent::Line);
-    EXPECT_EQ(join_content_of(1, 3), JoinContent::Mixed);
-
-    HiddenSlots slots;
-    slots.amp_bus = 9;
-    slots.join = 4;
-    slots.amp_bus_feeders = {4};
-    const auto join_strip = [&slots](JoinContent content)
+    /// @brief Holds the counts a join strip is classified by and the content they give.
+    struct JoinContentRow
     {
-        return ui::mixer_strips(slots, content).front();
+        std::size_t cabinets;
+        std::size_t sources;
+        JoinContent content;
     };
-    EXPECT_EQ(join_strip(JoinContent::Cabinets).label, "Cabinet");
-    EXPECT_EQ(join_strip(JoinContent::Cabinets).kind, ui::MixerStripKind::Cabinet);
-    EXPECT_EQ(join_strip(JoinContent::Line).label, "Line");
-    EXPECT_EQ(join_strip(JoinContent::Line).kind, ui::MixerStripKind::Line);
-    EXPECT_EQ(join_strip(JoinContent::Mixed).label, "Cabinet + Line");
-    // Whatever it is called, the strip's mute and solo are the join's input of the amp bus.
-    ASSERT_TRUE(join_strip(JoinContent::Line).flags.has_value());
-    EXPECT_EQ(join_strip(JoinContent::Line).flags->bus, 9u);
+
+    /// @brief Holds a join content with the label and kind its strip carries.
+    struct JoinStripRow
+    {
+        JoinContent content;
+        const char* label;
+        ui::MixerStripKind kind;
+    };
+
+    /// @brief Returns the first strip of a section whose only feeder of the amp bus is the join.
+    ui::MixerStrip join_strip_of(JoinContent content)
+    {
+        HiddenSlots slots;
+        slots.amp_bus = 9;
+        slots.join = 4;
+        slots.amp_bus_feeders = {4};
+        return ui::mixer_strips(slots, content).front();
+    }
+
+    class Small_JoinContentClassification : public ::testing::TestWithParam<JoinContentRow>
+    {
+    };
+
+    class Small_JoinContentStrip : public ::testing::TestWithParam<JoinStripRow>
+    {
+    };
+} // namespace
+
+TEST_P(Small_JoinContentClassification, JoinContentNamesTheStripByWhetherACabinetFeedsIt)
+{
+    EXPECT_EQ(join_content_of(GetParam().cabinets, GetParam().sources), GetParam().content);
+}
+
+INSTANTIATE_TEST_SUITE_P(Counts, Small_JoinContentClassification,
+                         ::testing::Values(JoinContentRow{1, 1, JoinContent::Cabinets},
+                                           JoinContentRow{3, 3, JoinContent::Cabinets},
+                                           JoinContentRow{0, 1, JoinContent::Line},
+                                           JoinContentRow{0, 0, JoinContent::Line},
+                                           JoinContentRow{1, 3, JoinContent::Mixed}));
+
+TEST_P(Small_JoinContentStrip, JoinStripCarriesTheLabelAndKindOfItsContent)
+{
+    const ui::MixerStrip strip = join_strip_of(GetParam().content);
+
+    EXPECT_EQ(strip.label, GetParam().label);
+    EXPECT_EQ(strip.kind, GetParam().kind);
+}
+
+INSTANTIATE_TEST_SUITE_P(Contents, Small_JoinContentStrip,
+                         ::testing::Values(JoinStripRow{JoinContent::Cabinets, "Cabinet", ui::MixerStripKind::Cabinet},
+                                           JoinStripRow{JoinContent::Line, "Line", ui::MixerStripKind::Line},
+                                           JoinStripRow{JoinContent::Mixed, "Cabinet + Line", ui::MixerStripKind::Cabinet}));
+
+TEST(Small_CabinetSectionWiring, JoinStripMuteAndSoloAreTheJoinsInputOfTheAmpBus)
+{
+    const ui::MixerStrip strip = join_strip_of(JoinContent::Line);
+
+    ASSERT_TRUE(strip.flags.has_value());
+    EXPECT_EQ(strip.flags->bus, 9u);
 }
