@@ -6,11 +6,10 @@
 # ============================================================================
 # SushiDSP test pipeline
 #
-# One binary, sushidsp_tests, built from the test files listed below. Each test
-# is one CTest test labelled with its size, small, medium or large, read from
-# its suite-name prefix, which also sets its timeout. `sd test --label <size>`
-# selects a size. The tests are discovered from the built binary before each
-# run, so a new test needs no edit here.
+# One binary, sushidsp_tests, built from the test files listed below. Its cases run in CTest
+# shards per size, small, medium or large, read from the suite-name prefix, which also sets the
+# timeout. `sd test --label <size>` selects a size. The case count of each size comes from the
+# listed sources when CMake configures, so a new test file or case needs a configure.
 #
 # GoogleTest is sourced via FetchContent rather than vcpkg's
 # find_package(GTest CONFIG REQUIRED) that sushiblas uses: SushiDSP has no
@@ -490,37 +489,10 @@ target_compile_definitions(sushidsp_tests PRIVATE SUSHIDSP_ASSETS_DIR="${CMAKE_S
 set(SUSHIDSP_QUARANTINED_TESTS "")
 
 # A test's size is its GoogleTest suite-name prefix: Small_*, Medium_* and Large_*, each
-# registered with its own label and timeout. main.cpp refuses a suite with no prefix, so the
-# discovery of every group fails and no test of the binary runs until it is named.
-include(GoogleTest)
-foreach(_group IN ITEMS "Small_|small|60" "Medium_|medium|300" "Large_|large|900")
-    string(REPLACE "|" ";" _parts "${_group}")
-    list(GET _parts 0 _prefix)
-    list(GET _parts 1 _label)
-    list(GET _parts 2 _timeout)
-
-    # A GoogleTest filter after '-' excludes, so the quarantined tests register apart.
-    set(_quarantined "")
-    foreach(_name IN LISTS SUSHIDSP_QUARANTINED_TESTS)
-        if(_name MATCHES "^${_prefix}")
-            list(APPEND _quarantined "${_name}")
-        endif()
-    endforeach()
-    list(JOIN _quarantined ":" _quarantined_filter)
-
-    set(_filter "${_prefix}*")
-    if(_quarantined_filter)
-        string(APPEND _filter "-${_quarantined_filter}")
-        gtest_discover_tests(sushidsp_tests
-            DISCOVERY_MODE PRE_TEST
-            TEST_FILTER "${_quarantined_filter}"
-            PROPERTIES LABELS "${_label}\;quarantined" TIMEOUT ${_timeout})
-    endif()
-    gtest_discover_tests(sushidsp_tests
-        DISCOVERY_MODE PRE_TEST
-        TEST_FILTER "${_filter}"
-        PROPERTIES LABELS "${_label}" TIMEOUT ${_timeout})
-endforeach()
+# registered with its own label and timeout, in shards per program and size. main.cpp refuses a
+# suite with no prefix, so no test of the binary runs until it is named.
+# cmake/SushiDSPTests.cmake holds the registration.
+sushidsp_register_sized_tests(sushidsp_tests "${SUSHIDSP_QUARANTINED_TESTS}")
 # The benchmark program: one executable built from every unit's benchmark_<name>.cpp, run by
 # `sd bench` and never by `sd test`. Each file registers its own cases; benchmark_main.cpp
 # runs them.

@@ -8,6 +8,26 @@ mirrors the unit's header; the notes of one owner sit in that owner's README.
 bound, so no comparison types one; `test_tolerance.cpp` beside it checks that the copy keeps its
 promises under this repository's compiler flags.
 
+# Shards
+
+`cmake/SushiDSPTests.cmake` registers the cases of a program in shards, because a case run in a
+process of its own pays the process and runtime start-up, which is most of a small case. Per
+program and per size there are N CTest tests named `<program>.<size>_shard_<i>of<N>`, each running
+the program with `--gtest_filter=<prefix>*:*/<prefix>*` (without the quarantined cases),
+`GTEST_TOTAL_SHARDS=N` and `GTEST_SHARD_INDEX=i`. GoogleTest splits the filtered cases between the
+shards, so every case runs in exactly one. N is the case count of the size divided by the cases one
+shard holds, rounded up: `SUSHIDSP_SHARD_CASES_SMALL` (300), `_MEDIUM` (25) and `_LARGE` (1). The
+count comes from the `TEST`, `TEST_F`, `TEST_P`, `TYPED_TEST` and `TYPED_TEST_P` declarations and
+the `INSTANTIATE_*` lines of the program's sources, read when CMake configures, so N is a floor
+and a new case needs a configure. A shard's timeout is the size's timeout per case times the cases
+it holds. The quarantined cases of a size run apart in `<program>.<size>_quarantined`.
+
+Each shard writes its cases to `test_results/gtest/<shard>.xml` in the build tree, which
+`tools/testing/test_budget.py --cases <folder>` reads. A suite name belongs to one fixture in a
+program: `TEST` and `TEST_P` cannot share a suite name. The name a parameter generator returns
+holds no `-`, which a GoogleTest filter reads as the start of its exclusions;
+`tools/testing/check_test_odr.py` checks both.
+
 # Unit tests
 
 The reasoning behind the cases in this folder: why a tolerance has its value, where a golden

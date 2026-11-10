@@ -13,11 +13,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from testing import test_budget  # noqa: E402
 from testing.test_budget import (  # noqa: E402
     Report,
     Timing,
@@ -25,6 +23,7 @@ from testing.test_budget import (  # noqa: E402
     exit_code,
     main,
     parse_exemptions,
+    parse_gtest_xml,
     parse_junit,
     parse_programs,
     render,
@@ -43,13 +42,26 @@ def junit(cases: dict[str, float], skipped: tuple[str, ...] = ()) -> str:
     return f'<?xml version="1.0"?><testsuite name="(empty)" tests="{len(cases)}">{rows}</testsuite>'
 
 
+def gtest_xml(cases: dict[tuple[str, str], float], skipped: tuple[tuple[str, str], ...] = ()) -> str:
+    """Returns the text of a GoogleTest XML file with one case per (suite, case) entry."""
+    rows = "".join(f'<testcase name="{case}" status="run" result="completed" time="{seconds}" classname="{suite}"/>'
+                   for (suite, case), seconds in cases.items())
+    rows += "".join(f'<testcase name="{case}" status="run" result="skipped" time="0" classname="{suite}"/>'
+                    for suite, case in skipped)
+    return f'<?xml version="1.0"?><testsuites tests="{len(cases)}"><testsuite name="S">{rows}</testsuite></testsuites>'
+
+
 def judge(timings: list[Timing], **overrides) -> Report:
     """Evaluates a run of the given timings with the test limits and default arguments, changed by *overrides*."""
     arguments = dict(programs={}, exemptions={}, rerun=None, scope="partial", wall=None, factor=1.25,
                      added=None, base="", rebuilt=True, open_backlog=None)
     arguments.update(overrides)
-    with mock.patch.object(test_budget, "K_BUDGET", K_LIMITS):
-        return evaluate(timings, **arguments)
+    return evaluate(timings, budget=K_LIMITS, **arguments)
+
+
+def small_timings(count: int, seconds: float) -> dict[str, float]:
+    """Returns *count* small tests of one suite, each taking *seconds*."""
+    return {f"Small_A.T{index}": seconds for index in range(count)}
 
 
 def run(timings: dict[str, float], **overrides) -> Report:
@@ -64,6 +76,11 @@ class TestReadingAndNames(unittest.TestCase):
     def test_reads_times_and_leaves_out_a_skipped_test(self) -> None:
         self.assertEqual(parse_junit(junit({"Small_A.One": 0.25}, skipped=("Large_B.Gpu",)).encode(), "a.xml"),
                          [Timing("Small_A.One", 0.25)])
+
+    def test_reads_a_gtest_case_as_suite_dot_case_and_leaves_out_a_skipped_one(self) -> None:
+        text = gtest_xml({("Small_A", "One"): 0.002, ("Rows/Medium_B", "Two/3"): 0.5}, skipped=(("Large_C", "Gpu"),))
+        self.assertEqual(parse_gtest_xml(text.encode(), "s.xml"),
+                         [Timing("Small_A.One", 0.002), Timing("Rows/Medium_B.Two/3", 0.5)])
 
     def test_refuses_a_file_with_a_doctype_or_an_entity(self) -> None:
         with self.assertRaises(SystemExit):
@@ -126,7 +143,7 @@ class TestEvaluate(unittest.TestCase):
         self.assertIn("1.4 s alone, over the small limit of 1 s", slow.findings[0])
 
     def test_a_module_small_total_is_printed_and_never_a_finding(self) -> None:
-        report = run({f"Small_A.T{index}": 0.05 for index in range(2000)}, programs={"Small_A": "core"})
+        report = run(small_timings(2000, 0.05), programs={"Small_A": "core"})
         self.assertEqual(report.findings, ())
         self.assertIn("small 100.0 s (core)", report.line)
 
@@ -183,9 +200,6 @@ class TestMainCommand(unittest.TestCase):
         self.junit.write_text(junit({"Small_A.Slow": 5.0}), encoding="utf-8")
         self.programs = Path(self._folder.name) / "map.json"
         self.programs.write_text(json.dumps({"Small_A": "core"}), encoding="utf-8")
-        patch = mock.patch.object(test_budget, "K_BUDGET", K_LIMITS)
-        patch.start()
-        self.addCleanup(patch.stop)
 
     def tearDown(self) -> None:
         self._folder.cleanup()
@@ -193,7 +207,23 @@ class TestMainCommand(unittest.TestCase):
     def test_reads_the_junit_and_the_program_map_and_gates_the_run(self) -> None:
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            code = main([str(self.junit), "--programs", str(self.programs), "--gate"])
+            code = main([str(self.junit), "--programs", str(self.programs), "--gate"], budget=K_LIMITS)
+        self.assertEqual((code, out.getvalue().splitlines()), (1, [
+            "budget: small 5.0 s (core), whole run not measured, shape 100% small, 0% medium, 0% large",
+            "rerun: ^(Small_A\\.Slow)$",
+            "Small_A.Slow: 5.0 s, over the small limit of 1 s (not rerun)",
+        ]))
+
+    def test_adds_the_per_case_times_of_the_shard_files_and_ignores_the_shard_entry_of_ctest(self) -> None:
+        cases = Path(self._folder.name) / "cases"
+        cases.mkdir()
+        (cases / "shard_1.xml").write_text(gtest_xml({("Small_A", "Slow"): 5.0}), encoding="utf-8")
+        (cases / "shard_2.xml").write_text(gtest_xml({("Small_A", "Fast"): 0.01}), encoding="utf-8")
+        self.junit.write_text(junit({"core_tests.small.shard_1of2": 5.0}), encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = main([str(self.junit), "--cases", str(cases), "--programs", str(self.programs), "--gate"],
+                        budget=K_LIMITS)
         self.assertEqual((code, out.getvalue().splitlines()), (1, [
             "budget: small 5.0 s (core), whole run not measured, shape 100% small, 0% medium, 0% large",
             "rerun: ^(Small_A\\.Slow)$",

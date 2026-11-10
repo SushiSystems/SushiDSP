@@ -38,6 +38,7 @@ endif()
 include(cmake/SushiDSPCompilerFlags.cmake)
 include(cmake/CompilerWarnings.cmake)
 include(cmake/Sanitizers.cmake)
+include(cmake/SushiDSPTests.cmake)
 include(cmake/SushiDSPLayers.cmake)
 
 # SushiLog, the one logger of the process. The CLI builds or reuses its package and passes

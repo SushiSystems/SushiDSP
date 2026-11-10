@@ -56,8 +56,8 @@ Builds the tree if it isn't already, then runs `ctest`.
 - `--type` / `-t`, same values and default as `sd configure`.
 - `--label` / `-l small | medium | large`, the test size to run. Repeatable; without it every
   size runs. `docs/CONTRIBUTING.md` says what each size allows.
-- `--filter` / `-f <regex>`, a `ctest -R` regex over the `Suite.Case` test names, applied
-  inside the chosen sizes.
+- `--filter` / `-f <regex>`, a `ctest -R` regex over the shard names,
+  `sushidsp_tests.<size>_shard_<i>of<N>`, applied inside the chosen sizes.
 - `--jobs` / `-j <count>`, how many tests run at once, passed to `ctest --parallel`. Without it
   ctest decides and honours `CTEST_PARALLEL_LEVEL`.
 - `--sanitize address | thread`, builds and tests the tree of that sanitizer, as

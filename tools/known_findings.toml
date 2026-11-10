@@ -236,3 +236,45 @@ path = "modules/foundation/device/include/SushiDSP/foundation/device/asio_audio_
 count = 1
 backlog = "RW-82"
 
+
+[[finding]]
+checker = "testing/check_test_odr.py"
+rule = "rule_unsafe_name"
+path = "tests/foundation/golden_compare/test_golden_file.cpp"
+count = 1
+backlog = "RW-90"
+
+[[finding]]
+checker = "testing/check_test_odr.py"
+rule = "rule_unsafe_name"
+path = "tests/foundation/math/test_fft.cpp"
+count = 1
+backlog = "RW-90"
+
+[[finding]]
+checker = "testing/check_test_odr.py"
+rule = "rule_unsafe_name"
+path = "tests/foundation/math/test_oversampler.cpp"
+count = 2
+backlog = "RW-90"
+
+[[finding]]
+checker = "testing/check_test_odr.py"
+rule = "rule_unsafe_name"
+path = "tests/nodes/room/test_furnishing_field.cpp"
+count = 1
+backlog = "RW-90"
+
+[[finding]]
+checker = "testing/check_test_odr.py"
+rule = "rule_unsafe_name"
+path = "tests/nodes/room/test_image_source_solver.cpp"
+count = 1
+backlog = "RW-90"
+
+[[finding]]
+checker = "testing/check_test_odr.py"
+rule = "rule_unsafe_name"
+path = "tests/nodes/room/test_medium_absorption.cpp"
+count = 1
+backlog = "RW-90"
