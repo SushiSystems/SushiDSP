@@ -129,7 +129,7 @@ signal and its mode shape at the cabinet. `ModalBank::process` takes a list of r
 row of one gain per mode and a block to add into, and advances the resonators once whatever the
 count. The source stage holds rows 0 and 1 for the listener's two ears and row `2 + m` for
 microphone `m`. A row is the same sum the bank made when it read two ears alone, in the same
-order (`ModalBankReadsEveryRowAsItReadsTheTwoEars`).
+order (`ReadsTheLeftGainsAsTheLeftEar`).
 
 **Every port carries the decoder's partition.** The listener's reflections come out of the
 decoder one partition late, 128 frames at 48 kHz, and its direct sound, tail and modal field wait
@@ -466,7 +466,7 @@ frequency between the centres (spec §6.3). `diffuse_field.hpp` is header-only; 
 directivity index of the last cabinet geometry behind a mutex, since the 2562-direction integral
 costs 18 ms against a 2 ms build, both measured on an unoptimised binary, and a drag never
 changes the geometry. Its cases live in
-`tests/nodes/room/test_modal_solver.cpp` (`DiffuseFieldIsEyringOverTheCabinetsDirectivity`)
+`tests/nodes/room/test_modal_solver.cpp` (`BandPowerIsEyringOverTheCabinetsDirectivity`)
 until the test list can take a file of its own. The index is the
 directivity of `CabinetDirectivity`, 1.1, 3.0, 7.6, 12.0, 15.7 and 18.8 dB for the 4x12, and it
 is what keeps a beaming cabinet's room quieter than a monopole's: the garage's octave under f_s
@@ -487,7 +487,7 @@ is fitted to the square root of each band's share of the mean. Jot's tone correc
 flattened the tail's energy spectrum, is one factor of that cascade; a room's reverberant energy
 is not flat. Rendered alone through `LateReverb`, 131072 frames, each band's energy lands within
 1 dB of its remainder from 250 Hz up and within 2 dB at 125 Hz in all three reference rooms
-(`LateReverbDesignRendersEachBandsRemainder`); the garage's tail carries an input gain of 0.38,
+(`EachBandWithARemainderRendersWithinItsClearance`); the garage's tail carries an input gain of 0.38,
 where the trend of the last 5 ms of taps before t_c, 5 taps of the 56 a diffuse shell holds
 there, had set 0.11.
 
@@ -517,8 +517,8 @@ The garage's impulse response now runs -12.4 dB at 5 ms for the direct sound, th
 down to -27 dB by 35 ms, the tail from -22.4 dB at 35 ms and a smooth decay past that; the
 bedroom and the block room hand over at 37.98 and 39.35 ms against their own t_c of 37.90 and
 39.36 ms.
-`LateReverbDesignDelaysTheTailToTheHandoverTime` walks all three and holds the onset within 8
-frames of t_c. A compensated ears set moves the tail's read delay earlier with everything else,
+`TailOnsetLandsBetweenTheHandoverTimeAndThePrimeAboveIt` walks all three and holds the onset
+between t_c and the first prime at or above it. A compensated ears set moves the tail's read delay earlier with everything else,
 but the shortest line is latency the design cannot give back, so the delay floors at zero and
 the ears' tail sits up to the propagation delay late, 363 frames for `RoomScene{}`.
 
@@ -566,7 +566,7 @@ The modal field is read where that receiver stands. `ModalSolver::design` takes 
 kind: for the ears it evaluates psi at two points 8.5 cm to either side of `listener_position`,
 for the microphone at `microphone_position` in both ear gains, and the resonators, the count,
 the crossover and the level are the room's whatever the receiver
-(`ModalSolverReadsTheMicrophoneAtOnePoint`, `BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver`).
+(`MicrophoneReadsOnePointForBothEars`, `MicrophoneSetReadsTheModeAtTheMicrophoneForBothEars`).
 
 A microphone's port carries one signal: channel 0 of the early set, the tail read once, and
 the modal field at one point, at physical timing, held back by the decoder's partition so it

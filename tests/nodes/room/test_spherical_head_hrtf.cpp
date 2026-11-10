@@ -32,10 +32,15 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <random>
+#include <string>
 
 #include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
+
+#include "support/tolerance.hpp"
 
 namespace
 {
@@ -45,8 +50,45 @@ namespace
     /// @brief Holds the sample rate every set in this file is built at.
     constexpr double K_SAMPLE_RATE = 48000.0;
 
-    /// @brief Bounds how far two responses may drift and still count as equal.
-    constexpr float K_TAP_TOLERANCE = 1.0e-6f;
+    /// @brief Holds the ratio of error to bound above which a derived check fails.
+    constexpr double K_LIMIT = TestSupport::K_DEFAULT_THRESHOLD;
+
+    /// @brief Counts the rounded operations that make one tap of an interpolated response: three
+    /// weights times three taps and the two sums that join them, rounded to the next float.
+    constexpr std::size_t K_INTERPOLATION_OPERATIONS = 12;
+
+    /// @brief Holds half a unit of the seventh decimal, the most a delay written to seven decimals
+    /// can sit from the exact value.
+    constexpr double K_HALF_UNIT_OF_SEVENTH_DECIMAL = 0.5e-7;
+
+    /// @brief Holds the largest interaural delay of the head in frames, Woodworth's figure at 90
+    /// degrees, which bounds the rounding of a delay in any direction.
+    constexpr double K_MAX_ITD_FRAMES = 31.479;
+
+    /// @brief Holds the level difference the far ear's shadow must reach in the 4 kHz octave, in
+    /// decibels.
+    constexpr double K_SHADOW_AT_FOUR_KILOHERTZ_DB = 4.0;
+
+    /// @brief Holds the level difference the two ears may show in the 125 Hz octave, in decibels.
+    constexpr double K_LOW_OCTAVE_DIFFERENCE_DB = 2.0;
+
+    /// @brief Holds the energy a diffuse-field response must carry at the least.
+    constexpr double K_MIN_DIFFUSE_ENERGY = 0.5;
+
+    /// @brief Holds how far the diffuse power at DC may sit from the sphere's 1. Characterised,
+    /// not derived: the grid weights solid angle by 10 degree cells.
+    constexpr double K_DC_POWER_TOLERANCE = 2.0e-3;
+
+    /// @brief Holds how far the diffuse power at 4 kHz may sit from the sphere's 1.7765.
+    /// Characterised, not derived.
+    constexpr double K_FOUR_KILOHERTZ_POWER_TOLERANCE = 0.02;
+
+    /// @brief Holds how far the diffuse energy may sit from the sphere's mean power of 1.847.
+    /// Characterised, not derived.
+    constexpr double K_DIFFUSE_ENERGY_TOLERANCE = 0.01;
+
+    /// @brief Holds how many directions the coverage tests draw, seeded.
+    constexpr int K_COVERAGE_TRIALS = 500;
 
     /// @brief Holds one ear's 128-tap response.
     using Taps = std::array<float, SushiDSP::room::HrtfSet::K_TAP_COUNT>;
@@ -59,45 +101,39 @@ namespace
         return instance;
     }
 
-    /// @brief Returns the largest absolute difference between two responses, tap for tap.
-    float max_difference(const Taps& a, const Taps& b)
+    /// @brief Returns the largest absolute tap of a response.
+    float peak(const Taps& taps)
+    {
+        float largest = 0.0f;
+        for (const float tap : taps)
+        {
+            largest = std::max(largest, std::fabs(tap));
+        }
+        return largest;
+    }
+
+    /// @brief Returns how many times its bound the largest tap difference of two responses
+    /// reads, the bound being the given number of float roundings of the larger peak.
+    double tap_ratio(const Taps& a, const Taps& b, std::size_t operations)
     {
         float largest = 0.0f;
         for (std::size_t tap = 0; tap < a.size(); ++tap)
         {
             largest = std::max(largest, std::fabs(a[tap] - b[tap]));
         }
-        return largest;
+        const double bound = static_cast<double>(operations) *
+                             TestSupport::unit_roundoff<float>() *
+                             static_cast<double>(std::max(peak(a), peak(b)));
+        return TestSupport::measure_error(largest, 0.0, bound).ratio;
     }
 
-    /// @brief Returns the energy of a response over one octave centred on centre_hz, summed
-    /// over 200 evenly spaced frequencies of its DFT.
-    double octave_energy(const Taps& taps, double centre_hz)
+    /// @brief Returns how many times its bound the difference of two delays reads, the bound
+    /// being the given number of float roundings of the largest delay there is.
+    double delay_ratio(double a, double b, std::size_t operations)
     {
-        const double low = centre_hz / std::sqrt(2.0);
-        const double high = centre_hz * std::sqrt(2.0);
-        const double step = (high - low) / 200.0;
-        double energy = 0.0;
-        for (double hz = low; hz < high; hz += step)
-        {
-            double real = 0.0;
-            double imag = 0.0;
-            for (std::size_t tap = 0; tap < taps.size(); ++tap)
-            {
-                const double angle = 2.0 * K_PI * hz * static_cast<double>(tap) / K_SAMPLE_RATE;
-                real += taps[tap] * std::cos(angle);
-                imag -= taps[tap] * std::sin(angle);
-            }
-            energy += real * real + imag * imag;
-        }
-        return energy;
-    }
-
-    /// @brief Returns how many decibels the near ear sits above the far ear in one octave.
-    double interaural_level_db(const SushiDSP::room::HrtfSet::Pair& pair, double centre_hz)
-    {
-        return 10.0 * std::log10(octave_energy(pair.left, centre_hz) /
-                                 octave_energy(pair.right, centre_hz));
+        const double bound = static_cast<double>(operations) *
+                             TestSupport::unit_roundoff<float>() * K_MAX_ITD_FRAMES;
+        return TestSupport::measure_error(a, b, bound).ratio;
     }
 
     /// @brief Returns the squared magnitude of a response's DFT at one frequency.
@@ -114,6 +150,34 @@ namespace
         return real * real + imag * imag;
     }
 
+    /// @brief Returns the energy of a response over one octave centred on centre_hz, summed
+    /// over 200 evenly spaced frequencies of its DFT.
+    double octave_energy(const Taps& taps, double centre_hz)
+    {
+        const double low = centre_hz / std::sqrt(2.0);
+        const double high = centre_hz * std::sqrt(2.0);
+        const double step = (high - low) / 200.0;
+        double energy = 0.0;
+        for (double hz = low; hz < high; hz += step)
+        {
+            energy += power_at(taps, hz);
+        }
+        return energy;
+    }
+
+    /// @brief Returns how many decibels the near ear sits above the far ear in one octave.
+    double interaural_level_db(const SushiDSP::room::HrtfSet::Pair& pair, double centre_hz)
+    {
+        return 10.0 * std::log10(octave_energy(pair.left, centre_hz) /
+                                 octave_energy(pair.right, centre_hz));
+    }
+
+    /// @brief Returns the level difference at the side, ninety degrees from the nose.
+    double side_level_db(double centre_hz)
+    {
+        return interaural_level_db(set().interpolate(K_PI / 2.0, 0.0), centre_hz);
+    }
+
     /// @brief Returns the sum of a response's squared taps, its mean squared magnitude over
     /// the whole band by Parseval.
     double energy(const Taps& taps)
@@ -125,18 +189,124 @@ namespace
         }
         return sum;
     }
+
+    /// @brief Returns whether every tap of a response is finite.
+    bool all_finite(const Taps& taps)
+    {
+        return std::all_of(taps.begin(), taps.end(), [](float tap) { return std::isfinite(tap); });
+    }
+
+    /// @brief Holds the directions the coverage tests read, drawn once from a fixed seed.
+    std::array<std::array<double, 2>, K_COVERAGE_TRIALS> seeded_directions()
+    {
+        std::mt19937 generator(7);
+        std::uniform_real_distribution<double> azimuth(-K_PI, K_PI);
+        std::uniform_real_distribution<double> elevation(-K_PI / 2.0, K_PI / 2.0);
+        std::array<std::array<double, 2>, K_COVERAGE_TRIALS> directions{};
+        for (std::array<double, 2>& direction : directions)
+        {
+            direction = {azimuth(generator), elevation(generator)};
+        }
+        return directions;
+    }
+
+    /// @brief Returns whether every seeded direction gives finite responses and a finite delay.
+    bool every_direction_is_finite()
+    {
+        const auto directions = seeded_directions();
+        return std::all_of(directions.begin(), directions.end(),
+                           [](const std::array<double, 2>& direction)
+                           {
+                               const SushiDSP::room::HrtfSet::Pair pair =
+                                   set().interpolate(direction[0], direction[1]);
+                               return all_finite(pair.left) && all_finite(pair.right) &&
+                                      std::isfinite(pair.itd_frames);
+                           });
+    }
+
+    /// @brief Returns the least energy either ear's response carries over the seeded directions.
+    double least_energy_over_directions()
+    {
+        double least = std::numeric_limits<double>::infinity();
+        for (const std::array<double, 2>& direction : seeded_directions())
+        {
+            const SushiDSP::room::HrtfSet::Pair pair = set().interpolate(direction[0], direction[1]);
+            least = std::min(least, std::min(energy(pair.left), energy(pair.right)));
+        }
+        return least;
+    }
+
+    /// @brief Holds one azimuth and the interaural delay worked out by hand to seven decimals:
+    /// (a / c) (theta + sin theta) with a = 0.0875 m and c = 343 m/s.
+    struct Delay
+    {
+            const char* name;
+            double azimuth_rad;
+            double seconds;
+    };
+
+    /// @brief Holds the delays at 30, 60 and 90 degrees: 0.00025510 times 1.0235988, 1.9132230
+    /// and 2.5707963.
+    const std::array<Delay, 3> kDelays = {{{"ThirtyDegrees", K_PI / 6.0, 0.0002611},
+                                           {"SixtyDegrees", K_PI / 3.0, 0.0004881},
+                                           {"NinetyDegrees", K_PI / 2.0, 0.0006558}}};
+
+    /// @brief Names a delay case after its azimuth.
+    std::string delay_name(const ::testing::TestParamInfo<Delay>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Holds one octave centre and the one below it, whose level difference it must exceed.
+    struct Octave
+    {
+            const char* name;
+            double centre_hz;
+            double below_hz;
+    };
+
+    /// @brief Holds the octaves from 250 Hz to 8 kHz, each against the one below.
+    const std::array<Octave, 6> kOctaves = {{{"Hz250", 250.0, 125.0},
+                                             {"Hz500", 500.0, 250.0},
+                                             {"Hz1000", 1000.0, 500.0},
+                                             {"Hz2000", 2000.0, 1000.0},
+                                             {"Hz4000", 4000.0, 2000.0},
+                                             {"Hz8000", 8000.0, 4000.0}}};
+
+    /// @brief Names an octave case after its centre.
+    std::string octave_name(const ::testing::TestParamInfo<Octave>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Names an ear case after its index.
+    std::string ear_name(const ::testing::TestParamInfo<std::uint32_t>& info)
+    {
+        return info.param == 0u ? "Left" : "Right";
+    }
 } // namespace
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfMatchesWoodworthsInterauralDelay)
+class Small_SphericalHeadHrtfDelay : public ::testing::TestWithParam<Delay>
+{
+};
+
+class Small_SphericalHeadHrtfShadow : public ::testing::TestWithParam<Octave>
+{
+};
+
+class Small_SphericalHeadHrtfDiffuse : public ::testing::TestWithParam<std::uint32_t>
+{
+};
+
+TEST_P(Small_SphericalHeadHrtfDelay, MatchesWoodworthsInterauralDelay)
 {
     // (a / c) * (theta + sin theta) with a = 0.0875 m and c = 343 m/s.
-    EXPECT_NEAR(SushiDSP::room::SphericalHeadHrtf::interaural_time_difference(K_PI / 6.0),
-                0.0002611, 2e-6);
-    EXPECT_NEAR(SushiDSP::room::SphericalHeadHrtf::interaural_time_difference(K_PI / 3.0),
-                0.0004881, 2e-6);
-    EXPECT_NEAR(SushiDSP::room::SphericalHeadHrtf::interaural_time_difference(K_PI / 2.0),
-                0.0006558, 2e-6);
+    EXPECT_NEAR(SushiDSP::room::SphericalHeadHrtf::interaural_time_difference(GetParam().azimuth_rad),
+                GetParam().seconds, K_HALF_UNIT_OF_SEVENTH_DECIMAL);
 }
+
+INSTANTIATE_TEST_SUITE_P(Azimuths, Small_SphericalHeadHrtfDelay, ::testing::ValuesIn(kDelays),
+                         delay_name);
 
 TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfPutsZeroDelayStraightAhead)
 {
@@ -145,14 +315,24 @@ TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfPutsZeroDelayStraightAhead)
     EXPECT_EQ(front.itd_frames, 0.0f);
 }
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfIsSymmetricAboutTheMedianPlane)
+TEST(Small_SphericalHeadHrtf, ResponsesAreSymmetricAboutTheMedianPlane)
 {
     const SushiDSP::room::HrtfSet::Pair left = set().interpolate(K_PI / 3.0, 0.0);
     const SushiDSP::room::HrtfSet::Pair right = set().interpolate(-K_PI / 3.0, 0.0);
-    EXPECT_LE(max_difference(left.left, right.right), K_TAP_TOLERANCE);
-    EXPECT_LE(max_difference(left.right, right.left), K_TAP_TOLERANCE);
-    EXPECT_NEAR(left.itd_frames, -right.itd_frames, K_TAP_TOLERANCE);
-    EXPECT_GT(left.itd_frames, 0.0f);
+    EXPECT_LE(tap_ratio(left.left, right.right, K_INTERPOLATION_OPERATIONS), K_LIMIT);
+    EXPECT_LE(tap_ratio(left.right, right.left, K_INTERPOLATION_OPERATIONS), K_LIMIT);
+}
+
+TEST(Small_SphericalHeadHrtf, DelaysAreOppositeAboutTheMedianPlane)
+{
+    const SushiDSP::room::HrtfSet::Pair left = set().interpolate(K_PI / 3.0, 0.0);
+    const SushiDSP::room::HrtfSet::Pair right = set().interpolate(-K_PI / 3.0, 0.0);
+    EXPECT_LE(delay_ratio(left.itd_frames, -right.itd_frames, K_INTERPOLATION_OPERATIONS), K_LIMIT);
+}
+
+TEST(Small_SphericalHeadHrtf, SourceToTheLeftArrivesAtTheRightEarLater)
+{
+    EXPECT_GT(set().interpolate(K_PI / 3.0, 0.0).itd_frames, 0.0f);
 }
 
 TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfCannotTellFrontFromBack)
@@ -160,69 +340,84 @@ TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfCannotTellFrontFromBack)
     // This is the model's documented limit and the reason the measured asset exists.
     const SushiDSP::room::HrtfSet::Pair front = set().interpolate(0.0, 0.0);
     const SushiDSP::room::HrtfSet::Pair back = set().interpolate(K_PI, 0.0);
-    EXPECT_LE(max_difference(front.left, back.left), K_TAP_TOLERANCE);
-    EXPECT_LE(max_difference(front.right, back.right), K_TAP_TOLERANCE);
-    EXPECT_NEAR(front.itd_frames, back.itd_frames, K_TAP_TOLERANCE);
+    EXPECT_LE(tap_ratio(front.left, back.left, K_INTERPOLATION_OPERATIONS), K_LIMIT);
+    EXPECT_LE(tap_ratio(front.right, back.right, K_INTERPOLATION_OPERATIONS), K_LIMIT);
 }
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz)
+TEST(Small_SphericalHeadHrtf, FrontAndBackHaveTheSameDelay)
+{
+    const SushiDSP::room::HrtfSet::Pair front = set().interpolate(0.0, 0.0);
+    const SushiDSP::room::HrtfSet::Pair back = set().interpolate(K_PI, 0.0);
+    EXPECT_LE(delay_ratio(front.itd_frames, back.itd_frames, K_INTERPOLATION_OPERATIONS), K_LIMIT);
+}
+
+TEST(Small_SphericalHeadHrtf, FarEarIsShadowedByFourDecibelsInTheFourKilohertzOctave)
 {
     // The far ear sits at the sphere's bright spot. See tests/nodes/room/README.md.
-    const SushiDSP::room::HrtfSet::Pair side = set().interpolate(K_PI / 2.0, 0.0);
-    EXPECT_GE(interaural_level_db(side, 4000.0), 4.0);
-    EXPECT_LE(std::fabs(interaural_level_db(side, 125.0)), 2.0);
-    double below = interaural_level_db(side, 125.0);
-    for (const double centre_hz : {250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0})
-    {
-        const double difference = interaural_level_db(side, centre_hz);
-        EXPECT_GT(difference, below) << "octave at " << centre_hz << " Hz";
-        below = difference;
-    }
+    EXPECT_GE(side_level_db(4000.0), K_SHADOW_AT_FOUR_KILOHERTZ_DB);
 }
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfBuildsAGridThatCoversTheSphere)
+TEST(Small_SphericalHeadHrtf, TwoEarsHearTheLowOctaveAtAboutTheSameLevel)
+{
+    EXPECT_LE(std::fabs(side_level_db(125.0)), K_LOW_OCTAVE_DIFFERENCE_DB);
+}
+
+TEST_P(Small_SphericalHeadHrtfShadow, ShadowGrowsFromOctaveToOctave)
+{
+    EXPECT_GT(side_level_db(GetParam().centre_hz), side_level_db(GetParam().below_hz));
+}
+
+INSTANTIATE_TEST_SUITE_P(Octaves, Small_SphericalHeadHrtfShadow, ::testing::ValuesIn(kOctaves),
+                         octave_name);
+
+TEST(Small_SphericalHeadHrtf, GridHoldsSixHundredAndFourteenDirections)
 {
     EXPECT_EQ(set().direction_count(), 614u);
-    std::mt19937 generator(7);
-    std::uniform_real_distribution<double> azimuth(-K_PI, K_PI);
-    std::uniform_real_distribution<double> elevation(-K_PI / 2.0, K_PI / 2.0);
-    for (int trial = 0; trial < 500; ++trial)
-    {
-        const SushiDSP::room::HrtfSet::Pair pair =
-            set().interpolate(azimuth(generator), elevation(generator));
-        ASSERT_TRUE(std::isfinite(pair.left[0]));
-        ASSERT_TRUE(std::isfinite(pair.right[0]));
-        ASSERT_TRUE(std::isfinite(pair.itd_frames));
-    }
 }
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfFillsTheDiffuseFieldPair)
+TEST(Small_SphericalHeadHrtf, EverySeededDirectionGivesFiniteResponses)
 {
-    for (const std::uint32_t ear : {0u, 1u})
-    {
-        const Taps& taps = set().diffuse_field(ear);
-        EXPECT_GT(energy(taps), 0.5) << "ear " << ear;
-        for (const float tap : taps)
-        {
-            ASSERT_TRUE(std::isfinite(tap)) << "ear " << ear;
-        }
-    }
+    EXPECT_TRUE(every_direction_is_finite());
+}
+
+TEST(Small_SphericalHeadHrtf, EverySeededDirectionGivesAResponseWithEnergy)
+{
+    EXPECT_GT(least_energy_over_directions(), 0.0);
+}
+
+TEST_P(Small_SphericalHeadHrtfDiffuse, DiffuseFieldCarriesEnergy)
+{
+    EXPECT_GT(energy(set().diffuse_field(GetParam())), K_MIN_DIFFUSE_ENERGY);
+}
+
+TEST_P(Small_SphericalHeadHrtfDiffuse, DiffuseFieldIsFinite)
+{
+    EXPECT_TRUE(all_finite(set().diffuse_field(GetParam())));
 }
 
 TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars)
 {
     // The grid mirrors about the median plane. See tests/nodes/room/README.md.
-    EXPECT_LE(max_difference(set().diffuse_field(0), set().diffuse_field(1)), K_TAP_TOLERANCE);
+    EXPECT_LE(tap_ratio(set().diffuse_field(0), set().diffuse_field(1), set().direction_count()),
+              K_LIMIT);
 }
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfDiffuseFieldCarriesTheRigidSpheresDiffuseGain)
+TEST_P(Small_SphericalHeadHrtfDiffuse, DiffusePowerAtDirectCurrentIsTheSpheresOne)
 {
     // The sphere's mean diffuse power is 1.8472, +2.67 dB. See tests/nodes/room/README.md.
-    for (const std::uint32_t ear : {0u, 1u})
-    {
-        const Taps& taps = set().diffuse_field(ear);
-        EXPECT_NEAR(power_at(taps, 0.0), 1.0, 2.0e-3) << "ear " << ear;
-        EXPECT_NEAR(power_at(taps, 4000.0), 1.7765, 0.02) << "ear " << ear;
-        EXPECT_NEAR(energy(taps), 1.847, 0.01) << "ear " << ear;
-    }
+    EXPECT_NEAR(power_at(set().diffuse_field(GetParam()), 0.0), 1.0, K_DC_POWER_TOLERANCE);
 }
+
+TEST_P(Small_SphericalHeadHrtfDiffuse, DiffusePowerAtFourKilohertzIsTheSpheres)
+{
+    EXPECT_NEAR(power_at(set().diffuse_field(GetParam()), 4000.0), 1.7765,
+                K_FOUR_KILOHERTZ_POWER_TOLERANCE);
+}
+
+TEST_P(Small_SphericalHeadHrtfDiffuse, DiffuseEnergyIsTheSpheresMeanPower)
+{
+    EXPECT_NEAR(energy(set().diffuse_field(GetParam())), 1.847, K_DIFFUSE_ENERGY_TOLERANCE);
+}
+
+INSTANTIATE_TEST_SUITE_P(Ears, Small_SphericalHeadHrtfDiffuse,
+                         ::testing::Values(0u, 1u), ear_name);

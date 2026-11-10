@@ -237,33 +237,53 @@ allows less the tail design and the modal solve.
 
 ## `test_late_reverb.cpp`
 
-### `LateReverbHadamardPreservesEnergy`
+### `HadamardPreservesEnergy`
 
-`// The normalised Hadamard matrix is orthogonal.`
+The transform alone: 1000 applications to a fixed vector keep its sum of squares within
+(8 \* 1000 + 32) u of the start, u the double roundoff. A pass has four butterfly stages; each
+stage's rounding error is at most u of its output norm, and the stages after it and the scale of
+1/4 carry that to u of the input norm, so a pass moves the norm by 4u and the energy by 8u. The two
+sums of sixteen squares add 16u each. The check accepts 16 times that bound.
 
-The transform alone: 1000 applications to a fixed vector keep its sum of squares within 1e-5 of
-the start, because the normalised Hadamard matrix is orthogonal.
+### `UnitLinesCarryAnImpulseToTheLeftEarEveryOtherFrameWithoutDecay`
 
 `// The left ear reads 0 and 4 in turn without decaying.`
 
 The network with 16 lines of length 1, unit filters and no absorption: an impulse puts 1 in
 every line; H maps the all-ones state to 4 e0 and back, so the left ear, whose vector A sums to
-zero and has A[0] = 1, reads 0 and 4 in turn without decaying over 1000 frames.
+zero and has A[0] = 1, reads 0 and 4 in turn without decaying over 1000 frames. Every value is a
+small integer, so the comparison is exact.
 
-### `LateReverbRunsBothSectionsOfEveryOutputFilter`
+### `ToneCorrectionRunsBothSectionsOnBothEars`
 
 `// Two sections of gain 0.5 scale the output by 0.25.`
 
-Two sections of gain 0.5 in the tone correction scale both ears by 0.25 against unity; the same
-pair in coherence_b scales the right ear alone, since the left ear is A alone.
+Two sections of gain 0.5 in the tone correction scale both ears by 0.25 against unity. The
+scale is exact in binary arithmetic, so the comparison is bitwise.
 
-### `LateReverbSurvivesALineLengthChangeWithoutAClick`
+### `CoherenceBRunsBothSectionsOnTheRightEar`
+
+The same pair in coherence_b scales the right ear by 0.25, since the right ear is the tone
+correction of the sum of the two coherence filters and coherence_a is silent.
+
+### `SurvivesALineLengthChangeWithoutAClick`
 
 `// A 50 Hz sine steps at most 0.0065 of peak per sample.`
 
 A 50 Hz sine at 48 kHz steps by at most 2 pi 50 / 48000 = 0.0065 of its peak per sample; a read
 head that jumped between lines hundreds of frames apart would step by up to twice the peak, and
-the 512-frame crossfade spreads that over 512 samples.
+the 512-frame crossfade spreads that over 512 samples. The test allows 0.05 of the peak, a
+characterised bound, since the output is a sum of filtered sines and not one sine.
+
+### `ProcessSumsReturnsTheRawSumsBeforeTheToneAndCoherenceFilters`
+
+`// Only line 1 passes its section, so the sums read A[1] and B[1].`
+
+Sixteen lines of length 1 and a first section that passes line 1 alone. The impulse puts 1 in
+every line; the next frame reads all ones, line 1 passes 1, and the sums are A[1] = 1 and
+B[1] = -1. The Hadamard step writes column 1 of H, scaled by 1/4, to the lines, which is -0.25
+on line 1, so the third frame reads -0.25 and 0.25. The design asks for tone and coherence
+filters of 0.25, an input gain of 0.5 and a delay of 100 frames; the sums take none of them.
 
 ### `ProcessPerformsNoHeapAllocation`
 
@@ -274,20 +294,33 @@ length crossfade as well as the steady network.
 
 ## `test_late_reverb_design.cpp`
 
-### `LateReverbDesignMeetsTheModalOverlapRule`
+### `LinesTotalTheModalOverlapRuleForTheGarage`
 
 `// The lines total at least 1.4 * RT60(500 Hz).`
 
 Garage: Eyring gives RT60(500 Hz) = 1.160756 s, so the sixteen lines must total at least 1.4 \*
 1.160756 = 1.625058 s, which is 78002.8 frames at 48 kHz. The plan's 78019 rounds the decay to
-1.161 s first; both bounds hold.
+1.161 s first; the test holds the larger figure, which implies the smaller. The other two rooms
+are held to the unrounded rule from their own mid-band decay.
+
+### `ShortestLineIsTheFirstPrimeAtTheHandoverTime`
 
 `// The shortest line is the handover time.`
 
 The rule is met by spreading the lines, not by holding them all back: the shortest line is the
-handover time, so the tail's first output lands where the taps stop.
+handover time, so the tail's first output lands where the taps stop. The garage's handover time
+is 1749.27 frames; 1749 = 3 \* 11 \* 53 and 1751 = 17 \* 103, so the first prime is 1753.
 
-### `LateReverbDesignUsesSixteenDistinctPrimes`
+### `TailOnsetLandsBetweenTheHandoverTimeAndThePrimeAboveIt`
+
+`// The tail lands at the delay plus the shortest line.`
+
+The network emits nothing until its shortest line has run, and the delay ahead of it is the
+handover time less that line, never under zero. The onset, delay plus shortest line, is therefore
+never before the handover time, and never after the first prime at or above it, which is where
+the shortest line starts from.
+
+### `GarageLongestLineIsTheFirstPrimeAtItsTarget`
 
 `// The garage's primes run from 1753 to 10211.`
 
@@ -295,61 +328,70 @@ The garage's shortest line is its handover time, 1749 frames, and the spread tha
 sixteen to 1.4 \* 1.160756 s = 78002.8 frames is 5.836; the targets 1749 \* 5.836^(k / 15),
 rounded and stepped up to the next prime, run from 1753 to 10211.
 
+### `LineFramesStepsTheTargetsUpToThePrimes`
+
 `// The targets 4800 and 19200 step up to 4801 and 19207.`
 
 line_frames alone: a 100 ms shortest line spread by four asks for 4800 and 19200 frames, and the
 primes at or above them are 4801 and 19207.
+
+### `LineFramesGivesTheFirstSixteenPrimesForAZeroShortestLine`
 
 `// A zero shortest line yields the first sixteen primes.`
 
 A zero shortest line still yields sixteen distinct primes, the first sixteen, so the network
 never sees a zero or a repeated length.
 
-### `LateReverbDesignFitsTheDecayEachBandAsks`
+### `LineFiltersFitTheDecayEachBandAsks`
 
 `// The cascade lands within 1 dB of each wanted gain.`
 
-Line 0 is 3449 frames, tau_0 = 0.0718542 s. Against the garage's six decays 1.341523, 1.332626,
-1.160756, 1.146019, 1.108081 and 0.893129 s the wanted gains 10^(-3 tau_0 / RT60) are -3.214,
--3.235, -3.714, -3.762, -3.891 and -4.827 dB; the cascade lands within 1 dB.
+Against the garage's six decays 1.341523, 1.332626, 1.160756, 1.146019, 1.108081 and 0.893129 s
+a line of tau seconds must keep 10^(-3 tau / RT60), which is -60 tau / RT60 dB; the cascade lands
+within 1 dB, the clearance the band fit is held to.
 
-### `LateReverbDesignDelaysTheTailToTheHandoverTime`
+### `DelayIsZeroWhenTheShortestLineIsPastTheHandoverTime`
 
 `// The delay is the handover time less the shortest line.`
 
-t_c = 5 \* 2.5 / 343 = 0.0364431 s, 1749.27 frames. The network emits nothing until its shortest
-line has run, so the delay ahead of it is the handover time less that line: the garage's
-shortest line is 1753 frames, already past t_c, and the delay is zero.
+t_c = 5 \* 2.5 / 343 = 0.0364431 s, 1749.27 frames. The garage's shortest line is 1753 frames,
+already past t_c, so the delay is zero.
 
-`// Every reference room hands over within a frame of t_c.`
-
-Every reference room hands over within a frame of t_c, the tail's first output landing at the
-delay plus the shortest line.
-
-### `LateReverbDesignPutsEachBandsRemainderIntoTheTail`
+### `InputGainIsTheRootOfTheMeanShare`
 
 `// Each band's share is floored at -30 dB of the largest.`
 
 Per band the tail carries what the diffuse field holds beyond the taps: the input gain squared
 is the mean over bands of remainder over network energy, each band's share floored at -30 dB of
-the largest, and the output cascade lands within the fit's error on sqrt of each band's share of
-that mean. The bedroom's 4 kHz reflections alone exceed its field there, so that band's share
-sits on the floor.
+the largest. The bedroom's 4 kHz reflections alone exceed its field there, so that band's share
+sits on the floor. The gain is held to two float roundings of that root: the cast to float and
+the double arithmetic around it.
+
+### `ToneCorrectionFollowsEachBandsShareOfTheMean`
+
+The output cascade lands within 0.7 dB, a characterised figure, of the root of each band's share
+over that mean.
+
+### `InputGainGrowsAsTheTapsShrink`
 
 `// The tail's gain grows as the taps shrink.`
 
 An empty set leaves the whole field to the tail, so its gain exceeds the full set's; halving
 every tap raises the tail, since the remainder grows as the taps shrink.
 
-### `LateReverbDesignRendersEachBandsRemainder`
+### `EachBandWithARemainderRendersWithinItsClearance`
 
 `// Each band renders within 1 dB, or 2 dB at 125 Hz.`
 
 An impulse through LateReverb at each room's design, 131072 frames, read as the power spectrum's
 mean over each octave: within 1 dB of the band's remainder from 250 Hz up, where the fits are
 anchored on both sides, and within 2 dB at 125 Hz, whose octave runs down to 88 Hz where the
-line filters and the output cascade hold whatever their low shelves settle to. A band whose
-remainder is zero renders at least 10 dB under the reflections it would sit beneath.
+line filters and the output cascade hold whatever their low shelves settle to. Both figures are
+characterised. The rendering is made once per room and shared by the two tests of this group.
+
+### `EachBandWithNoRemainderRendersUnderTheReflections`
+
+A band whose remainder is zero renders at least 10 dB under the reflections it would sit beneath.
 
 ### `LateReverbDesignMakesTheTailCoherentLowAndIncoherentHigh`
 
@@ -359,99 +401,157 @@ sin(k d) / (k d) at d = 0.17 m is 0.975 at 125 Hz, 0.902 at 250 Hz and 0.0088 in
 kHz; the plan's 0.900 is the 250 Hz value and its 0.0257 matches no band. The coherence filter's
 magnitude is above 0.85 at 125 Hz and below 0.20 at 4 kHz.
 
-### `LateReverbDesignKeepsTheCoherencePairPowerComplementary`
+### `PairIsPowerComplementary`
 
-`// |A|^2 + |B|^2 = 1 within 1e-9.`
+`// |A|^2 + |B|^2 = 1 at every band centre and the corner.`
 
-|A|^2 + |B|^2 = 1 at every band centre and at the corner between them within 1e-9, so the right
-ear carries the left ear's energy whatever the split between the two sums.
+|A|^2 + |B|^2 = 1 at every band centre and at the corner between them, so the right ear carries
+the left ear's energy whatever the split between the two sums. The pair is exact in real
+arithmetic; the test allows 1e-9, a characterised figure, for the rounding of the coefficients.
 
-### `LateReverbDesignShapesTheOutputWithBothSections`
+### `ToneCorrectionBoostsTheBassAndCutsTheTrebleForTheGarage`
+
+`// The garage's output cascade runs from +4.7 dB at 125 Hz to -12.1 dB at 4 kHz.`
+
+The room's longer bass decay and the 4x12's beaming both handed to the tail: the cascade is
+above +3.5 dB at 125 Hz and under -11 dB at 4 kHz. `ToneCorrectionFallIsTheMeasuredRatioForTheGarage`
+holds the ratio of the two gains to the measured fall of 16.8 dB within 0.6.
+
+### `SecondToneSectionCarriesPartOfTheFallToFourKilohertz`
 
 `// The second section carries part of the fall to 4 kHz.`
 
-The garage's output cascade falls from +4.7 dB at 125 Hz to -12.1 dB at 4 kHz, the room's longer
-bass decay and the 4x12's beaming both handed to the tail; the first section alone does not
-reach the 4 kHz figure, so the second carries part of the fall.
+The first section alone does not reach the 4 kHz figure, so the second carries part of the fall.
 
-### `LateReverbDesignGivesTheMicrophoneOneOutput`
+### `MicrophoneCoherenceAIsAPassThrough`
 
 `// A microphone's coherence filters are pass-throughs.`
 
 ListenerKind::Microphone leaves both coherence filters as pass-throughs: b0 = 1 in each section,
-the rest 0. The lines are the room's, the same for both listeners.
+the rest 0. `MicrophoneCoherenceBIsAPassThrough` holds the second; `MicrophoneLinesAreTheRoomsLinesAsForTheEars`
+holds that the lines are the room's, the same for both listeners.
 
-### `LateReverbDesignHandsAMicrophoneItsShareOfTheField`
+### `OmniAtTheListenersSpotGetsTheEarsInputGain`
 
 `// A microphone picks up a^2 + (1 - a)^2 / 3 of the field.`
 
 A microphone picks up a^2 + (1 - a)^2 / 3 of a diffuse field's power for a pattern a + (1 - a)
 cos(theta): all of it as an omni, a third as a cardioid, so at one spot the cardioid's tail is
 designed against a third of the field beyond its own taps, and the ears' against the whole
-field. The taps hold each capsule's pattern already.
+field. The taps hold each capsule's pattern already. The omni's gain sits within 2 percent of the
+ears', a characterised figure.
 
-`// The design's gain follows that arithmetic within 1e-6.`
+### `CardioidInputGainFollowsAThirdOfTheField`
+
+`// The design's gain follows that arithmetic.`
 
 The cardioid's remainder at 500 Hz is a third of the field less its own taps, which the pattern
-has already reduced; the design's gain follows that arithmetic within 1e-6.
+has already reduced; the design's gain follows that arithmetic to two float roundings.
+`CardioidInputGainIsBelowTheOmnis` holds the ordering.
 
 ## `test_microphone_model.cpp`
 
-### `MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDecibels`
+Every figure worked out by hand is held to half a unit of its last typed digit, the most a figure
+rounded to those digits can sit from the exact value, plus the float roundoff where the model
+returns floats.
+
+### `CardioidGainsTheWorkedOutDecibelsOverTheFarFieldAtOneHundredHertz`
 
 `// At 100 Hz the two distances differ by 15.47 dB.`
 
 Spec section 8.1 states its 15.5 dB at 100 Hz, which is not a band centre. At 100 Hz the boost
 is 10.9637 at 5 cm and 1.0164 at 3 m: 0.5 + 0.5 \* 10.9637 = 5.9819 (15.54 dB) against 1.0082
-(0.07 dB), a difference of 15.47 dB.
+(0.07 dB), a difference of 15.47 dB. At 30 cm the difference is 3.67 dB.
 
-`// At 125 Hz the two distances differ by 13.75 dB.`
+### `CardioidAtThirtyCentimetresGainsThreePointSevenFourDecibelsAtOneHundredHertz`
+
+`// At 100 Hz and 30 cm the capsule gains 3.74 dB.`
+
+At 100 Hz, 0.5 + 0.5 \* 2.07634 = 1.53817, which is 3.74 dB over the far-field value of 1.
+
+### `ModelGainAtTheFirstBandIsTheWorkedOutDecibels`
+
+`// At 125 Hz and 5 cm the model reads 13.80 dB.`
 
 Band 0 is 125 Hz: the boost is 8.7915 at 5 cm and 1.01054 at 3 m, so the model reads 0.5 + 0.5
-\* 8.7915 = 4.8957 (13.80 dB) against 1.00527 (0.046 dB), 13.75 dB apart.
+\* 8.7915 = 4.8957 (13.80 dB) against 1.00527 (0.046 dB), 13.75 dB apart. At 30 cm the boost is
+1.76612, so 0.5 + 0.5 \* 1.76612 = 1.38306 (2.82 dB), 2.77 dB over the capsule at 3 m.
+`ModelGainOverTheFarFieldIsTheWorkedOutDecibels` holds the differences.
 
-### `MicrophoneModelProximityBoostIsTheSphericalWaveTerm`
+### `ProximityBoostIsTheSphericalWaveTerm`
 
 `// sqrt(1 + 10.9180^2) = 10.9637 at 100 Hz and 5 cm.`
 
 f_p = c / (2 pi r) is 1091.8 Hz at 5 cm and 182.0 Hz at 30 cm. 343 / (2 pi \* 100 \* 0.05) =
-10.9180, sqrt(1 + 119.204) = 10.9637.
+10.9180, sqrt(1 + 119.204) = 10.9637; at 30 cm 1.81967 gives 2.07634; at 1 kHz and 3 m 0.018197
+gives 1.000166.
 
-### `MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDecibels`
+### `FigureEightSideReadsAsTheDecibelFloorBand`
 
-`// At 100 Hz and 30 cm the capsule gains 3.74 dB.`
-
-At 100 Hz, 0.5 + 0.5 \* 2.07634 = 1.53817, which is 3.74 dB over the far-field value of 1;
-against the same capsule at 3 m (0.07 dB) the difference is 3.67 dB.
-
-`// At 125 Hz and 30 cm the capsule gains 2.82 dB.`
-
-Band 0, 125 Hz: the boost is 1.76612 at 30 cm, so 0.5 + 0.5 \* 1.76612 = 1.38306 (2.82 dB), 2.77
-dB over the capsule at 3 m.
-
-### `MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels`
-
-`// The pattern term floors at K_DECIBEL_FLOOR, never a NaN.`
+`// The pattern term floors at K_DECIBEL_FLOOR.`
 
 cos(pi/2) is 6.1e-17 in double, so the pattern term is of that order and the decibel conversion
-floors it at K_DECIBEL_FLOOR; no band may be a NaN and every band is at least 40 dB below the same
-capsule on axis.
+floors it at K_DECIBEL_FLOOR in every band. `FigureEightSideIsNeverANaN` holds the gains
+themselves, since the conversion floors a NaN as well, and
+`FigureEightSideGainIsTheResidueOfCosineOfAQuarterTurn` holds each gain under that residue times
+the largest boost, the 125 Hz one at 1 m.
+
+### `FigureEightRejectsNinetyDegreesByAtLeastFortyDecibels`
+
+Every band at the side is at least 40 dB below the same capsule on axis.
+
+### `OmniGainIsUnityAtEveryBand`
+
+An omni's pressure share is 1, so the gradient term is zero and the gain is exactly 1 at any
+incidence and distance.
+
+### `AppliesItsOnAxisCurveAtEveryDistanceOffAxis`
+
+The coloured cardioid reads the curve's decibels above the flat one in each band, at 0.3 rad
+off axis and at three distances. The error is held to the float roundoff of the two gains and of
+the difference.
+
+### `PressureShareIsTheDocumentedOne`
+
+The shares 1, 0.5, 0.366 and 0 of the header, compared exactly.
+
+### `FindsEveryRowByItsOwnKey`
+
+The table's own key finds its own row. `NamesItsTransducerAndItsCitation` holds that each row
+carries a name, a transducer and a citation.
 
 ## `test_modal_bank.cpp`
 
-### `ModalBankRingsAtEachModesFrequency`
+### `RingsAtEachModesFrequency`
 
 `// A parabola through three bins places the peak.`
 
 The parabola through the three bins around the maximum places the peak between bins, which are
-0.73 Hz apart against a 0.34 Hz tolerance.
+0.73 Hz apart. The test allows 0.5 percent of the mode, 0.34 Hz, a characterised figure.
 
-### `ModalBankDecaysAtTheDampingItWasGiven`
+### `DecaysAtTheDampingItWasGiven`
 
 `// The slope between two windows is the 60 dB time.`
 
 The RMS of equal windows falls linearly in decibels along r^n; the slope between two windows
-inside the ring is the 60 dB time.
+inside the ring is the 60 dB time. Each window of 1024 frames holds about 1.5 cycles of the
+mode, so its RMS ripples by a few percent; the test allows 5 percent of the decay, a
+characterised figure.
+
+### `SourceGainScalesTheOutput`
+
+`// A source gain of 0.5 halves the render exactly.`
+
+0.5 is a power of two, so scaling the input by it commutes with every rounding of the linear
+resonator and the render halves bit for bit.
+
+### `ReadsTheLeftGainsAsTheLeftEar`
+
+`// Seven modes spill into a second lane group, so a row is summed across groups too.`
+
+Seven modes spill into a second lane group. A read-out row takes the same sum over both groups
+as the two-ear render, bit for bit; `ReadsTheRightGainsAsTheRightEar` holds the right gains and
+`ARepeatedRowEqualsTheFirst` a row given twice.
 
 ### `ProcessPerformsNoHeapAllocation`
 
@@ -462,7 +562,10 @@ Every one of K_MAX_MODES resonators runs, at the garage's 68.6 Hz mode with a 1 
 
 ## `test_modal_solver.cpp`
 
-### `DiffuseFieldIsEyringOverTheCabinetsDirectivity`
+Each figure worked out by hand is held to half a unit of its last typed digit. A closed form the
+test restates is held to a bound counted in roundings of the operations it takes.
+
+### `BandPowerIsEyringOverTheCabinetsDirectivity`
 
 `// The field is Eyring over the 4x12's directivity.`
 
@@ -470,26 +573,54 @@ The garage: Eyring's 1.342, 1.333, 1.161, 1.146, 1.108 and 0.893 s over 0.161 \*
 pi, and the 4x12's directivity index of 1.12, 2.99, 7.59, 12.01, 15.74 and 18.82 dB taken back
 out, give 5.39, 3.48, 1.05, 0.376, 0.154 and 0.0610 per hertz.
 
+### `FieldFollowsTheCabinetAndNotTheRoomAlone`
+
 `// The field is the cabinet's, not the room's alone.`
 
 A cabinet with one driver and a narrower baffle radiates its bass more evenly, so the same room
 holds more of it; the field is the cabinet's, not the room's alone.
 
-### `ModalSolverFindsTheGaragesEigenfrequencies`
+### `PowerBetweenMatchesTheMidpointRule`
+
+`// The integral across two centres and past the last one matches the midpoint rule.`
+
+The field's power between two frequencies is held to the midpoint rule over 65536 steps, within
+1e-6 relative, a characterised figure; the rule's own error is about 1e-10 by Euler-Maclaurin.
+
+### `FieldIsFlatBelowTheFirstCentre`
+
+`// Between the centres the field is linear in log frequency, flat outside them.`
+
+Below 125 Hz the field holds the first band's value, at the geometric mean of two centres the
+mean of their values, and past 4 kHz the last band's.
+
+### `FrequencyIsTheClosedForm`
 
 `// f = (c/2) sqrt((nx/6)^2 + (ny/4)^2 + (nz/2.5)^2).`
 
 (c / 2) sqrt((nx / 6)^2 + (ny / 4)^2 + (nz / 2.5)^2) at c = 343 for the first eight: 28.5833,
 42.8750, 51.5293, 57.1667, 68.6000, 71.4583, 74.3167 and 80.8964 Hz.
 
-### `ModalSolverCountsOneHundredAndEightySevenModesBelowTheGaragesSchroederFrequency`
+### `EstimatedCountIsWeylsCount`
 
 `// Weyl's count is 134.11 + 50.63 + 5.07 = 189.80.`
 
 (4 pi / 3) 60 (278.2 / 343)^3 + (pi / 4) 98 (278.2 / 343)^2 + (50 / 8) (278.2 / 343) = 134.11 +
-50.63 + 5.07 = 189.80.
+50.63 + 5.07 = 189.80. The enumeration finds 187 modes. The estimate is held to 2 percent of the
+count in the three reference rooms, a characterised figure, since Weyl's law is asymptotic.
 
-### `ModalSolverDampsAnAxialModeByTheTwoWallsItBouncesBetween`
+### `LoweredCrossoverIsTheFirstModeLeftOutRoundedDownToAFloat`
+
+A 3.0 x 2.5 x 2.4 m concrete room holds more than 512 modes under 900 Hz. The design keeps the
+first 512 and writes the frequency of the next one, rounded down to a float, as the crossover.
+
+### `ModeShapeAtANodeIsTheRoundingResidueOfCosineOfAQuarterTurn`
+
+The shape of mode (1, 0, 0) at x = 3 m of a 6 m room is cos(pi / 2), which is 6.1e-17 in double:
+the argument rounds by at most u pi / 2 of its size and cos has slope 1 there, so the test allows
+4 u.
+
+### `SoftWallsGiveTheAxialModesTheirClosedFormDecays`
 
 `// The decay ratio of the two modes is 1.846.`
 
@@ -498,14 +629,17 @@ soft pair counts twice for (1, 0, 0) and once for (0, 0, 1): delta_x = (343 / 96
 0.716) 10 + (0.02) 15 + (0.02) 24) = 7.467 nepers/s, delta_z = (343 / 960) ((0.29 + 0.716) 10 +
 (0.02) 15 + 2 (0.02) 24) = 4.044 nepers/s, a decay ratio of 1.846.
 
-### `ModalSolverMatchesTheOctaveBelowTheCrossoverToTheDiffuseField`
+### `ModalPowerOfTheOctaveBelowTheCrossoverIsTheDiffuseFieldsPower`
 
 `// The octave below f_s holds the diffuse field's power.`
 
 Averaged over the cabinet and the listener, one mode's power for unit white input is
 level_scale^2 times the section's 2 / (1 - r^2); the octave [f_s / 2, f_s) sum must equal the
 power the diffuse field of that room and cabinet holds in the octave, in all three reference
-rooms, so the modal layer and the tail read one reference.
+rooms, so the modal layer and the tail read one reference. The test allows 1e-5 relative, a
+characterised figure.
+
+### `GarageOctaveHoldsTheWorkedOutVarianceOfTheDiffuseField`
 
 `// The garage's octave holds 2.334e-2 of the variance.`
 
@@ -514,7 +648,7 @@ alone, 16 pi times 1.33 to 1.34 s over 0.161 \* 60 m3 spread as 2 / fs over the 
 give 4.02e-2; the ratio sits between the 4x12's mean radiated power at the two bands the octave
 spans, 10^(-0.299) at 250 Hz and 10^(-0.112) at 125 Hz.
 
-### `ModalSolverReadsTheMicrophoneAtOnePoint`
+### `MicrophoneReadsOnePointForBothEars`
 
 `// The ears sit 8.5 cm to either side of the listener.`
 
@@ -525,70 +659,87 @@ and the level are the room's, the same for both.
 
 ## `test_room_render_set.cpp`
 
-### `BuildRenderSetFillsEveryLayerForTheGarage`
+### `EarlyLayerIsTheSolversOrderFourSetForTheEars`
 
 `// The garage keeps 96 of the 129 order-4 images.`
 
 The early set is the solver's own at order 4: 129 images, of which the garage keeps the 96 that
 arrive before t_c = 5 \* 2.5 / 343 s, the 12.5 m the shortest dimension allows.
 
-### `BuildRenderSetPutsTheDirectPathAtItsPropagationDelay`
+### `DirectPathIsDelayedByItsPropagationTime`
 
 `// 2.596151 m is 363 frames and a gain of 0.385186.`
 
 The source (1.5, 2.0, 0.5) and the listener (4.0, 2.0, 1.2) are sqrt(2.5^2 + 0.7^2) = sqrt(6.74)
 = 2.596151 m apart: round(2.596151 / 343 \* 48000) = round(363.31) = 363 frames and 1 / 2.596151
-= 0.385186.
+= 0.385186. Each figure is held to half a unit of its last digit, and the gain to the float
+roundoff as well.
 
-### `BuildRenderSetPutsTheMicrophonesDirectPathAtTheMicrophone`
+### `MicrophoneDirectPathIsDelayedByItsPropagationTime`
 
 `// 0.1 m is 14 frames and a gain of 10.`
 
 The microphone sits 0.1 m from the source: round(0.1 / 343 \* 48000) = round(13.99) = 14 frames
 and a gain of 10.
 
-### `BuildRenderSetTakesTheDirectPairFromTheHrtfSet`
+### `WoodworthDelayOfTheFallbackHeadAtNinetyDegreesIsTheWorkedOutFigure`
 
 `// The interaural delay is 0.0006558 s, 31.48 frames.`
 
 A source one metre to the listener's left, at ear height, sits at 90 degrees azimuth on the
 spherical head: Woodworth's (a / c) (theta + sin theta) with a = 0.0875 m and theta = pi / 2 is
-0.0006558 s, 31.48 frames, and the right ear is the later one.
+0.0006558 s, 31.48 frames, and the right ear is the later one. The set's delay is held within 0.1
+frame of it, a characterised figure.
 
-### `BuildRenderSetReadsTheStandingWavesAtTheSetsReceiver`
+### `MicrophoneSetReadsTheModeAtTheMicrophoneForBothEars`
 
 `// The modal field is read at the set's receiver.`
 
 The modal field is read where the set's geometric receiver stands: a microphone set carries psi
 at microphone_position in both ear gains, an ears set the solver's two ears 8.5 cm to either
 side of listener_position, so a listener at (5.4, 3.4, 2.0) facing +x reads psi at y = 3.485 and
-y = 3.315.
+y = 3.315. The garage's first modes are (1, 0, 0), (0, 1, 0) and the fifth, (0, 0, 1); their
+shape is the product of cos(pi n x / L) over the axes. With the microphone at (1.0, 0.5, 0.5)
+that is cos(pi / 6) = 0.8660254, cos(pi / 8) = 0.9238795 and cos(pi / 5) = 0.8090170. The ears
+read cos(0.9 pi) = -0.9510565 along x, cos(pi 3.485 / 4) = -0.9193071 and cos(pi 3.315 / 4) =
+-0.8587364 along y, and cos(0.8 pi) = -0.8090170 along z.
 
 ## `test_spherical_head_hrtf.cpp`
 
-### `SphericalHeadHrtfShadowsTheFarEarAboveOneKilohertz`
+### `MatchesWoodworthsInterauralDelay`
+
+`// (a / c) * (theta + sin theta) with a = 0.0875 m and c = 343 m/s.`
+
+a / c = 0.00025510 s; at 30, 60 and 90 degrees theta + sin theta is 1.0235988, 1.9132230 and
+2.5707963, which gives 0.0002611, 0.0004881 and 0.0006558 s. Each is held to half a unit of its
+seventh decimal.
+
+### `FarEarIsShadowedByFourDecibelsInTheFourKilohertzOctave`
 
 `// The far ear sits at the sphere's bright spot.`
 
 With the ears on the axis, the far ear sits at the sphere's bright spot, so the level difference
 at 90 degrees is the near ear's own rise: 4.7 dB in the 4 kHz octave, and it grows from octave
-to octave.
+to octave. The test holds 4 dB, the 125 Hz octave within 2 dB, and the growth in each octave
+from 250 Hz to 8 kHz.
 
 ### `SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars`
 
 `// The grid mirrors about the median plane.`
 
 The ears sit on the sphere's axis and the grid mirrors about the median plane, so the two power
-averages are the same sum in a different order.
+averages are the same sum in a different order. The two responses agree to the rounding of a sum
+over the 614 directions.
 
-### `SphericalHeadHrtfDiffuseFieldCarriesTheRigidSpheresDiffuseGain`
+### `DiffusePowerAtDirectCurrentIsTheSpheresOne`
 
 `// The sphere's mean diffuse power is 1.8472, +2.67 dB.`
 
 By Legendre orthogonality the sphere's power averaged over every direction is sum_m (2m+1) /
 (mu^4 |h_m'(mu)|^2): 1 at DC, 1.7765 at 4 kHz, rising to 2 at high mu. Its mean over 0 to 48 kHz
 is 1.8472, +2.67 dB; the 10-degree grid weighted by solid angle gives 1.8477, and 128 taps hold
-all of it to 1e-10.
+all of it to 1e-10. The tests hold 2e-3 at DC, 0.02 at 4 kHz and 0.01 on the energy, which are
+characterised figures.
 
 ## `test_binaural_decoder.cpp`
 
