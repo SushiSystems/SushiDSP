@@ -286,16 +286,42 @@ namespace
     }
 } // namespace
 
+/// @brief Builds the set before the first case of the suite, so the 2 s the build takes in a debug
+/// build is not charged to a case. The set is built once for the process.
+class Small_SphericalHeadHrtf : public ::testing::Test
+{
+    protected:
+        static void SetUpTestSuite()
+        {
+            set();
+        }
+};
+
 class Small_SphericalHeadHrtfDelay : public ::testing::TestWithParam<Delay>
 {
+    protected:
+        static void SetUpTestSuite()
+        {
+            set();
+        }
 };
 
 class Small_SphericalHeadHrtfShadow : public ::testing::TestWithParam<Octave>
 {
+    protected:
+        static void SetUpTestSuite()
+        {
+            set();
+        }
 };
 
 class Small_SphericalHeadHrtfDiffuse : public ::testing::TestWithParam<std::uint32_t>
 {
+    protected:
+        static void SetUpTestSuite()
+        {
+            set();
+        }
 };
 
 TEST_P(Small_SphericalHeadHrtfDelay, MatchesWoodworthsInterauralDelay)
@@ -308,14 +334,14 @@ TEST_P(Small_SphericalHeadHrtfDelay, MatchesWoodworthsInterauralDelay)
 INSTANTIATE_TEST_SUITE_P(Azimuths, Small_SphericalHeadHrtfDelay, ::testing::ValuesIn(kDelays),
                          delay_name);
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfPutsZeroDelayStraightAhead)
+TEST_F(Small_SphericalHeadHrtf, SphericalHeadHrtfPutsZeroDelayStraightAhead)
 {
     EXPECT_DOUBLE_EQ(SushiDSP::room::SphericalHeadHrtf::interaural_time_difference(0.0), 0.0);
     const SushiDSP::room::HrtfSet::Pair front = set().interpolate(0.0, 0.0);
     EXPECT_EQ(front.itd_frames, 0.0f);
 }
 
-TEST(Small_SphericalHeadHrtf, ResponsesAreSymmetricAboutTheMedianPlane)
+TEST_F(Small_SphericalHeadHrtf, ResponsesAreSymmetricAboutTheMedianPlane)
 {
     const SushiDSP::room::HrtfSet::Pair left = set().interpolate(K_PI / 3.0, 0.0);
     const SushiDSP::room::HrtfSet::Pair right = set().interpolate(-K_PI / 3.0, 0.0);
@@ -323,19 +349,19 @@ TEST(Small_SphericalHeadHrtf, ResponsesAreSymmetricAboutTheMedianPlane)
     EXPECT_LE(tap_ratio(left.right, right.left, K_INTERPOLATION_OPERATIONS), K_LIMIT);
 }
 
-TEST(Small_SphericalHeadHrtf, DelaysAreOppositeAboutTheMedianPlane)
+TEST_F(Small_SphericalHeadHrtf, DelaysAreOppositeAboutTheMedianPlane)
 {
     const SushiDSP::room::HrtfSet::Pair left = set().interpolate(K_PI / 3.0, 0.0);
     const SushiDSP::room::HrtfSet::Pair right = set().interpolate(-K_PI / 3.0, 0.0);
     EXPECT_LE(delay_ratio(left.itd_frames, -right.itd_frames, K_INTERPOLATION_OPERATIONS), K_LIMIT);
 }
 
-TEST(Small_SphericalHeadHrtf, SourceToTheLeftArrivesAtTheRightEarLater)
+TEST_F(Small_SphericalHeadHrtf, SourceToTheLeftArrivesAtTheRightEarLater)
 {
     EXPECT_GT(set().interpolate(K_PI / 3.0, 0.0).itd_frames, 0.0f);
 }
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfCannotTellFrontFromBack)
+TEST_F(Small_SphericalHeadHrtf, SphericalHeadHrtfCannotTellFrontFromBack)
 {
     // This is the model's documented limit and the reason the measured asset exists.
     const SushiDSP::room::HrtfSet::Pair front = set().interpolate(0.0, 0.0);
@@ -344,20 +370,20 @@ TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfCannotTellFrontFromBack)
     EXPECT_LE(tap_ratio(front.right, back.right, K_INTERPOLATION_OPERATIONS), K_LIMIT);
 }
 
-TEST(Small_SphericalHeadHrtf, FrontAndBackHaveTheSameDelay)
+TEST_F(Small_SphericalHeadHrtf, FrontAndBackHaveTheSameDelay)
 {
     const SushiDSP::room::HrtfSet::Pair front = set().interpolate(0.0, 0.0);
     const SushiDSP::room::HrtfSet::Pair back = set().interpolate(K_PI, 0.0);
     EXPECT_LE(delay_ratio(front.itd_frames, back.itd_frames, K_INTERPOLATION_OPERATIONS), K_LIMIT);
 }
 
-TEST(Small_SphericalHeadHrtf, FarEarIsShadowedByFourDecibelsInTheFourKilohertzOctave)
+TEST_F(Small_SphericalHeadHrtf, FarEarIsShadowedByFourDecibelsInTheFourKilohertzOctave)
 {
     // The far ear sits at the sphere's bright spot. See tests/nodes/room/README.md.
     EXPECT_GE(side_level_db(4000.0), K_SHADOW_AT_FOUR_KILOHERTZ_DB);
 }
 
-TEST(Small_SphericalHeadHrtf, TwoEarsHearTheLowOctaveAtAboutTheSameLevel)
+TEST_F(Small_SphericalHeadHrtf, TwoEarsHearTheLowOctaveAtAboutTheSameLevel)
 {
     EXPECT_LE(std::fabs(side_level_db(125.0)), K_LOW_OCTAVE_DIFFERENCE_DB);
 }
@@ -370,17 +396,17 @@ TEST_P(Small_SphericalHeadHrtfShadow, ShadowGrowsFromOctaveToOctave)
 INSTANTIATE_TEST_SUITE_P(Octaves, Small_SphericalHeadHrtfShadow, ::testing::ValuesIn(kOctaves),
                          octave_name);
 
-TEST(Small_SphericalHeadHrtf, GridHoldsSixHundredAndFourteenDirections)
+TEST_F(Small_SphericalHeadHrtf, GridHoldsSixHundredAndFourteenDirections)
 {
     EXPECT_EQ(set().direction_count(), 614u);
 }
 
-TEST(Small_SphericalHeadHrtf, EverySeededDirectionGivesFiniteResponses)
+TEST_F(Small_SphericalHeadHrtf, EverySeededDirectionGivesFiniteResponses)
 {
     EXPECT_TRUE(every_direction_is_finite());
 }
 
-TEST(Small_SphericalHeadHrtf, EverySeededDirectionGivesAResponseWithEnergy)
+TEST_F(Small_SphericalHeadHrtf, EverySeededDirectionGivesAResponseWithEnergy)
 {
     EXPECT_GT(least_energy_over_directions(), 0.0);
 }
@@ -395,7 +421,7 @@ TEST_P(Small_SphericalHeadHrtfDiffuse, DiffuseFieldIsFinite)
     EXPECT_TRUE(all_finite(set().diffuse_field(GetParam())));
 }
 
-TEST(Small_SphericalHeadHrtf, SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars)
+TEST_F(Small_SphericalHeadHrtf, SphericalHeadHrtfHearsTheSameDiffuseFieldAtBothEars)
 {
     // The grid mirrors about the median plane. See tests/nodes/room/README.md.
     EXPECT_LE(tap_ratio(set().diffuse_field(0), set().diffuse_field(1), set().direction_count()),

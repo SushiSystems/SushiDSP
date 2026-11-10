@@ -403,7 +403,7 @@ namespace
 } // namespace
 
 /// @brief Renders two cabinets and two microphones together and each cabinet alone, once for the
-/// cases that compare them.
+/// cases that compare them, on one node reset between the renders.
 class Medium_EnvironmentRenderSetCabinets : public ::testing::Test
 {
     protected:
@@ -411,12 +411,12 @@ class Medium_EnvironmentRenderSetCabinets : public ::testing::Test
         {
             const Arrangement arrangement =
                 SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 2, 2);
-            std::unique_ptr<RoomNode> both = prepared(arrangement);
-            std::unique_ptr<RoomNode> first = prepared(arrangement);
-            std::unique_ptr<RoomNode> second = prepared(arrangement);
-            together_ = render(*both, {true, true, false});
-            alone_first_ = render(*first, {true, false, false});
-            alone_second_ = render(*second, {false, true, false});
+            std::unique_ptr<RoomNode> node = prepared(arrangement);
+            together_ = render(*node, {true, true, false});
+            node->reset();
+            alone_first_ = render(*node, {true, false, false});
+            node->reset();
+            alone_second_ = render(*node, {false, true, false});
         }
 
         static inline Render together_;
@@ -473,11 +473,11 @@ TEST(Medium_EnvironmentRenderSet, RoomEnvironmentListenerPortCarriesWhatTheBareN
     // The same arrangement and input run the same arithmetic, so the renders agree bit for bit.
     const Arrangement arrangement =
         SushiDSP::test::spread_arrangement(SushiDSP::test::garage_scene(), 1, 0);
-    std::unique_ptr<RoomNode> through_ports = prepared(arrangement);
-    std::unique_ptr<RoomNode> bare = prepared(arrangement);
+    std::unique_ptr<RoomNode> node = prepared(arrangement);
 
-    const Render ported = render(*through_ports, {true, false, false});
-    const std::array<std::vector<float>, 2> ears = render_bare(*bare);
+    const Render ported = render(*node, {true, false, false});
+    node->reset();
+    const std::array<std::vector<float>, 2> ears = render_bare(*node);
 
     EXPECT_EQ(ported[0], ears[0]);
     EXPECT_EQ(ported[1], ears[1]);

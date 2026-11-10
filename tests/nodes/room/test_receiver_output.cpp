@@ -32,11 +32,13 @@
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/receiver_output.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
-#include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <utility>
+#include <vector>
 
 namespace
 {
@@ -100,9 +102,23 @@ namespace
         output.finish(block.data(), K_BLOCK);
         return block;
     }
+
+    /// @brief Builds a set of the six axis directions with all taps zero, a valid grid that encloses
+    /// the origin, at the rate of the file.
+    SushiDSP::room::HrtfSet six_axis_set()
+    {
+        const auto half_pi = static_cast<float>(1.57079632679489661923);
+        const auto pi = static_cast<float>(3.14159265358979323846);
+        std::vector<SushiDSP::room::HrtfSet::Direction> directions = {
+            {0.0f, 0.0f, 0.0f},  {half_pi, 0.0f, 0.0f},  {0.0f, half_pi, 0.0f},
+            {pi, 0.0f, 0.0f},    {-half_pi, 0.0f, 0.0f}, {0.0f, -half_pi, 0.0f}};
+        const std::size_t taps = directions.size() * SushiDSP::room::HrtfSet::K_TAP_COUNT;
+        return SushiDSP::room::HrtfSet(K_RATE, std::move(directions), std::vector<float>(taps),
+                                       std::vector<float>(taps));
+    }
 } // namespace
 
-TEST(Small_ReceiverOutput, HeadHolderFallsBackToTheSphericalHeadWhenTheMeasuredSetIsAtAnotherRate)
+TEST(Medium_ReceiverOutputHead, HeadHolderFallsBackToTheSphericalHeadWhenTheMeasuredSetIsAtAnotherRate)
 {
     HeadHolder holder;
     holder.set_source(SushiDSP::room::HrtfSource::Measured);
@@ -112,7 +128,7 @@ TEST(Small_ReceiverOutput, HeadHolderFallsBackToTheSphericalHeadWhenTheMeasuredS
     EXPECT_EQ(holder.source(), SushiDSP::room::HrtfSource::SphericalHead);
 }
 
-TEST(Small_ReceiverOutput, HeadHolderBuildsTheSphericalHeadAtTheRateItIsGiven)
+TEST(Medium_ReceiverOutputHead, HeadHolderBuildsTheSphericalHeadAtTheRateItIsGiven)
 {
     HeadHolder holder;
     holder.set_source(SushiDSP::room::HrtfSource::SphericalHead);
@@ -125,7 +141,7 @@ TEST(Small_ReceiverOutput, HeadHolderBuildsTheSphericalHeadAtTheRateItIsGiven)
 TEST(Small_ReceiverOutput, HeadHolderTakeHrtfMovesTheSetOut)
 {
     HeadHolder holder;
-    holder.set_hrtf(SushiDSP::room::SphericalHeadHrtf::build(K_RATE));
+    holder.set_hrtf(six_axis_set());
     const std::uint32_t held = holder.hrtf().direction_count();
 
     const SushiDSP::room::HrtfSet taken = holder.take_hrtf();
@@ -136,7 +152,7 @@ TEST(Small_ReceiverOutput, HeadHolderTakeHrtfMovesTheSetOut)
 TEST(Small_ReceiverOutput, HeadHolderTakeHrtfLeavesAnEmptySetBehind)
 {
     HeadHolder holder;
-    holder.set_hrtf(SushiDSP::room::SphericalHeadHrtf::build(K_RATE));
+    holder.set_hrtf(six_axis_set());
 
     const SushiDSP::room::HrtfSet taken = holder.take_hrtf();
 
