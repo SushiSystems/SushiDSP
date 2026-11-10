@@ -66,3 +66,8 @@ writes each add. Nothing in a module job changes production code except a seam a
   test command. Build: that command over the module.
 
 The owner chooses inline or parallel mode.
+
+## Resume note
+
+M4 is applied and syntax-checked (`clang -fsyntax-only` through `build/compile_commands.json`), not
+built or run. Resume at M2, then M5, M6 and onward in table order; every other M job is untouched.

@@ -27,7 +27,9 @@
  * @author Mustafa Garip
  */
 
-#include <atomic>
+#include <cstddef>
+#include <future>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -37,27 +39,47 @@
 
 // An unused new-expression may be removed by the optimiser; a direct call to operator new may not.
 
-TEST(Medium_AllocationTrap, CountsAnAllocationMadeWhileArmed)
+namespace
+{
+
+/** One allocation form the trap promises to count, with the call that releases it. */
+struct AllocationForm
+{
+    const char* name;
+    void* (*allocate)(std::size_t);
+    void (*release)(void*);
+};
+
+void* allocate_single(std::size_t size) { return ::operator new(size); }
+void release_single(void* block) { ::operator delete(block); }
+void* allocate_array(std::size_t size) { return ::operator new[](size); }
+void release_array(void* block) { ::operator delete[](block); }
+
+const AllocationForm kForms[] = {
+    {"Single", &allocate_single, &release_single},
+    {"Array", &allocate_array, &release_array},
+};
+
+} // namespace
+
+class Medium_AllocationTrapForms : public ::testing::TestWithParam<AllocationForm>
+{
+};
+
+// operator new[] forwards to operator new (allocation_trap.cpp lines 124 to 126), so both forms count once.
+TEST_P(Medium_AllocationTrapForms, CountsAnAllocationMadeWhileArmed)
 {
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-    void* block = ::operator new(64);
+    void* block = GetParam().allocate(64);
     trap.disarm();
-    ::operator delete(block);
+    GetParam().release(block);
 
     EXPECT_EQ(trap.count(), 1);
 }
 
-TEST(Medium_AllocationTrap, CountsAnArrayAllocationMadeWhileArmed)
-{
-    SushiDSP::test::AllocationTrap trap;
-    trap.arm();
-    void* block = ::operator new[](64);
-    trap.disarm();
-    ::operator delete[](block);
-
-    EXPECT_EQ(trap.count(), 1);
-}
+INSTANTIATE_TEST_SUITE_P(Forms, Medium_AllocationTrapForms, ::testing::ValuesIn(kForms),
+                         [](const ::testing::TestParamInfo<AllocationForm>& info) { return std::string(info.param.name); });
 
 TEST(Medium_AllocationTrap, IgnoresAllocationsOutsideItsWindow)
 {
@@ -100,27 +122,23 @@ TEST(Medium_AllocationTrap, ClosesItsWindowWhenDestroyed)
 
 TEST(Medium_AllocationTrap, IgnoresAllocationsOfAnotherThread)
 {
-    std::atomic<bool> go{false};
-    std::atomic<bool> done{false};
+    std::promise<void> go;
+    std::promise<void> done;
+    std::shared_future<void> start = go.get_future().share();
+    std::future<void> finished = done.get_future();
     std::thread other(
-        [&go, &done]
+        [start, &done]
         {
-            while (!go.load())
-            {
-                std::this_thread::yield();
-            }
+            start.wait();
             std::vector<int> values(64, 0);
-            done.store(values.size() == 64);
+            done.set_value();
         });
 
-    // The thread exists before the window opens, so this thread allocates nothing inside it.
+    // The thread and both shared states exist before the window opens, so this thread allocates nothing inside it.
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-    go.store(true);
-    while (!done.load())
-    {
-        std::this_thread::yield();
-    }
+    go.set_value();
+    finished.wait();
     trap.disarm();
     other.join();
 
