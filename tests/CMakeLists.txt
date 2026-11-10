@@ -45,7 +45,7 @@ add_executable(sushidsp_tests
     foundation/device/test_block_monitor.cpp
     foundation/device/test_device_counter_report.cpp
     foundation/device/test_device_counters.cpp
-    foundation/device/test_device_log_category.cpp
+    foundation/device/compile_device_log_category.cpp
     foundation/io/compile_io_log_category.cpp
     foundation/profile/test_profile/compile_compiled_out.cpp
     foundation/profile/test_profile/test_compiled_out.cpp
@@ -120,7 +120,7 @@ add_executable(sushidsp_tests
     # --- Unit tests written for the units that had none ---
     foundation/io/compile_ir.cpp
     foundation/regression_test/test_regression_test.cpp
-    foundation/golden_compare/test_golden_compare_log_category.cpp
+    foundation/golden_compare/compile_golden_compare_log_category.cpp
     foundation/golden_compare/test_golden_file.cpp
     # --- Unit tests written for the units that had none ---
     foundation/core/test_cabinet_host.cpp
