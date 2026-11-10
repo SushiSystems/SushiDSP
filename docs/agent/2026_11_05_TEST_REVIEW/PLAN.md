@@ -25,7 +25,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M5 | the tests of `foundation/audio_format` (2 files): 5 rewrite, 1 split, 2 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M6 | the tests of `foundation/benchmark_harness` (6 files): 11 rewrite, 1 resize, 3 split | T1, T2, T3, T4, T5, T6, T7 | done |
 | M7 | the tests of `foundation/circuit_blocks` (2 files): 6 rewrite, 2 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
-| M8 | the tests of `foundation/circuits` (26 files): 81 rewrite, 2 resize, 5 split, 3 merge, 11 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
+| M8 | the tests of `foundation/circuits` (26 files): 81 rewrite, 2 resize, 5 split, 3 merge, 11 delete | T1, T2, T3, T4, T5, T6, T7 | partial: `models/test_soft_transition.cpp` and `models/test_silicon_diode.cpp` done; the rest of the REPORT section for `tests/foundation/circuits` waits, starting at `models/test_pentode_el34.cpp` |
 | M9 | the tests of `foundation/core` (23 files): 68 rewrite, 14 resize, 7 split, 5 merge, 25 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M10 | the tests of `foundation/device` (5 files): 10 rewrite, 3 resize, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M11 | the tests of `foundation/golden_compare` (2 files): 2 rewrite, 1 resize, 1 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
@@ -69,6 +69,13 @@ The owner chooses inline or parallel mode.
 
 ## Resume note
 
-M2, M4, M5, M6 and M7 are applied, all syntax-checked (`clang -fsyntax-only` through
-`build/compile_commands.json`, with `-I tests`), not built or run. M6 used the owner's seams of
-2026-11-10 (REPORT decision 10). Resume at M8 and onward in table order; the other M jobs are untouched.
+M2, M4, M5, M6 and M7 are applied and M8 is partly applied, all syntax-checked (`clang -fsyntax-only`
+through `build/compile_commands.json`, with `-I tests`), not built or run. M6 used the owner's seams
+of 2026-11-10 (REPORT decision 10). M8 so far covers `models/test_soft_transition.cpp` and
+`models/test_silicon_diode.cpp`; resume at `models/test_pentode_el34.cpp`, then `test_triode12_ax7.cpp`,
+`stages/` and the loose files, in the order of the REPORT section for `tests/foundation/circuits`.
+A rewritten test that is renamed or split also renames its heading in `tests/foundation/circuits/models/README.md`
+and keeps the quoted source comments that README and `modules/foundation/circuits/README.md` cite
+(`v_max` for one). The new files have no entry in `build/compile_commands.json` until the next
+configure, so a syntax check borrows a neighbour's entry. M9 must account for
+`tests/foundation/core/test_rig_graph/test_channels_adapt.cpp`.

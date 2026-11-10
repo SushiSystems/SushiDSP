@@ -94,7 +94,7 @@ is exercised too.
 
 ## `test_silicon_diode.cpp`
 
-### `SiliconDiodeMatchesShockleyAtThreeOperatingPoints`
+### `Small_SiliconDiodeShockley.CurrentAndConductanceMatchTheShockleyLaw`
 
 `// 1N914: Is = 2.52e-9 A, n = 1.752, Vt = 0.025864 V.`
 
@@ -112,7 +112,7 @@ v = 0.7 V : v/(nVt) = 15.4479...  exp = 5.11586582342e6
             di = (2.52e-9 / 0.045313728) * 5115866  = 2.84504993167e-1 S
 ```
 
-### `SiliconDiodeReverseCurrentApproachesMinusSaturationCurrent`
+### `Small_SiliconDiodeReverse.CurrentTakesItsRowValue`
 
 `// At v = -0.5 V the current is -2.51995932614e-9 A.`
 
@@ -122,7 +122,7 @@ v = -0.5 V: exp(-11.0342) = 1.61404223972e-5, i = 2.52e-9 \* (1.614e-5 - 1)
 = -2.51995932614e-9 A, di = (2.52e-9/0.045313728)*1.614e-5 = 8.97605786067e-13 S
 ```
 
-### `SiliconDiodeStaysFiniteAndCOneAcrossTheLinearExtrapolation`
+### `Small_SiliconDiode.SiliconDiodeConductanceIsCOneAcrossTheUpperKnee`
 
 `// The knee sits at v_max = 40 * n * Vt = 1.81254912 V.`
 
@@ -138,7 +138,7 @@ differ by \~4e-16 relative (\~1 ULP at this magnitude), so this uses 1e-12 relat
 the measured gap, still \~1e3x tighter than the 1e-9 absolute tolerance originally in the brief
 once rescaled to this \~7e9 magnitude.
 
-### `SiliconDiodeAntiparallelPairMatchesTwoTimesSaturationCurrentTimesSinh`
+### `Small_SiliconDiodeAntiparallel.PairMatchesTwoTimesSaturationCurrentTimesSinh`
 
 `// The pair's total current is 2 Is sinh(w / nVt).`
 
@@ -162,7 +162,7 @@ w = 0.5  : i = 1.561297429e-4 A,  di/dw = 3.445528538e-3 S
 n = 1 makes n\*Vt = 0.025864; at v = 0.6 the exponent is 23.1983..., exp = 1.19426e10, so the
 current is far larger than the 1N914's at the same voltage.
 
-### `SiliconDiodeAntiderivativeDifferentiatesBackToTheDiodeCurrent`
+### `Small_SiliconDiodeAntiderivative.DifferentiatesBackToTheDiodeCurrent`
 
 `// The antiderivative's slope is the diode current.`
 
@@ -171,7 +171,7 @@ of it has to return the current the model itself reports. The sweep crosses both
 V for the defaults), so it covers the Shockley branch and both quadratic extrapolations rather
 than only the range a Tube Screamer visits.
 
-### `SiliconDiodeAntiderivativeHasNoStepAtEitherKnee`
+### `Small_SiliconDiodeKnee.AntiderivativeHasNoStepAcrossIt`
 
 `// The bound is the largest slope times the width.`
 
@@ -179,14 +179,14 @@ A step in the antiderivative would put a spike straight into the divided differe
 antiderivative antialiasing takes, so neither knee may leave one. The bound is the largest slope
 on the interval times its width, which is what differentiability across the knee means.
 
-### `SiliconDiodeJointAntiderivativeFormAgreesWithTheSeparateEntryPoints`
+### `Small_SiliconDiodeJointAntiderivative.AgreesWithTheSeparateEntryPoints`
 
 `// The joint form must match the two entry points.`
 
 current_and_antiderivative() exists to share one exponential; it must not drift from the two
 entry points that forward to it.
 
-### `SiliconDiodeReverseExtrapolationContinuesTheShockleyLawRatherThanMirroringForward`
+### `Small_SiliconDiodeFarReverse.ConductanceVanishes`
 
 `// Below the lower knee the current stays at -Is.`
 
