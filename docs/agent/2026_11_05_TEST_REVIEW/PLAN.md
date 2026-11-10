@@ -39,7 +39,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M19 | the tests of `foundation/spice_reference` (2 files): 3 rewrite, 2 resize | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M20 | the tests of `nodes/cabinet` (2 files): 5 rewrite, 2 resize, 3 split, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done; the two log-port resizes wait on the owner's constructor shape (decision 300) |
 | M21 | the tests of `nodes/capture` (13 files): 46 rewrite, 2 resize, 9 split, 9 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | done; the three port resizes wait on the owner (decision 301) |
-| M22 || partial (lane C, 2026-11-10, syntax-checked only): `test_dd3_analog_filters.cpp` and `test_dd3_clock.cpp` done; resume at `test_dd3_converter.cpp`; M23, M24, M25 and M27 follow in that order |
+| M22 || partial (lane C, 2026-11-10, syntax-checked only): `test_dd3_analog_filters.cpp`, `test_dd3_clock.cpp`, `test_dd3_converter.cpp`, `test_ne570_compander.cpp` and `test_wet_fifo.cpp` done; resume at `test_dd3_delay/test_acceptance.cpp`, then `test_behaviour.cpp` (delete its `WetFifoPrimesThenDropsTheOldestWhenFull`), `test_output.cpp`, `test_rt_safety.cpp`; M23, M24, M25 and M27 follow in that order |
 | M23 | the tests of `nodes/diezel_vh4` (5 files): 19 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M24 | the tests of `nodes/jcm800` (5 files): 27 rewrite, 1 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M25 | the tests of `nodes/mesa_mark2c` (5 files): 22 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
