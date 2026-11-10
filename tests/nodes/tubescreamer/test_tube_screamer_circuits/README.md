@@ -255,6 +255,12 @@ The 0.25 dB tolerance is the sweep measurement's own accuracy - D6a puts its wor
 20 Hz at 0.17 dB - not the block's. The block is linear, so any drive level measures the same
 response; -40 dBFS is what measure::frequency_response uses.
 
+The closed-form rows, the bright-end case and the monotonic case sweep the block through
+`measure::frequency_response` at 384 kHz, the rate the sweep accuracy above is derived at: 3 s of
+sweep, 1.15 million samples of the solver per call. A call took 2.2 s in the Debug run of 2026-11-10
+(4.5 s for the two of the bright-end case) against 0.1 s for a `Small_` case, and the sweep length
+is fixed by `frequency_response`, so no input is smaller. They are `Medium_`.
+
 ### `DkTsToneBlockBrightEndExceedsTheDarkEndAtTheLegsTurnoverFrequency`
 
 `// The wiper leg's turnover sits at about 3.2 kHz.`

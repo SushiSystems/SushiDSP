@@ -307,11 +307,11 @@ namespace
     }
 } // namespace
 
-class Small_TubeScreamerCircuitsToneResponse : public ::testing::TestWithParam<PositionRow>
+class Medium_TubeScreamerCircuitsToneResponse : public ::testing::TestWithParam<PositionRow>
 {
 };
 
-TEST_P(Small_TubeScreamerCircuitsToneResponse, DkTsToneBlockResponseMatchesItsClosedForm)
+TEST_P(Medium_TubeScreamerCircuitsToneResponse, DkTsToneBlockResponseMatchesItsClosedForm)
 {
     // The 0.25 dB tolerance is the sweep's own accuracy. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 384000.0;
@@ -321,12 +321,12 @@ TEST_P(Small_TubeScreamerCircuitsToneResponse, DkTsToneBlockResponseMatchesItsCl
     EXPECT_LE(worst_deviation_from_closed_form_db(measured, GetParam().position), K_SWEEP_ACCURACY_DB);
 }
 
-INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerCircuitsToneResponse,
+INSTANTIATE_TEST_SUITE_P(Rows, Medium_TubeScreamerCircuitsToneResponse,
                          ::testing::Values(PositionRow{"Tone0p1", K_STEPPED_TONE[0]}, PositionRow{"Tone0p5", K_STEPPED_TONE[1]},
                                            PositionRow{"Tone0p9", K_STEPPED_TONE[2]}),
                          row_name<PositionRow>);
 
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockBrightEndExceedsTheDarkEndAtTheLegsTurnoverFrequency)
+TEST(Medium_TubeScreamerCircuitsTone, DkTsToneBlockBrightEndExceedsTheDarkEndAtTheLegsTurnoverFrequency)
 {
     // The wiper leg's turnover sits at about 3.2 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 384000.0;
@@ -338,7 +338,7 @@ TEST(Small_TubeScreamerCircuits, DkTsToneBlockBrightEndExceedsTheDarkEndAtTheLeg
     EXPECT_NEAR(bright[0].magnitude_db - dark[0].magnitude_db, K_TURNOVER_SPREAD_DB, K_SWEEP_ACCURACY_DB);
 }
 
-TEST(Small_TubeScreamerCircuits, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAtNoon)
+TEST(Medium_TubeScreamerCircuitsTone, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAtNoon)
 {
     // The real network cannot notch above 723 Hz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 384000.0;
