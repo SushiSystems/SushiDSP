@@ -6,6 +6,7 @@
 add_library(capture STATIC
     source/take.cpp
     source/track_recorder.cpp
+    source/sushilog_capture_log.cpp
     source/recording_bus.cpp
     source/transport.cpp
     source/track_player.cpp

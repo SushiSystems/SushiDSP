@@ -40,6 +40,8 @@
 #include <SushiDSP/foundation/core/spsc_ring.hpp>
 #include <SushiDSP/foundation/io/audio_file_writer.hpp>
 #include <SushiDSP/foundation/io/wav_writer.hpp>
+#include <SushiDSP/nodes/capture/capture_log.hpp>
+#include <SushiDSP/nodes/capture/sushilog_capture_log.hpp>
 
 namespace SushiDSP
 {
@@ -57,6 +59,16 @@ namespace SushiDSP
             /// @param opener Opens the take file in arm(); the default writes a Float32 WAV file.
             TrackRecorder(std::uint32_t channels, double sample_rate,
                           std::size_t ring_capacity_frames,
+                          AudioFileWriterOpener opener = open_float32_wav_writer);
+
+            /// @brief Sizes the rings like the constructor above and reports failures to @p log.
+            /// @param channels Number of channels to record.
+            /// @param sample_rate The file's sample rate in Hz.
+            /// @param ring_capacity_frames Frames each channel's ring holds before blocks are dropped.
+            /// @param log Receives each failure; it must outlive the recorder.
+            /// @param opener Opens the take file in arm(); the default writes a Float32 WAV file.
+            TrackRecorder(std::uint32_t channels, double sample_rate,
+                          std::size_t ring_capacity_frames, CaptureLog& log,
                           AudioFileWriterOpener opener = open_float32_wav_writer);
 
             /// @brief Calls stop().
@@ -144,6 +156,12 @@ namespace SushiDSP
             /// @brief Drains up to one scratch buffer of frames from every ring and appends them.
             /// @return The number of frames appended.
             std::size_t drain_once();
+
+            /// @brief The log a recorder built without one reports to.
+            SushiLogCaptureLog default_log_;
+
+            /// @brief Where failures go: default_log_ or the log the caller gave.
+            CaptureLog* log_;
 
             /// @brief Holds one lock-free ring per recorded channel.
             std::vector<std::unique_ptr<SpscRing<float>>> rings_;

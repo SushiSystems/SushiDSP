@@ -110,3 +110,10 @@ loads, a beat index and a copy out of a vector already sized.
 ## Sizes, 2026-11-10
 
 `VariRateReaderHoldsItsRatioAtEveryLegalSpeed` took 0.5 to 1.0 s a row in the Debug run against 0.1 s for a `Small_` case, so its suite is `Medium_VariRateReaderRatio`.
+
+## `test_sushilog_capture_log.cpp`
+
+Tests `SushiLogCaptureLog`, which writes each failure of `TrackRecorder` as an `ERROR` under the
+`capture` category. `LogCapture` is the scoped in-memory sink the size table allows a `Small_`
+test. `test_in_memory_capture_log.cpp` tests `InMemoryCaptureLog`; `compile_capture_log.cpp`
+checks that `CaptureLog` is abstract.

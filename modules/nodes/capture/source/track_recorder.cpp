@@ -32,10 +32,9 @@
 #include <algorithm>
 #include <chrono>
 #include <exception>
+#include <string>
 #include <utility>
 
-#include <SushiDSP/nodes/capture/capture_log_category.hpp>
-#include <SushiDSP/foundation/log/log.hpp>
 
 namespace SushiDSP
 {
@@ -46,11 +45,24 @@ namespace SushiDSP
 
         /// @brief How long the writer thread waits when it finds the rings empty.
         constexpr std::chrono::milliseconds K_IDLE_WAIT{1};
+
+        /// @brief The detail reported for an exception that carries no message.
+        const char* const K_UNKNOWN_EXCEPTION = "an exception of unknown type";
     } // namespace
 
     TrackRecorder::TrackRecorder(std::uint32_t channels, double sample_rate,
                                  std::size_t ring_capacity_frames, AudioFileWriterOpener opener)
-        : opener_(std::move(opener)),
+        : TrackRecorder(channels, sample_rate, ring_capacity_frames, default_log_,
+                        std::move(opener))
+    {
+
+    }
+
+    TrackRecorder::TrackRecorder(std::uint32_t channels, double sample_rate,
+                                 std::size_t ring_capacity_frames, CaptureLog& log,
+                                 AudioFileWriterOpener opener)
+        : log_(&log),
+          opener_(std::move(opener)),
           sample_rate_(sample_rate),
           ring_capacity_frames_(std::max<std::size_t>(ring_capacity_frames, 1u)),
           channels_(std::max<std::uint32_t>(channels, 1u))
@@ -93,18 +105,15 @@ namespace SushiDSP
         }
         catch (const std::exception& error)
         {
-            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
-                         "arm('{}') could not open the take file: {}; the recorder stays disarmed",
-                         path, error.what());
+            log_->report_failure(
+                {CaptureFailureCause::TakeFileNotOpened, path, error.what(), 0, 0});
             writer_.reset();
             return false;
         }
         catch (...)
         {
-            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
-                         "arm('{}') could not open the take file: an exception of unknown type; "
-                         "the recorder stays disarmed",
-                         path);
+            log_->report_failure(
+                {CaptureFailureCause::TakeFileNotOpened, path, K_UNKNOWN_EXCEPTION, 0, 0});
             writer_.reset();
             return false;
         }
@@ -135,19 +144,15 @@ namespace SushiDSP
         }
         catch (const std::exception& error)
         {
-            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
-                         "arm('{}') could not start the writer thread: {}; the take file is closed "
-                         "and the recorder stays disarmed",
-                         path, error.what());
+            log_->report_failure(
+                {CaptureFailureCause::WriterThreadNotStarted, path, error.what(), 0, 0});
             disarm_without_writer_thread();
             return false;
         }
         catch (...)
         {
-            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
-                         "arm('{}') could not start the writer thread: an exception of unknown "
-                         "type; the take file is closed and the recorder stays disarmed",
-                         path);
+            log_->report_failure(
+                {CaptureFailureCause::WriterThreadNotStarted, path, K_UNKNOWN_EXCEPTION, 0, 0});
             disarm_without_writer_thread();
             return false;
         }
@@ -292,19 +297,15 @@ namespace SushiDSP
         }
         catch (const std::exception& error)
         {
-            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
-                         "appending {} frames to the take file failed after {} frames written: {}; "
-                         "recording stops and the frames still queued are discarded",
-                         frames, frames_written_.load(std::memory_order_relaxed), error.what());
+            log_->report_failure({CaptureFailureCause::AppendFailed, std::string(), error.what(),
+                                  frames, frames_written_.load(std::memory_order_relaxed)});
             stop_after_write_failure();
         }
         catch (...)
         {
-            SD_LOG_ERROR(K_CAPTURE_LOG_CATEGORY,
-                         "appending {} frames to the take file failed after {} frames written: an "
-                         "exception of unknown type; recording stops and the frames still queued "
-                         "are discarded",
-                         frames, frames_written_.load(std::memory_order_relaxed));
+            log_->report_failure({CaptureFailureCause::AppendFailed, std::string(),
+                                  K_UNKNOWN_EXCEPTION, frames,
+                                  frames_written_.load(std::memory_order_relaxed)});
             stop_after_write_failure();
         }
 

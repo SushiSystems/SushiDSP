@@ -27,35 +27,31 @@
  * @author Mustafa Garip
  */
 
-#include <memory>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/io/in_memory_audio_file_writer.hpp>
-#include <SushiDSP/foundation/log_capture/log_capture.hpp>
+#include <SushiDSP/nodes/capture/in_memory_capture_log.hpp>
 #include <SushiDSP/nodes/capture/track_recorder.hpp>
 
-TEST(Small_TrackRecorder, LogsOneErrorNamingThePathWhenTheTakeFileCannotBeOpened)
+TEST(Small_TrackRecorder, ReportsOneFailureNamingThePathWhenTheTakeFileCannotBeOpened)
 {
     const std::string path = "folder/missing/take.wav";
     SushiDSP::InMemoryAudioFileStore store;
     store.refuse(path);
+    SushiDSP::InMemoryCaptureLog log;
 
-    SushiDSP::LogCapture capture;
     {
-        SushiDSP::TrackRecorder recorder(1u, 48000.0, 8192, store.opener());
+        SushiDSP::TrackRecorder recorder(1u, 48000.0, 8192, log, store.opener());
         EXPECT_FALSE(recorder.arm(path));
         EXPECT_FALSE(recorder.is_recording());
     }
 
-    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
-    ASSERT_EQ(lines.size(), 1u);
-    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
-    EXPECT_EQ(lines[0].category, "capture");
-    EXPECT_NE(lines[0].message.find(path), std::string::npos) << lines[0].message;
-    EXPECT_NE(lines[0].message.find("could not open"), std::string::npos) << lines[0].message;
-    EXPECT_NE(lines[0].message.find("the recorder stays disarmed"), std::string::npos)
-        << lines[0].message;
+    const std::vector<SushiDSP::CaptureFailure> failures = log.failures();
+    ASSERT_EQ(failures.size(), 1u);
+    EXPECT_EQ(failures[0].cause, SushiDSP::CaptureFailureCause::TakeFileNotOpened);
+    EXPECT_EQ(failures[0].path, path);
+    EXPECT_FALSE(failures[0].detail.empty());
 }

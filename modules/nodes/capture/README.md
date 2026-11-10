@@ -247,11 +247,14 @@ can never return while a `write()` call is still touching the rings.
 
 ### What the recorder logs
 
-`TrackRecorder` logs under `K_CAPTURE_LOG_CATEGORY`, declared in `capture_log_category.hpp`.
-`arm()` logs one `ERROR` when the take file cannot be opened and one when the writer thread
-cannot be started; both run on the control thread and `arm()` still returns false. The writer
-thread logs one `ERROR` when an append fails, then sets `failed_` and drains nothing more, so a
-failed take produces one line. `write()` runs on the audio thread and never logs: a block it
+`TrackRecorder` reports each failure as a `CaptureFailure` to its `CaptureLog`. A recorder built
+without one reports to `SushiLogCaptureLog`, which writes one `ERROR` under
+`K_CAPTURE_LOG_CATEGORY`, declared in `capture_log_category.hpp`; `TrackRecorder(..., CaptureLog&,
+...)` takes another log, such as `InMemoryCaptureLog`, which keeps the failures and writes
+nothing. `arm()` reports one failure when the take file cannot be opened and one when the writer
+thread cannot be started; both run on the control thread and `arm()` still returns false. The
+writer thread reports one failure when an append fails, then sets `failed_` and drains nothing
+more, so a failed take produces one line. `write()` runs on the audio thread and never logs: a block it
 refuses is counted in `dropped_blocks()`.
 
 ### Converter output counts

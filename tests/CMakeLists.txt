@@ -180,6 +180,9 @@ add_executable(sushidsp_tests
     foundation/core/test_spsc_ring.cpp
 
     nodes/capture/test_track_recorder/test_logging.cpp
+    nodes/capture/test_sushilog_capture_log.cpp
+    nodes/capture/test_in_memory_capture_log.cpp
+    nodes/capture/compile_capture_log.cpp
     nodes/room/test_room_node/test_logging.cpp
     applications/host_gui/ui/test_directory_listing/test_logging.cpp
 
