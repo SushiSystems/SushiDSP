@@ -44,16 +44,58 @@
 #include <SushiDSP/nodes/room/medium_absorption.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
 
+#include "support/tolerance.hpp"
+
 namespace
 {
+    using SushiDSP::room::EarlyTapSet;
+    using SushiDSP::room::ImageSourceSolver;
+    using SushiDSP::room::ListenerKind;
+    using SushiDSP::room::RoomScene;
+    using SushiDSP::room::Scattering;
+
     /// @brief Holds the frames one metre of path takes at 48 kHz and 343 m/s.
     constexpr double K_FRAMES_PER_METRE = 48000.0 / 343.0;
 
+    /// @brief Counts the units of u that bound a value the solver stores as a float: its one cast,
+    /// and one more for the double operations of the oracle that computes the reference.
+    constexpr double K_STORE_UNITS = 2.0;
+
+    /// @brief Holds the share of pressure one bounce keeps on a Flat surface, 1 - 0.10: the
+    /// scattering table in docs/design/ROOM/README.md.
+    constexpr double K_FLAT_SPECULAR_SHARE = 0.90;
+
+    /// @brief Holds the share of pressure one bounce keeps on a Cluttered surface, 1 - 0.40.
+    constexpr double K_CLUTTERED_SPECULAR_SHARE = 0.60;
+
+    /// @brief Counts the units of u that bound the ratio of two stored floats: each carries its own
+    /// store error, and the quotient adds one rounding.
+    constexpr double K_RATIO_UNITS = 3.0;
+
+    /// @brief Holds the decibels the fit of BandResponseFit stays within at every band centre, which
+    /// test_band_response_fit.cpp holds it to for every material and order.
+    constexpr double K_FIT_CLEARANCE_DB = 1.0;
+
+    /// @brief Counts the reflected taps after the line of sight that the furnishing test reads.
+    constexpr std::uint32_t K_REFLECTED_TAPS = 12;
+
+    /// @brief Returns the bound of a float-stored value of the given size.
+    double float_bound(double value)
+    {
+        return K_STORE_UNITS * TestSupport::unit_roundoff<float>() * std::fabs(value);
+    }
+
+    /// @brief Returns whether a float the solver stored equals its double reference within the bound.
+    ::testing::AssertionResult stored_as(double computed, double reference)
+    {
+        return TestSupport::is_within(TestSupport::measure_error(computed, reference, float_bound(reference), 1.0));
+    }
+
     /// @brief Returns the spec's section 4.3 geometry: the garage with the source at
     /// (1.5, 2.0, 0.5) and the listener at (4.0, 2.0, 1.2).
-    SushiDSP::room::RoomScene example_scene()
+    RoomScene example_scene()
     {
-        SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
+        RoomScene scene = SushiDSP::test::garage_scene();
         scene.source_position = {1.5, 2.0, 0.5};
         scene.listener_position = {4.0, 2.0, 1.2};
         return scene;
@@ -73,299 +115,572 @@ namespace
                 std::sqrt(6.5 * 6.5 + 0.7 * 0.7)};
     }
 
-    /// @brief Returns the index of the one tap arriving at the given frame within 1e-3, or
-    /// the set's count when there is none or more than one.
-    std::uint32_t find_tap(const SushiDSP::room::EarlyTapSet& set, double frames)
+    /// @brief Returns the frames the path of the given first-order image takes.
+    double first_order_frames(std::size_t image)
     {
-        std::uint32_t found = set.count;
+        return first_order_metres()[image] * K_FRAMES_PER_METRE;
+    }
+
+    /// @brief Returns how many taps arrive at the given frame, within the float store bound.
+    std::uint32_t arrivals_at(const EarlyTapSet& set, double frames)
+    {
         std::uint32_t matches = 0;
         for (std::uint32_t tap = 0; tap < set.count; ++tap)
         {
-            if (std::fabs(static_cast<double>(set.taps[tap].delay_frames) - frames) < 1e-3)
+            if (std::fabs(static_cast<double>(set.taps[tap].delay_frames) - frames) <= float_bound(frames))
             {
-                found = tap;
                 ++matches;
             }
         }
-        return matches == 1u ? found : set.count;
+        return matches;
     }
 
-    /// @brief Returns an order-4 solve of the example scene with every surface at one
-    /// scattering word.
-    SushiDSP::room::EarlyTapSet example_with(SushiDSP::room::Scattering scattering)
+    /// @brief Returns the index of the one tap arriving at the given frame, or the set's count when
+    /// there is none or more than one.
+    std::uint32_t find_tap(const EarlyTapSet& set, double frames)
     {
-        SushiDSP::room::RoomScene scene = example_scene();
+        std::uint32_t found = set.count;
+        for (std::uint32_t tap = 0; tap < set.count; ++tap)
+        {
+            if (std::fabs(static_cast<double>(set.taps[tap].delay_frames) - frames) <= float_bound(frames))
+            {
+                found = tap;
+            }
+        }
+        return arrivals_at(set, frames) == 1u ? found : set.count;
+    }
+
+    /// @brief Returns an order-4 solve of the example scene with every surface at one scattering word.
+    EarlyTapSet example_with(Scattering scattering)
+    {
+        RoomScene scene = example_scene();
         scene.scattering.fill(scattering);
-        return SushiDSP::room::ImageSourceSolver::solve(scene, {});
+        return ImageSourceSolver::solve(scene, {});
+    }
+
+    /// @brief Returns a solve of the example scene at the given order for the given listener.
+    EarlyTapSet example_solved(std::uint32_t order, ListenerKind listener)
+    {
+        ImageSourceSolver::Options options;
+        options.max_order = order;
+        options.listener = listener;
+        return ImageSourceSolver::solve(example_scene(), options);
     }
 
     /// @brief Returns the default scene holding the given bed and sofa counts.
-    SushiDSP::room::RoomScene furnished_scene(double beds, double sofas)
+    RoomScene furnished_scene(double beds, double sofas)
     {
-        SushiDSP::room::RoomScene scene;
+        RoomScene scene;
         scene.furnishings[0] = {SushiDSP::room::FurnitureId::BedDouble, beds};
         scene.furnishings[1] = {SushiDSP::room::FurnitureId::SofaTwoSeat, sofas};
         scene.furnishing_count = 2;
         return scene;
     }
+
+    /// @brief Returns the index of the first tap that arrives before its predecessor, or the count
+    /// when the taps are sorted by arrival.
+    std::uint32_t first_unsorted_tap(const EarlyTapSet& set)
+    {
+        for (std::uint32_t tap = 1; tap < set.count; ++tap)
+        {
+            if (set.taps[tap].delay_frames < set.taps[tap - 1].delay_frames)
+            {
+                return tap;
+            }
+        }
+        return set.count;
+    }
+
+    /// @brief Returns how many taps of the set encode something other than a pure channel 0 of one.
+    std::uint32_t taps_with_higher_orders(const EarlyTapSet& set)
+    {
+        std::uint32_t found = 0;
+        for (std::uint32_t tap = 0; tap < set.count; ++tap)
+        {
+            for (std::size_t channel = 1; channel < set.taps[tap].encode.size(); ++channel)
+            {
+                if (set.taps[tap].encode[channel] != 0.0f)
+                {
+                    ++found;
+                    break;
+                }
+            }
+        }
+        return found;
+    }
+
+    /// @brief Returns how many taps of the set do not carry exactly one in channel 0.
+    std::uint32_t taps_without_unity_in_channel_zero(const EarlyTapSet& set)
+    {
+        return static_cast<std::uint32_t>(std::count_if(
+            set.taps.begin(), set.taps.begin() + set.count, [](const SushiDSP::room::EarlyTap& tap) { return tap.encode[0] != 1.0f; }));
+    }
+
+    /// @brief Returns the index of the first tap whose delay or gain differs between two sets, or
+    /// the count when none does.
+    std::uint32_t first_tap_differing_in_delay_or_gain(const EarlyTapSet& a, const EarlyTapSet& b)
+    {
+        for (std::uint32_t tap = 0; tap < a.count; ++tap)
+        {
+            if (a.taps[tap].delay_frames != b.taps[tap].delay_frames || a.taps[tap].gain != b.taps[tap].gain)
+            {
+                return tap;
+            }
+        }
+        return a.count;
+    }
+
+    /// @brief Returns the index of the first tap that differs in any field between two sets, or the
+    /// count when none does.
+    std::uint32_t first_tap_differing(const EarlyTapSet& a, const EarlyTapSet& b)
+    {
+        for (std::uint32_t tap = 0; tap < a.count; ++tap)
+        {
+            const SushiDSP::room::EarlyTap& x = a.taps[tap];
+            const SushiDSP::room::EarlyTap& y = b.taps[tap];
+            if (x.delay_frames != y.delay_frames || x.gain != y.gain || x.section_a != y.section_a ||
+                x.section_b != y.section_b || x.encode != y.encode)
+            {
+                return tap;
+            }
+        }
+        return a.count;
+    }
+
+    /// @brief Holds the largest miss, in decibels, between the furnishing's measured loss over the
+    /// reflected taps and the medium's formula for it, and the largest reduction the formula gave.
+    struct FurnishingLoss
+    {
+            double worst_miss_db = 0.0;
+            double largest_reduction_db = 0.0;
+    };
+
+    /// @brief Measures the fitted loss the furnishing adds to the first reflected taps in one band.
+    FurnishingLoss measure_furnishing_loss(const EarlyTapSet& bare, const EarlyTapSet& furnished, const RoomScene& scene,
+                                           std::size_t band)
+    {
+        const SushiDSP::room::MediumAbsorption medium(scene);
+        FurnishingLoss loss;
+        for (std::uint32_t tap = 1; tap <= K_REFLECTED_TAPS; ++tap)
+        {
+            const double metres = static_cast<double>(bare.taps[tap].delay_frames) / K_FRAMES_PER_METRE;
+            const double centre = SushiDSP::room::K_BAND_CENTRES_HZ[band];
+            const double measured =
+                SushiDSP::room::BandResponseFit::magnitude_db({furnished.taps[tap].section_a, furnished.taps[tap].section_b},
+                                                              centre, 48000.0) -
+                SushiDSP::room::BandResponseFit::magnitude_db({bare.taps[tap].section_a, bare.taps[tap].section_b}, centre,
+                                                              48000.0);
+            const double expected = 10.0 * std::log10(std::exp(-medium.furnishing_coefficient_per_metre(band) * metres));
+            loss.largest_reduction_db = std::max(loss.largest_reduction_db, -expected);
+            loss.worst_miss_db = std::max(loss.worst_miss_db, std::fabs(measured - expected));
+        }
+        return loss;
+    }
+
+    /// @brief Holds a named room for the sort property.
+    struct NamedRoom
+    {
+            const char* name;
+            RoomScene (*make)();
+    };
+
+    const std::array<NamedRoom, 3> kRooms = {{{"Garage", &SushiDSP::test::garage_scene},
+                                              {"Bedroom", &SushiDSP::test::bedroom_scene},
+                                              {"BlockRoom", &SushiDSP::test::block_room_scene}}};
+
+    /// @brief Names a room case after the room.
+    std::string room_name(const ::testing::TestParamInfo<NamedRoom>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Names an index case after the index.
+    std::string index_name(const ::testing::TestParamInfo<std::size_t>& info)
+    {
+        return std::to_string(info.param);
+    }
+
+    const std::vector<std::size_t> kAllFirstOrderImages = {0, 1, 2, 3, 4, 5, 6};
+    const std::vector<std::size_t> kKeptFirstOrderImages = {0, 1, 2, 3, 4};
+    const std::vector<std::size_t> kSingleArrivalImages = {1, 2, 5, 6};
+    const std::vector<std::size_t> kBands = {0, 1, 2, 3, 4, 5};
 } // namespace
 
 TEST(Small_ImageSourceSolver, ImageSourceSolverCountsTheLatticePoints)
 {
-    EXPECT_EQ(SushiDSP::room::ImageSourceSolver::image_count(0u), 1u);
-    EXPECT_EQ(SushiDSP::room::ImageSourceSolver::image_count(1u), 7u);
-    EXPECT_EQ(SushiDSP::room::ImageSourceSolver::image_count(2u), 25u);
-    EXPECT_EQ(SushiDSP::room::ImageSourceSolver::image_count(3u), 63u);
-    EXPECT_EQ(SushiDSP::room::ImageSourceSolver::image_count(4u), 129u);
+    EXPECT_EQ(ImageSourceSolver::image_count(0u), 1u);
+    EXPECT_EQ(ImageSourceSolver::image_count(1u), 7u);
+    EXPECT_EQ(ImageSourceSolver::image_count(2u), 25u);
+    EXPECT_EQ(ImageSourceSolver::image_count(3u), 63u);
+    EXPECT_EQ(ImageSourceSolver::image_count(4u), 129u);
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverPlacesTheFirstOrderArrivalsExactly)
+class Small_ImageSourceSolverArrivals : public ::testing::TestWithParam<std::size_t>
+{
+    protected:
+        static void SetUpTestSuite()
+        {
+            set_ = ImageSourceSolver::solve(example_scene(), {});
+        }
+
+        static inline EarlyTapSet set_;
+};
+
+TEST_P(Small_ImageSourceSolverArrivals, ImageSourceSolverPlacesTheFirstOrderArrivalExactly)
 {
     // The two y images share one arrival. See tests/nodes/room/README.md.
-    const SushiDSP::room::EarlyTapSet set =
-        SushiDSP::room::ImageSourceSolver::solve(example_scene(), {});
-    const std::array<double, 7> metres = first_order_metres();
-    const std::array<double, 7> expected_frames = {363.3098, 423.0778, 579.3654, 667.3326,
-                                                   667.3326, 775.8880, 914.8805};
-    for (std::size_t tap = 0; tap < 7u; ++tap)
-    {
-        const double frames = metres[tap] * K_FRAMES_PER_METRE;
-        EXPECT_NEAR(frames, expected_frames[tap], 1e-3) << "tap " << tap;
-        std::uint32_t matches = 0;
-        for (std::uint32_t index = 0; index < set.count; ++index)
-        {
-            if (std::fabs(static_cast<double>(set.taps[index].delay_frames) - frames) < 1e-3)
-            {
-                ++matches;
-            }
-        }
-        EXPECT_EQ(matches, tap == 3u || tap == 4u ? 2u : 1u) << "tap " << tap;
-    }
-    EXPECT_NEAR(set.taps[0].delay_frames, expected_frames[0], 1e-3);
-    EXPECT_NEAR(set.taps[1].delay_frames, expected_frames[1], 1e-3);
+    const bool shares_an_arrival = GetParam() == 3u || GetParam() == 4u;
+
+    EXPECT_EQ(arrivals_at(set_, first_order_frames(GetParam())), shares_an_arrival ? 2u : 1u);
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover)
+INSTANTIATE_TEST_SUITE_P(Images, Small_ImageSourceSolverArrivals, ::testing::ValuesIn(kAllFirstOrderImages), index_name);
+
+TEST(Small_ImageSourceSolver, ImageSourceSolverPutsTheDirectSoundFirst)
+{
+    const EarlyTapSet set = ImageSourceSolver::solve(example_scene(), {});
+
+    EXPECT_TRUE(stored_as(set.taps[0].delay_frames, first_order_frames(0)));
+}
+
+TEST(Small_ImageSourceSolver, ImageSourceSolverPutsTheFloorReflectionSecond)
+{
+    const EarlyTapSet set = ImageSourceSolver::solve(example_scene(), {});
+
+    EXPECT_TRUE(stored_as(set.taps[1].delay_frames, first_order_frames(1)));
+}
+
+class Small_ImageSourceSolverFirstOrder : public ::testing::TestWithParam<std::size_t>
+{
+    protected:
+        static void SetUpTestSuite()
+        {
+            set_ = example_solved(1u, ListenerKind::Ears);
+        }
+
+        static inline EarlyTapSet set_;
+};
+
+TEST_P(Small_ImageSourceSolverFirstOrder, ImageSourceSolverKeepsTheFirstOrderArrivalBeforeItsHandover)
 {
     // At order 1 t_c is 699.708 frames, so five taps remain. See tests/nodes/room/README.md.
-    SushiDSP::room::ImageSourceSolver::Options options;
-    options.max_order = 1u;
-    const SushiDSP::room::EarlyTapSet set =
-        SushiDSP::room::ImageSourceSolver::solve(example_scene(), options);
-    ASSERT_EQ(set.count, 5u);
-    const std::array<double, 7> metres = first_order_metres();
-    for (std::size_t tap = 0; tap < 5u; ++tap)
-    {
-        EXPECT_NEAR(set.taps[tap].delay_frames, metres[tap] * K_FRAMES_PER_METRE, 1e-3)
-            << "tap " << tap;
-    }
-    EXPECT_NEAR(set.crossover_time_s, 2.0 * 2.5 / 343.0, 1e-6);
+    ASSERT_EQ(set_.count, 5u);
+
+    EXPECT_TRUE(stored_as(set_.taps[GetParam()].delay_frames, first_order_frames(GetParam())));
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverSortsItsTapsByArrival)
+INSTANTIATE_TEST_SUITE_P(Images, Small_ImageSourceSolverFirstOrder, ::testing::ValuesIn(kKeptFirstOrderImages), index_name);
+
+TEST(Small_ImageSourceSolver, ImageSourceSolverCutsTheFirstOrderSetAtFiveTaps)
 {
-    const std::array<SushiDSP::room::RoomScene, 3> rooms = {SushiDSP::test::garage_scene(),
-                                                            SushiDSP::test::bedroom_scene(),
-                                                            SushiDSP::test::block_room_scene()};
-    for (std::size_t room = 0; room < rooms.size(); ++room)
-    {
-        const SushiDSP::room::EarlyTapSet set =
-            SushiDSP::room::ImageSourceSolver::solve(rooms[room], {});
-        ASSERT_GT(set.count, 7u) << "room " << room;
-        ASSERT_LE(set.count, SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS) << "room " << room;
-        for (std::uint32_t tap = 1; tap < set.count; ++tap)
+    // At order 1 t_c is 699.708 frames, so the -x and +x images are past it. See tests/nodes/room/README.md.
+    EXPECT_EQ(example_solved(1u, ListenerKind::Ears).count, 5u);
+}
+
+TEST(Small_ImageSourceSolver, ImageSourceSolverReportsTheFirstOrderHandoverTime)
+{
+    const double crossover = 2.0 * 2.5 / 343.0;
+
+    EXPECT_TRUE(stored_as(example_solved(1u, ListenerKind::Ears).crossover_time_s, crossover));
+}
+
+class Small_ImageSourceSolverGarage : public ::testing::Test
+{
+    protected:
+        static void SetUpTestSuite()
         {
-            EXPECT_GE(set.taps[tap].delay_frames, set.taps[tap - 1].delay_frames)
-                << "room " << room << " tap " << tap;
+            garage_ = SushiDSP::test::garage_scene();
+            set_ = ImageSourceSolver::solve(garage_, {});
         }
-    }
+
+        static inline RoomScene garage_;
+        static inline EarlyTapSet set_;
+};
+
+class Small_ImageSourceSolverRooms : public ::testing::TestWithParam<NamedRoom>
+{
+};
+
+TEST_P(Small_ImageSourceSolverRooms, ImageSourceSolverSortsItsTapsByArrival)
+{
+    const EarlyTapSet set = ImageSourceSolver::solve(GetParam().make(), {});
+
+    EXPECT_EQ(first_unsorted_tap(set), set.count);
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverDropsEveryTapPastTheHandoverTime)
+TEST_P(Small_ImageSourceSolverRooms, ImageSourceSolverFillsMoreThanTheFirstOrderAndStaysInsideTheCapacity)
 {
-    const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
-    // (4 + 1) * 2.5 / 343 = 0.0364431 s, 1749.27 frames at 48 kHz.
+    const EarlyTapSet set = ImageSourceSolver::solve(GetParam().make(), {});
+
+    EXPECT_GT(set.count, 7u);
+    EXPECT_LE(set.count, EarlyTapSet::K_MAX_EARLY_TAPS);
+}
+
+INSTANTIATE_TEST_SUITE_P(Rooms, Small_ImageSourceSolverRooms, ::testing::ValuesIn(kRooms), room_name);
+
+TEST_F(Small_ImageSourceSolverGarage, ImageSourceSolverComputesTheHandoverTimeFromTheShortestWall)
+{
+    // (4 + 1) * 2.5 / 343 = 0.0364431 s, 1749.27 frames at 48 kHz. The solver divides the same product by the same speed, so the two agree to a few roundings of a double.
     const double crossover = 5.0 * 2.5 / 343.0;
-    EXPECT_NEAR(SushiDSP::room::ImageSourceSolver::crossover_time_s(garage, 4u), crossover, 1e-9);
-    const SushiDSP::room::EarlyTapSet set = SushiDSP::room::ImageSourceSolver::solve(garage, {});
-    EXPECT_NEAR(set.crossover_time_s, crossover, 1e-6);
-    for (std::uint32_t tap = 0; tap < set.count; ++tap)
+    const double bound = 4.0 * TestSupport::unit_roundoff<double>() * crossover;
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(ImageSourceSolver::crossover_time_s(garage_, 4u), crossover, bound, 1.0)));
+}
+
+TEST_F(Small_ImageSourceSolverGarage, ImageSourceSolverStoresTheHandoverTimeAsAFloat)
+{
+    EXPECT_TRUE(stored_as(set_.crossover_time_s, 5.0 * 2.5 / 343.0));
+}
+
+TEST_F(Small_ImageSourceSolverGarage, ImageSourceSolverDropsEveryTapPastTheHandoverTime)
+{
+    // A tap the solver kept at the crossover is rounded to float once more on the way in.
+    const double crossover_frames = 5.0 * 2.5 / 343.0 * 48000.0;
+    double latest = 0.0;
+    for (std::uint32_t tap = 0; tap < set_.count; ++tap)
     {
-        EXPECT_LE(set.taps[tap].delay_frames, crossover * 48000.0) << "tap " << tap;
+        latest = std::max(latest, static_cast<double>(set_.taps[tap].delay_frames));
     }
+
+    EXPECT_LE(latest, crossover_frames + float_bound(crossover_frames));
+}
+
+TEST_F(Small_ImageSourceSolverGarage, ImageSourceSolverKeepsFewerTapsThanTheLatticeHolds)
+{
     // Order 4 enumerates 129 images; some arrive after t_c. See tests/nodes/room/README.md.
-    EXPECT_LT(set.count, 129u);
+    EXPECT_LT(set_.count, 129u);
+}
+
+TEST_F(Small_ImageSourceSolverGarage, ImageSourceSolverSolvesTheGarageToTheSameTapsEveryTimeInsideTheCapacity)
+{
+    const EarlyTapSet second = ImageSourceSolver::solve(garage_, {});
+
+    EXPECT_LE(set_.count, EarlyTapSet::K_MAX_EARLY_TAPS);
+    EXPECT_EQ(second.count, set_.count);
+    EXPECT_EQ(first_tap_differing(set_, second), set_.count);
 }
 
 TEST(Small_ImageSourceSolver, ImageSourceSolverFallsOffAsOneOverDistance)
 {
-    SushiDSP::room::RoomScene scene = example_scene();
+    RoomScene scene = example_scene();
     scene.surfaces.fill(SushiDSP::room::MaterialId::OpenDoorway);
     scene.patch_count = 0;
-    const SushiDSP::room::EarlyTapSet set = SushiDSP::room::ImageSourceSolver::solve(scene, {});
+    const EarlyTapSet set = ImageSourceSolver::solve(scene, {});
     ASSERT_EQ(set.count, 1u);
-    // 1 / 2.596151 = 0.385186.
-    EXPECT_NEAR(set.taps[0].gain, 1.0 / first_order_metres()[0], 1e-5);
-    EXPECT_NEAR(set.taps[0].gain, 0.385186, 1e-5);
-    EXPECT_NEAR(set.scattered_energy, 0.0f, 1e-12f);
+
+    EXPECT_TRUE(stored_as(set.taps[0].gain, 1.0 / first_order_metres()[0]));
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverEncodesEarsAndMicrophoneDifferently)
+TEST(Small_ImageSourceSolver, ImageSourceSolverScattersNothingInAnOpenRoom)
 {
-    SushiDSP::room::ImageSourceSolver::Options options;
-    options.max_order = 2u;
-    options.listener = SushiDSP::room::ListenerKind::Ears;
-    const SushiDSP::room::EarlyTapSet ears =
-        SushiDSP::room::ImageSourceSolver::solve(example_scene(), options);
-    ASSERT_GT(ears.count, 1u);
-    for (std::uint32_t tap = 0; tap < ears.count; ++tap)
-    {
-        EXPECT_EQ(ears.taps[tap].encode[0], 1.0f) << "tap " << tap;
-        double higher_orders = 0.0;
-        for (std::size_t channel = 1; channel < 16u; ++channel)
-        {
-            higher_orders += std::fabs(static_cast<double>(ears.taps[tap].encode[channel]));
-        }
-        EXPECT_GT(higher_orders, 0.0) << "tap " << tap;
-    }
+    RoomScene scene = example_scene();
+    scene.surfaces.fill(SushiDSP::room::MaterialId::OpenDoorway);
+    scene.patch_count = 0;
 
-    options.listener = SushiDSP::room::ListenerKind::Microphone;
-    const SushiDSP::room::EarlyTapSet microphone =
-        SushiDSP::room::ImageSourceSolver::solve(example_scene(), options);
-    ASSERT_GT(microphone.count, 1u);
-    for (std::uint32_t tap = 0; tap < microphone.count; ++tap)
-    {
-        EXPECT_EQ(microphone.taps[tap].encode[0], 1.0f) << "tap " << tap;
-        for (std::size_t channel = 1; channel < 16u; ++channel)
-        {
-            EXPECT_EQ(microphone.taps[tap].encode[channel], 0.0f)
-                << "tap " << tap << " channel " << channel;
-        }
-    }
-    // The microphone's line of sight is one tap per element of the 4x12, the nearest first.
-    EXPECT_EQ(ears.direct_count, 1u);
-    EXPECT_EQ(microphone.direct_count, 28u);
-    EXPECT_LT(microphone.taps[0].delay_frames, 0.3 * K_FRAMES_PER_METRE);
-    EXPECT_LT(microphone.taps[0].delay_frames, ears.taps[0].delay_frames);
-    EXPECT_GT(microphone.taps[0].gain, ears.taps[0].gain);
+    // The line of sight keeps a specular share of exactly one, so it hands the tail exactly zero.
+    EXPECT_EQ(ImageSourceSolver::solve(scene, {}).scattered_energy, 0.0f);
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverHandsTheScatteredEnergyToTheTail)
+class Small_ImageSourceSolverEncoding : public ::testing::Test
 {
-    const SushiDSP::room::EarlyTapSet flat = example_with(SushiDSP::room::Scattering::Flat);
-    const SushiDSP::room::EarlyTapSet cluttered =
-        example_with(SushiDSP::room::Scattering::Cluttered);
-    ASSERT_EQ(flat.count, cluttered.count);
-    const std::array<double, 7> metres = first_order_metres();
-    // The direct tap crosses no wall and keeps 1 / r whatever the scattering.
-    EXPECT_NEAR(flat.taps[0].gain, 1.0 / metres[0], 1e-6);
-    EXPECT_NEAR(cluttered.taps[0].gain, 1.0 / metres[0], 1e-6);
+    protected:
+        static void SetUpTestSuite()
+        {
+            ears_ = example_solved(2u, ListenerKind::Ears);
+            microphone_ = example_solved(2u, ListenerKind::Microphone);
+        }
+
+        static inline EarlyTapSet ears_;
+        static inline EarlyTapSet microphone_;
+};
+
+TEST_F(Small_ImageSourceSolverEncoding, EarsCarryUnityInChannelZeroOnEveryTap)
+{
+    ASSERT_GT(ears_.count, 1u);
+
+    EXPECT_EQ(taps_without_unity_in_channel_zero(ears_), 0u);
+}
+
+TEST_F(Small_ImageSourceSolverEncoding, EarsEncodeEveryTapIntoTheHigherOrders)
+{
+    EXPECT_EQ(taps_with_higher_orders(ears_), ears_.count);
+}
+
+TEST_F(Small_ImageSourceSolverEncoding, MicrophoneCarriesUnityInChannelZeroOnEveryTap)
+{
+    ASSERT_GT(microphone_.count, 1u);
+
+    EXPECT_EQ(taps_without_unity_in_channel_zero(microphone_), 0u);
+}
+
+TEST_F(Small_ImageSourceSolverEncoding, MicrophoneLeavesTheHigherOrdersZeroOnEveryTap)
+{
+    EXPECT_EQ(taps_with_higher_orders(microphone_), 0u);
+}
+
+TEST_F(Small_ImageSourceSolverEncoding, EarsHaveOneLineOfSightTap)
+{
+    EXPECT_EQ(ears_.direct_count, 1u);
+}
+
+TEST_F(Small_ImageSourceSolverEncoding, MicrophoneHasOneLineOfSightTapPerElement)
+{
+    // The microphone's line of sight is one tap per element of the 4x12.
+    EXPECT_EQ(microphone_.direct_count, 28u);
+}
+
+TEST_F(Small_ImageSourceSolverEncoding, MicrophoneLineOfSightStartsWithTheNearestElement)
+{
+    EXPECT_LT(microphone_.taps[0].delay_frames, 0.3 * K_FRAMES_PER_METRE);
+    EXPECT_LT(microphone_.taps[0].delay_frames, ears_.taps[0].delay_frames);
+}
+
+TEST_F(Small_ImageSourceSolverEncoding, MicrophoneNearestElementIsLouderThanTheEarsDirectTap)
+{
+    EXPECT_GT(microphone_.taps[0].gain, ears_.taps[0].gain);
+}
+
+class Small_ImageSourceSolverScattering : public ::testing::TestWithParam<std::size_t>
+{
+    protected:
+        static void SetUpTestSuite()
+        {
+            flat_ = example_with(Scattering::Flat);
+            cluttered_ = example_with(Scattering::Cluttered);
+        }
+
+        static inline EarlyTapSet flat_;
+        static inline EarlyTapSet cluttered_;
+};
+
+TEST_P(Small_ImageSourceSolverScattering, ImageSourceSolverKeepsTheSquareRootOfTheSpecularShareOnFlat)
+{
+    // One bounce keeps sqrt(share) of the pressure over r. See tests/nodes/room/README.md.
+    const double frames = first_order_frames(GetParam());
+    const std::uint32_t index = find_tap(flat_, frames);
+    ASSERT_LT(index, flat_.count);
+
+    EXPECT_TRUE(stored_as(flat_.taps[index].gain, std::sqrt(K_FLAT_SPECULAR_SHARE) / first_order_metres()[GetParam()]));
+}
+
+TEST_P(Small_ImageSourceSolverScattering, ImageSourceSolverKeepsTheSquareRootOfTheSpecularShareOnCluttered)
+{
+    const double frames = first_order_frames(GetParam());
+    const std::uint32_t index = find_tap(cluttered_, frames);
+    ASSERT_LT(index, cluttered_.count);
+
+    EXPECT_TRUE(stored_as(cluttered_.taps[index].gain, std::sqrt(K_CLUTTERED_SPECULAR_SHARE) / first_order_metres()[GetParam()]));
+}
+
+TEST_P(Small_ImageSourceSolverScattering, ImageSourceSolverKeepsClutteredAtTheSquareRootOfTheSharesOverFlat)
+{
     // Cluttered keeps sqrt(0.60 / 0.90) = 0.816497 of Flat. See tests/nodes/room/README.md.
-    constexpr std::array<std::size_t, 4> single_arrivals = {1, 2, 5, 6};
-    for (const std::size_t tap : single_arrivals)
-    {
-        const std::uint32_t index = find_tap(flat, metres[tap] * K_FRAMES_PER_METRE);
-        ASSERT_LT(index, flat.count) << "tap " << tap;
-        EXPECT_NEAR(flat.taps[index].gain, std::sqrt(0.90) / metres[tap], 1e-6) << "tap " << tap;
-        EXPECT_NEAR(cluttered.taps[index].gain, std::sqrt(0.60) / metres[tap], 1e-6)
-            << "tap " << tap;
-        EXPECT_NEAR(cluttered.taps[index].gain / flat.taps[index].gain, 0.816497, 1e-5)
-            << "tap " << tap;
-    }
-    EXPECT_GT(flat.scattered_energy, 0.0f);
-    EXPECT_GT(cluttered.scattered_energy, flat.scattered_energy);
+    const double frames = first_order_frames(GetParam());
+    const std::uint32_t index = find_tap(flat_, frames);
+    ASSERT_LT(index, flat_.count);
+    const double ratio = static_cast<double>(cluttered_.taps[index].gain) / flat_.taps[index].gain;
+    const double expected = std::sqrt(K_CLUTTERED_SPECULAR_SHARE / K_FLAT_SPECULAR_SHARE);
+
+    const double bound = K_RATIO_UNITS * TestSupport::unit_roundoff<float>() * expected;
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(ratio, expected, bound, 1.0)));
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverSolvesTheGarageToTheSameTapsEveryTimeInsideTheCapacity)
-{
-    const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
-    const SushiDSP::room::EarlyTapSet first = SushiDSP::room::ImageSourceSolver::solve(garage, {});
-    const SushiDSP::room::EarlyTapSet second = SushiDSP::room::ImageSourceSolver::solve(garage, {});
+INSTANTIATE_TEST_SUITE_P(Images, Small_ImageSourceSolverScattering, ::testing::ValuesIn(kSingleArrivalImages), index_name);
 
-    EXPECT_GT(first.count, 0u);
-    EXPECT_LE(first.count, SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS);
-    EXPECT_EQ(second.count, first.count);
-    EXPECT_FLOAT_EQ(second.crossover_time_s, first.crossover_time_s);
+TEST(Small_ImageSourceSolverDirect, ImageSourceSolverKeepsTheScatteringSetsTheSameSize)
+{
+    EXPECT_EQ(example_with(Scattering::Flat).count, example_with(Scattering::Cluttered).count);
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverLeavesTheDirectTapAloneWhenFurnished)
+TEST(Small_ImageSourceSolverDirect, ImageSourceSolverKeepsTheDirectTapOnFlat)
 {
-    const SushiDSP::room::EarlyTapSet bare =
-        SushiDSP::room::ImageSourceSolver::solve(SushiDSP::room::RoomScene{}, {});
-    const SushiDSP::room::EarlyTapSet furnished =
-        SushiDSP::room::ImageSourceSolver::solve(furnished_scene(3.0, 2.0), {});
+    const EarlyTapSet flat = example_with(Scattering::Flat);
+
+    // The direct tap crosses no wall and keeps 1 / r whatever the scattering.
+    EXPECT_TRUE(stored_as(flat.taps[0].gain, 1.0 / first_order_metres()[0]));
+}
+
+TEST(Small_ImageSourceSolverDirect, ImageSourceSolverKeepsTheDirectTapOnCluttered)
+{
+    const EarlyTapSet cluttered = example_with(Scattering::Cluttered);
+
+    EXPECT_TRUE(stored_as(cluttered.taps[0].gain, 1.0 / first_order_metres()[0]));
+}
+
+TEST(Small_ImageSourceSolverDirect, ImageSourceSolverHandsFlatSurfacesScatteredEnergyToTheTail)
+{
+    EXPECT_GT(example_with(Scattering::Flat).scattered_energy, 0.0f);
+}
+
+TEST(Small_ImageSourceSolverDirect, ImageSourceSolverHandsClutteredSurfacesMoreScatteredEnergyThanFlatOnes)
+{
+    EXPECT_GT(example_with(Scattering::Cluttered).scattered_energy, example_with(Scattering::Flat).scattered_energy);
+}
+
+TEST(Small_ImageSourceSolverFurnished, ImageSourceSolverKeepsEveryDelayAndGainWhenFurnished)
+{
+    const EarlyTapSet bare = ImageSourceSolver::solve(RoomScene{}, {});
+    const EarlyTapSet furnished = ImageSourceSolver::solve(furnished_scene(3.0, 2.0), {});
     ASSERT_GT(bare.count, 0u);
-    ASSERT_GT(furnished.count, 0u);
+    ASSERT_EQ(bare.count, furnished.count);
+
+    EXPECT_EQ(first_tap_differing_in_delay_or_gain(bare, furnished), bare.count);
     EXPECT_EQ(bare.taps[0].section_a, furnished.taps[0].section_a);
     EXPECT_EQ(bare.taps[0].section_b, furnished.taps[0].section_b);
-    EXPECT_EQ(bare.taps[0].gain, furnished.taps[0].gain);
-    EXPECT_EQ(bare.taps[0].delay_frames, furnished.taps[0].delay_frames);
 }
 
-TEST(Small_ImageSourceSolver, ImageSourceSolverKeepsEveryDelayAndGainWhenFurnished)
+class Small_ImageSourceSolverFurnishedSolves : public ::testing::Test
 {
-    const SushiDSP::room::EarlyTapSet bare =
-        SushiDSP::room::ImageSourceSolver::solve(SushiDSP::room::RoomScene{}, {});
-    const SushiDSP::room::EarlyTapSet furnished =
-        SushiDSP::room::ImageSourceSolver::solve(furnished_scene(3.0, 2.0), {});
-    ASSERT_EQ(bare.count, furnished.count);
-    for (std::uint32_t tap = 0; tap < bare.count; ++tap)
-    {
-        EXPECT_EQ(bare.taps[tap].delay_frames, furnished.taps[tap].delay_frames) << "tap " << tap;
-        EXPECT_EQ(bare.taps[tap].gain, furnished.taps[tap].gain) << "tap " << tap;
-    }
-}
-
-TEST(Small_ImageSourceSolver, ImageSourceSolverThinsAReflectedTapByTheFurnishingLoss)
-{
-    // Measured worst miss over these taps is 0.68 dB against an expected reduction of up to 3.65 dB.
-    constexpr double K_TOLERANCE_DB = 1.0;
-    constexpr std::uint32_t K_REFLECTED_TAPS = 12;
-    const SushiDSP::room::RoomScene scene = furnished_scene(4.0, 5.0);
-    const SushiDSP::room::MediumAbsorption medium(scene);
-    const SushiDSP::room::EarlyTapSet bare =
-        SushiDSP::room::ImageSourceSolver::solve(SushiDSP::room::RoomScene{}, {});
-    const SushiDSP::room::EarlyTapSet furnished =
-        SushiDSP::room::ImageSourceSolver::solve(scene, {});
-    ASSERT_EQ(bare.count, furnished.count);
-    ASSERT_GT(bare.count, K_REFLECTED_TAPS);
-
-    double largest_reduction_db = 0.0;
-    double worst_miss_db = 0.0;
-    for (std::uint32_t tap = 1; tap <= K_REFLECTED_TAPS; ++tap)
-    {
-        const double metres = static_cast<double>(bare.taps[tap].delay_frames) / K_FRAMES_PER_METRE;
-        for (std::size_t band = 0; band < SushiDSP::room::K_BAND_COUNT; ++band)
+    protected:
+        static void SetUpTestSuite()
         {
-            const double centre = SushiDSP::room::K_BAND_CENTRES_HZ[band];
-            const double measured =
-                SushiDSP::room::BandResponseFit::magnitude_db(
-                    {furnished.taps[tap].section_a, furnished.taps[tap].section_b}, centre,
-                    48000.0) -
-                SushiDSP::room::BandResponseFit::magnitude_db(
-                    {bare.taps[tap].section_a, bare.taps[tap].section_b}, centre, 48000.0);
-            const double expected =
-                10.0 *
-                std::log10(std::exp(-medium.furnishing_coefficient_per_metre(band) * metres));
-            largest_reduction_db = std::max(largest_reduction_db, -expected);
-            worst_miss_db = std::max(worst_miss_db, std::fabs(measured - expected));
-            EXPECT_NEAR(measured, expected, K_TOLERANCE_DB) << "tap " << tap << " band " << band;
+            scene_ = furnished_scene(4.0, 5.0);
+            bare_ = ImageSourceSolver::solve(RoomScene{}, {});
+            furnished_ = ImageSourceSolver::solve(scene_, {});
         }
+
+        static inline RoomScene scene_;
+        static inline EarlyTapSet bare_;
+        static inline EarlyTapSet furnished_;
+};
+
+class Small_ImageSourceSolverFurnishing : public Small_ImageSourceSolverFurnishedSolves,
+                                          public ::testing::WithParamInterface<std::size_t>
+{
+};
+
+TEST_P(Small_ImageSourceSolverFurnishing, ImageSourceSolverThinsAReflectedTapByTheFurnishingLoss)
+{
+    ASSERT_GT(bare_.count, K_REFLECTED_TAPS);
+    ASSERT_EQ(bare_.count, furnished_.count);
+
+    // Both fits are held to K_FIT_CLEARANCE_DB of their targets, and the targets differ by the furnishing's loss alone, so the measured difference is within twice that of the formula.
+    EXPECT_LE(measure_furnishing_loss(bare_, furnished_, scene_, GetParam()).worst_miss_db, 2.0 * K_FIT_CLEARANCE_DB);
+}
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_ImageSourceSolverFurnishing, ::testing::ValuesIn(kBands), index_name);
+
+TEST_F(Small_ImageSourceSolverFurnishedSolves, ImageSourceSolverThinsAReflectedTapByMoreThanTheMissBoundInSomeBand)
+{
+    // The thinning test can fail: the loss the formula gives somewhere is larger than the bound that test holds the miss to.
+    double largest = 0.0;
+    for (const std::size_t band : kBands)
+    {
+        largest = std::max(largest, measure_furnishing_loss(bare_, furnished_, scene_, band).largest_reduction_db);
     }
-    EXPECT_GT(largest_reduction_db, 3.0 * K_TOLERANCE_DB);
-    EXPECT_LT(worst_miss_db, K_TOLERANCE_DB);
+
+    EXPECT_GT(largest, 2.0 * K_FIT_CLEARANCE_DB);
 }
 
 TEST(Small_ImageSourceSolverLogging, SolveWarnsOnceWhenTheTapsAreCutAtTheCapacity)
 {
-    SushiDSP::room::ImageSourceSolver::Options options;
+    ImageSourceSolver::Options options;
     options.max_order = 8u;
 
     SushiDSP::LogCapture capture;
-    const SushiDSP::room::EarlyTapSet set =
-        SushiDSP::room::ImageSourceSolver::solve(SushiDSP::test::garage_scene(), options);
+    const EarlyTapSet set = ImageSourceSolver::solve(SushiDSP::test::garage_scene(), options);
 
-    EXPECT_EQ(set.count, SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS);
+    EXPECT_EQ(set.count, EarlyTapSet::K_MAX_EARLY_TAPS);
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
@@ -375,12 +690,8 @@ TEST(Small_ImageSourceSolverLogging, SolveWarnsOnceWhenTheTapsAreCutAtTheCapacit
 
 TEST(Small_ImageSourceSolverLogging, SolveWritesNothingWhenNoTapIsLeftOut)
 {
-    SushiDSP::room::ImageSourceSolver::Options options;
-    options.max_order = 1u;
-
     SushiDSP::LogCapture capture;
-    const SushiDSP::room::EarlyTapSet set =
-        SushiDSP::room::ImageSourceSolver::solve(example_scene(), options);
+    const EarlyTapSet set = example_solved(1u, ListenerKind::Ears);
 
     EXPECT_EQ(set.count, 5u);
     EXPECT_TRUE(capture.lines().empty());
