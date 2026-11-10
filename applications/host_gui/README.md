@@ -199,6 +199,11 @@ The entry name reads the source's size and write time through the `SourceStatRea
 `source_stat.hpp`. The cache reads the filesystem unless it is given a reader, and a test gives it an
 `InMemorySourceStatReader`.
 
+### `audio_import_queue.hpp`
+
+The queue runs any `AudioImporter` on its worker. `AudioImportCache` is the one that decodes; a test
+gives the queue an `InMemoryAudioImporter` and calls `wait_until_idle()` in place of polling.
+
 ### `mp3_decoder.cpp`
 
 A path reaches the decoder narrow from the file browser and UTF-8 from the window's drop

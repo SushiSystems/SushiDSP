@@ -31,6 +31,7 @@
 
 #include <exception>
 #include <iterator>
+#include <memory>
 #include <utility>
 
 #include <SushiDSP/foundation/log/log.hpp>
@@ -40,11 +41,21 @@
 namespace SushiDSP::host
 {
     AudioImportQueue::AudioImportQueue(AudioImportCache cache)
-        : cache_(std::move(cache)), worker_(
+        : owned_cache_(std::make_unique<AudioImportCache>(std::move(cache))),
+          importer_(*owned_cache_), worker_(
                                         [this]
                                         {
                                             run();
                                         })
+    {
+    }
+
+    AudioImportQueue::AudioImportQueue(const AudioImporter& importer)
+        : importer_(importer), worker_(
+                                   [this]
+                                   {
+                                       run();
+                                   })
     {
     }
 
@@ -79,6 +90,16 @@ namespace SushiDSP::host
                    std::make_move_iterator(taken.end()));
     }
 
+    void AudioImportQueue::wait_until_idle()
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        idle_.wait(lock,
+                   [this]
+                   {
+                       return jobs_.empty() && decoding_.empty();
+                   });
+    }
+
     std::size_t AudioImportQueue::pending() const
     {
         std::lock_guard<std::mutex> lock(mutex_);
@@ -99,7 +120,7 @@ namespace SushiDSP::host
         result.start_frame = job.start_frame;
         try
         {
-            result.wav_path = cache_.import(job.source_path, job.target_rate);
+            result.wav_path = importer_.import(job.source_path, job.target_rate);
         }
         catch (const std::exception& failure)
         {
@@ -139,6 +160,7 @@ namespace SushiDSP::host
                 decoding_.clear();
                 finished_.push_back(std::move(result));
             }
+            idle_.notify_all();
         }
     }
 } // namespace SushiDSP::host

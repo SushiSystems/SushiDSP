@@ -33,12 +33,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include "audio_import_cache.hpp"
+#include "audio_importer.hpp"
 
 namespace SushiDSP::host
 {
@@ -73,6 +75,11 @@ namespace SushiDSP::host
             /// @param cache The cache every request is imported through.
             explicit AudioImportQueue(AudioImportCache cache);
 
+            /// @brief Starts the worker over an importer the caller owns.
+            /// @param importer The importer every request goes through; it must outlive the queue
+            /// and tolerate calls from the worker thread.
+            explicit AudioImportQueue(const AudioImporter& importer);
+
             /// @brief Stops the worker, dropping whatever is still queued, and waits for the
             /// import in progress to finish.
             ~AudioImportQueue();
@@ -92,6 +99,9 @@ namespace SushiDSP::host
             /// the results.
             /// @param out Receives the finished imports; already-held entries are kept.
             void drain(std::vector<AudioImport>& out);
+
+            /// @brief Blocks until no file is queued and none is being decoded.
+            void wait_until_idle();
 
             /// @brief Counts the files queued and the one being decoded.
             std::size_t pending() const;
@@ -125,14 +135,20 @@ namespace SushiDSP::host
             /// @return The finished import.
             AudioImport execute(const Job& job) const;
 
-            /// @brief Holds the cache every request is imported through.
-            AudioImportCache cache_;
+            /// @brief Holds the cache the first constructor was given; null when the caller owns the importer.
+            std::unique_ptr<AudioImportCache> owned_cache_;
+
+            /// @brief Holds the importer every request goes through.
+            const AudioImporter& importer_;
 
             /// @brief Guards the jobs, the results, the running flag and the file being decoded.
             mutable std::mutex mutex_;
 
             /// @brief Wakes the worker when a job arrives or the queue stops.
             std::condition_variable wakeup_;
+
+            /// @brief Wakes wait_until_idle() when the worker finishes a job.
+            std::condition_variable idle_;
 
             /// @brief Holds the jobs waiting to be imported.
             std::deque<Job> jobs_;

@@ -31,6 +31,7 @@
 
 #include <string>
 
+#include "audio_importer.hpp"
 #include "source_stat.hpp"
 
 namespace SushiDSP::host
@@ -39,7 +40,7 @@ namespace SushiDSP::host
     /// the rig's rate and writes a WAV into a folder of its own, handing back that WAV's path.
     /// A session stores a clip as a path, so the decode has to leave a file behind. Control
     /// thread only: it decodes, allocates, writes the filesystem and throws.
-    class AudioImportCache
+    class AudioImportCache final : public AudioImporter
     {
         public:
             /// @brief Names the folder the decoded WAVs are written into.
@@ -83,7 +84,7 @@ namespace SushiDSP::host
             /// @throws std::runtime_error when the source cannot be decoded or the WAV cannot be
             /// written.
             /// @see applications/host_gui/README.md
-            std::string import(const std::string& source_path, double target_rate) const;
+            std::string import(const std::string& source_path, double target_rate) const override;
 
             /// @brief Returns the folder the decoded WAVs are written into.
             const std::string& directory() const;
