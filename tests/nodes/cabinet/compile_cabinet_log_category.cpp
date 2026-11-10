@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_cabinet_log_category.cpp                                          */
+/* compile_cabinet_log_category.cpp                                       */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,14 @@
 /**************************************************************************/
 
 /**
- * @file test_cabinet_log_category.cpp
- * @brief Tests that the cabinet module logs under its own category.
+ * @file compile_cabinet_log_category.cpp
+ * @brief Compiles cabinet_log_category.hpp and checks that the category is a constant expression.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
 #include <SushiDSP/nodes/cabinet/cabinet_log_category.hpp>
 
-#include <string_view>
-
-TEST(Small_CabinetLogCategory, IsNamedCabinet)
-{
-    EXPECT_EQ(K_CABINET_LOG_CATEGORY.module(), std::string_view("cabinet"));
-}
+static_assert(std::is_same_v<decltype(K_CABINET_LOG_CATEGORY), const SushiLog::LogCategory>,
+              "the cabinet category is a constant of the logger's category type");

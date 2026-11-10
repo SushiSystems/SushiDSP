@@ -56,7 +56,6 @@ add_executable(sushidsp_tests
     foundation/profile/test_profile_runtime.cpp
     foundation/profile/test_profile_session.cpp
     foundation/profile/test_sushidsp_profile_names.cpp
-    nodes/cabinet/test_cabinet_log_category.cpp
     nodes/diezel_vh4/test_diezel_vh4/test_profile.cpp
     nodes/jcm800/test_jcm800/test_profile.cpp
     nodes/mesa_mark2c/test_mesa_mark2c/test_profile.cpp
@@ -204,6 +203,7 @@ add_executable(sushidsp_tests
     nodes/jcm800/test_jcm_tone_stack.cpp
     nodes/jcm800/test_jcm800/test_behaviour.cpp
     nodes/cabinet/test_cabinet_node.cpp
+    nodes/cabinet/compile_cabinet_log_category.cpp
     nodes/peavey5150/test_peavey5150/test_behaviour.cpp
     nodes/diezel_vh4/test_diezel_vh4/test_behaviour.cpp
     nodes/mesa_mark2c/test_mesa_mark2c/test_behaviour.cpp
