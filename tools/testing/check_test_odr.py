@@ -37,6 +37,7 @@ K_TO_STRING = re.compile(r"\bstd::to_string\s*\(")
 K_PARAM_TYPE = re.compile(r"TestParamInfo\s*<\s*([\w:\s]+?)\s*>")
 K_UNSIGNED_TYPE = re.compile(r"\b(?:size_t|unsigned|uint\d*_t|bool)\b")
 K_PARAMETER_ARGUMENT = re.compile(r"\s*\w+\.(?:param|index)\s*")
+K_INDEXED_ARGUMENT = re.compile(r"\s*(\w+)\s*\[\s*\w+\.(?:param|index)\s*\]\s*")
 K_NAME_MEMBER = re.compile(r"\bname\b|_name\b")
 K_UNSIGNED_ARGUMENT = re.compile(r"\babs\b|\bunsigned\b|\bsize_t\b|\.size\s*\(\)|\bindex\b")
 K_ROW_START = re.compile(r'^[ \t]*\{[ \t]*"([ ]+)"[ \t]*,', re.MULTILINE)
@@ -55,6 +56,16 @@ class TypeDefinition:
     path: Path
     line: int
     qualified: str
+
+
+@dataclass(frozen=True, slots=True)
+class NameGenerator:
+    """Holds one name generator: its body offsets, its signature text and the fixture its instantiation names."""
+
+    start: int
+    end: int
+    signature: str
+    fixture: str | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,8 +197,8 @@ def _call_arguments(code: str, opening: int) -> list[tuple[int, int]]:
     return spans
 
 
-def _function_body(code: str, name: str) -> tuple[int, int] | None:
-    """Returns the offsets of the body of the first function called *name* in the code, if there is one."""
+def _function_body(code: str, name: str) -> tuple[int, int, str] | None:
+    """Returns the body offsets and the signature text of the first function called *name*, if there is one."""
     match = re.search(rf"\b{re.escape(name)}\s*\([^;{{}}]*\)[^;{{}}]*\{{", code)
     if match is None:
         return None
@@ -195,13 +206,13 @@ def _function_body(code: str, name: str) -> tuple[int, int] | None:
     for index in range(match.end() - 1, len(code)):
         depth += (code[index] == "{") - (code[index] == "}")
         if depth == 0:
-            return match.end(), index
+            return match.end(), index, match.group(0)
     return None
 
 
-def _generators(code: str) -> Iterator[tuple[int, int]]:
-    """Yields the offsets of each distinct name generator: the fourth argument of an instantiation, or the body it names."""
-    seen: set[tuple[int, int]] = set()
+def _generators(code: str) -> Iterator[NameGenerator]:
+    """Yields the name generator of each instantiation: the fourth argument, or the body it names."""
+    seen: set[tuple[int, int, str | None]] = set()
     for call in K_INSTANTIATE.finditer(code):
         arguments = _call_arguments(code, call.end() - 1)
         if len(arguments) < 4:
@@ -209,40 +220,76 @@ def _generators(code: str) -> Iterator[tuple[int, int]]:
         start, end = arguments[3]
         named = re.fullmatch(r"\s*&?\s*(\w+)\s*", code[start:end])
         body = _function_body(code, named.group(1)) if named else None
-        span = body or (start, end)
-        if span not in seen:
-            seen.add(span)
-            yield span
+        fixture = re.fullmatch(r"\s*(\w+)\s*", code[arguments[1][0]:arguments[1][1]])
+        generator = NameGenerator(*(body or (start, end, "")), fixture.group(1) if fixture else None)
+        if (generator.start, generator.end, generator.fixture) not in seen:
+            seen.add((generator.start, generator.end, generator.fixture))
+            yield generator
 
 
 def _unsafe_generator_issues(source: SourceFile, code: str) -> Iterator[Issue]:
     """Yields an issue for each literal or `to_string` of a name generator that can break a test name."""
-    for start, end in _generators(code):
-        for literal in re.finditer(r'"( *)"', code[start:end]):
-            at = start + literal.start() + 1
-            content = source.text[at:at + len(literal.group(1))]
-            if K_NAME_CHARACTERS.fullmatch(content) is None:
-                yield Issue(source.path, line_of(code, at),
-                            f'a name generator writes "{content}", which holds a character outside [A-Za-z0-9_]')
-        for call in K_TO_STRING.finditer(code, start, end):
-            closing = _call_arguments(code, call.end() - 1)[-1][1]
-            argument = code[call.end():closing]
-            if not (K_UNSIGNED_ARGUMENT.search(argument) or _is_unsigned_parameter(code[start:end], argument)):
-                yield Issue(source.path, line_of(code, call.start()),
-                            "a name generator takes std::to_string of a value that may be negative, "
-                            "which writes a '-' into a test name")
+    reported: set[tuple[int, str]] = set()
+    for generator in _generators(code):
+        for issue in _generator_issues(source, code, generator):
+            if (issue.line, issue.message) not in reported:
+                reported.add((issue.line, issue.message))
+                yield issue
 
 
-def _is_unsigned_parameter(generator: str, argument: str) -> bool:
-    """Returns whether an argument is the parameter of a generator that declares an unsigned parameter type."""
-    declared = K_PARAM_TYPE.search(generator)
-    return bool(declared and K_UNSIGNED_TYPE.search(declared.group(1))
-                and K_PARAMETER_ARGUMENT.fullmatch(argument))
+def _generator_issues(source: SourceFile, code: str, generator: NameGenerator) -> Iterator[Issue]:
+    """Yields the issues of one name generator."""
+    start, end = generator.start, generator.end
+    for literal in re.finditer(r'"( *)"', code[start:end]):
+        at = start + literal.start() + 1
+        content = source.text[at:at + len(literal.group(1))]
+        if K_NAME_CHARACTERS.fullmatch(content) is None:
+            yield Issue(source.path, line_of(code, at),
+                        f'a name generator writes "{content}", which holds a character outside [A-Za-z0-9_]')
+    for call in K_TO_STRING.finditer(code, start, end):
+        closing = _call_arguments(code, call.end() - 1)[-1][1]
+        argument = code[call.end():closing]
+        if not (K_UNSIGNED_ARGUMENT.search(argument) or _is_unsigned_value(code, generator, argument)):
+            yield Issue(source.path, line_of(code, call.start()),
+                        "a name generator takes std::to_string of a value that may be negative, "
+                        "which writes a '-' into a test name")
+
+
+def _is_unsigned_value(code: str, generator: NameGenerator, argument: str) -> bool:
+    """Returns whether a to_string argument is the unsigned parameter, or an element of an unsigned array."""
+    if K_PARAMETER_ARGUMENT.fullmatch(argument):
+        return _is_unsigned_type(_parameter_type(code, generator))
+    indexed = K_INDEXED_ARGUMENT.fullmatch(argument)
+    return bool(indexed) and _is_unsigned_type(_element_type(code, indexed.group(1)))
+
+
+def _parameter_type(code: str, generator: NameGenerator) -> str | None:
+    """Returns the parameter type a generator declares in its TestParamInfo, else its fixture's TestWithParam type."""
+    declared = K_PARAM_TYPE.search(generator.signature + code[generator.start:generator.end])
+    if declared:
+        return declared.group(1)
+    if generator.fixture is None:
+        return None
+    base = re.search(rf"\b(?:class|struct)\s+{re.escape(generator.fixture)}\b[^{{;]*?"
+                     r"\b(?:TestWithParam|WithParamInterface)\s*<\s*([\w:\s]+?)\s*>", code)
+    return base.group(1) if base else None
+
+
+def _element_type(code: str, array: str) -> str | None:
+    """Returns the element type of a C array or std::array declared by name in the code, if there is one."""
+    declared = (re.search(rf"(?<![\w:])((?:unsigned\s+)?[\w:]+)\s+{re.escape(array)}\s*\[", code)
+                or re.search(rf"\barray\s*<\s*([\w:\s]+?)\s*,[^;{{}}>]*>\s+{re.escape(array)}\b", code))
+    return declared.group(1) if declared else None
+
+
+def _is_unsigned_type(declared: str | None) -> bool:
+    """Returns whether a declared type spells an unsigned integral type."""
+    return declared is not None and K_UNSIGNED_TYPE.search(declared) is not None
 
 
 def _unsafe_row_issues(source: SourceFile, code: str) -> Iterator[Issue]:
     """Yields an issue for each row that starts with a name outside [A-Za-z0-9_], in a file whose generator reads a name."""
-    if not any(K_NAME_MEMBER.search(code[start:end]) for start, end in _generators(code)):
+    if not any(K_NAME_MEMBER.search(code[each.start:each.end]) for each in _generators(code)):
         return
     for row in K_ROW_START.finditer(code):
         at = row.start(1)
