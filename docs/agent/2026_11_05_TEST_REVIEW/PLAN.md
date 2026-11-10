@@ -1,6 +1,6 @@
 # Test review: plan
 
-**Status:** Open — every job is applied once and the whole tree builds; M1, M13, M20, M21, M28 and M31 are `failed`, because records listed under "Not done as written" were not applied as written
+**Status:** Open — every job is applied once and the whole tree builds and passes (2026-11-10, 84 s wall); M1, M21 and M28 are `failed`, because records listed under "Not done as written" are still not applied as written
 
 Applies the verdicts of `REPORT.md`, in hierarchy order: the shared helpers, adapters and seams the
 rewrites need come first, then the defects the review found, then each module's tests. A module job
@@ -30,14 +30,14 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M10 | the tests of `foundation/device` (5 files): 10 rewrite, 3 resize, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M11 | the tests of `foundation/golden_compare` (2 files): 2 rewrite, 1 resize, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M12 | the tests of `foundation/io` (5 files): 13 rewrite, 5 resize, 1 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | done |
-| M13 | the tests of `foundation/log` (2 files): 1 rewrite, 1 resize, 1 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M13 | the tests of `foundation/log` (2 files): 1 rewrite, 1 resize, 1 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M14 | the tests of `foundation/log_capture` (2 files): 3 resize | T1, T2, T3, T4, T5, T6, T7 | done |
 | M15 | the tests of `foundation/math` (23 files): 92 rewrite, 2 split, 14 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M16 | the tests of `foundation/profile` (7 files): 6 rewrite, 6 resize, 6 split, 2 merge | T1, T2, T3, T4, T5, T6, T7 | done |
 | M17 | the tests of `foundation/regression_test` (1 file): 1 rewrite | T1, T2, T3, T4, T5, T6, T7 | done |
 | M18 | the tests of `foundation/signal_measure` (7 files): 18 rewrite, 1 split, 4 merge | T1, T2, T3, T4, T5, T6, T7 | done |
 | M19 | the tests of `foundation/spice_reference` (2 files): 3 rewrite, 2 resize | T1, T2, T3, T4, T5, T6, T7 | done |
-| M20 | the tests of `nodes/cabinet` (2 files): 5 rewrite, 2 resize, 3 split, 3 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M20 | the tests of `nodes/cabinet` (2 files): 5 rewrite, 2 resize, 3 split, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M21 | the tests of `nodes/capture` (13 files): 46 rewrite, 2 resize, 9 split, 9 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
 | M22 | the tests of `nodes/dd3` (9 files): 51 rewrite, 2 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M23 | the tests of `nodes/diezel_vh4` (5 files): 19 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
@@ -48,30 +48,34 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M28 | the tests of `nodes/room` (52 files): 240 rewrite, 14 resize, 15 split, 8 merge, 19 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
 | M29 | the tests of `nodes/room_scenes` (2 files): 3 rewrite, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M30 | the tests of `nodes/routing` (7 files): 34 rewrite, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done |
-| M31 | the tests of `nodes/tubescreamer` (7 files): 34 rewrite, 2 resize, 4 split, 1 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M31 | the tests of `nodes/tubescreamer` (7 files): 34 rewrite, 2 resize, 4 split, 1 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M32 | the tests of `session` (1 file): 7 rewrite, 1 merge | T1, T2, T3, T4, T5, T6, T7 | done |
 | M33 | the tests of `tools` (3 files): 1 rewrite, 3 resize, 1 split, 5 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 
 ## Not done as written
 
 Each item is a record or a ruling that was not applied as it is written. The job stays `failed`
-until it is. Owner marks an item whose shape the owner reserves.
+until it is. Owner marks an item whose shape the owner reserves. On 2026-11-10 the owner approved
+the owner-reserved items as ports with in-memory adapters beside the production code.
 
-- **M1.** The WAV reader and writer port for `load_track`, `place_clip`, `set_cabinet` and the
-  recorder, and the text-file port for the preset and project files, so their cases run `Small_`
-  (decisions 708, 712). Cases moved to `Medium_` by suite name without their input shrunk
-  (decision 1208).
-- **M13 (owner).** `IsSushidspSetBySdLogLevel` needs an environment reader in SushiLog, a package
-  this repository does not own (decision 110).
-- **M20 (owner).** The log port in the cabinet node's constructor for the two `resize` records
-  (decision 300).
-- **M21 (owner).** The writer port beside `WavWriter` and the log sink port of `TrackRecorder` for
-  three `resize` records (decision 301).
-- **M28.** The allocation counter the binaural decoder reports through (decision 501); the
-  `pair_stage` add (decision 605); the spherical head grid coverage oracle (decision 611); the
-  `Small_` records of the render set and standing wave tests (decisions 610, 616); the profile sink
-  seam of `RoomNode` (decision 614).
-- **M31.** An independent reference for the converged-model null test (decision 801).
+- **M1.** Decision 708 for `set_cabinet`: `SlotGraph::set_cabinet` still calls `IrLoader::load`
+  itself, so `test_rig_controller/test_cabinet.cpp` stays `Medium_` (RW-95). The room HRTF file
+  seam for the `Medium_RigControllerRoomHrtf` cases (RW-96). Decision 1208 for every group but
+  `SincResampler`: `Resampler` and `ResamplerRoundTrip` need their bounds re-derived,
+  `FrequencyResponse` and `AliasFloor` need a sweep-length parameter on `frequency_response()`,
+  a public interface (owner), and the nodes and circuits groups were not shrunk (RW-97).
+- **M21.** Decision 301: the writer port exists (`AudioFileWriterOpener`), but `TrackRecorder` takes
+  no log sink port; its logging case still installs `LogCapture` on the process-wide logger
+  (RW-98).
+- **M28.** Decision 501: the binaural decoder reports through no allocation counter. Its convolvers
+  are `PartitionedConvolution` in `foundation/math`, and a counter fed by an injected allocator
+  cannot see a plain `new` in `process()`; the counter's shape is the owner's (RW-99).
+
+Applied on 2026-11-10: M13 (decision 110, `EnvironmentReader` on the SushiDSP side;
+`apply_log_level_setting` has no production caller yet), M20 (decision 300, `CabinetLog`), M31
+(decision 801, an independent BDF2 solve; the floors gain a derived 0.035), M1 decisions 708 and
+712 for tracks, clips, export, preset and project files, and M28 decisions 605, 610, 611, 614 and
+616.
 
 ## Acceptance
 
