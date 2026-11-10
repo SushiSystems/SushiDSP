@@ -18,9 +18,6 @@
 | RW-38 | P2 | open | Give the post stage a stereo input | an effect can declare a stereo input, or the post stage runs one instance per channel |  |  | 2026-10-19 |
 | RW-72 | P2 | open | Write `imgui.ini` outside the working directory | the host sets ImGui's ini path to a folder of its own |  |  | 2026-10-19 |
 | RW-73 | P2 | open | Let the host find products without naming them | adding a product edits no file under `applications/host_gui/` |  |  | 2026-10-19 |
-| RW-95 | P2 | open | Load a cabinet through AudioFiles in SlotGraph::set_cabinet | set_cabinet reads its IR through an AudioFiles& and the test_cabinet.cpp cases run Small_ on the in-memory adapter |  |  | 2026-11-10 |
-| RW-96 | P2 | open | Give the room HRTF file load a seam | The Medium_RigControllerRoomHrtf cases run Small_ on an in-memory HRTF source |  |  | 2026-11-10 |
-| RW-98 | P2 | open | Give TrackRecorder a log sink port | TrackRecorder takes a log port and its logging case runs on an in-memory sink, not on LogCapture |  |  | 2026-11-10 |
 
 ## Known issues
 

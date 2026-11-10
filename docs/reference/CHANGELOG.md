@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- 2026-11-10 — host: Made `SlotGraph::set_hrtf_path` read the HRTF asset through the `HrtfFiles` port, the disk adapter by default (RW-96, `a8d9424d`).
+- 2026-11-10 — capture: Gave `TrackRecorder` a `CaptureLog` port, the SushiLog adapter by default, with its records unchanged (RW-98, `f1f0e4d0`).
+- 2026-11-10 — host: Made `SlotGraph::set_cabinet` read its impulse response through the `AudioFiles` port, the disk adapter by default (RW-95, `180f59ce`).
+- 2026-11-10 — host: Moved takes, recordings, exports, presets and project files onto the `AudioFiles` and `TextFiles` ports, the filesystem by default (`289cbbb9`).
+- 2026-11-10 — cabinet: Gave `CabinetNode` a `CabinetLog` port, the SushiLog adapter by default (`46e8897b`).
+- 2026-11-10 — log: Added the `EnvironmentReader` port and `read_log_level_setting` (`46e8897b`).
+- 2026-11-10 — room: Gave `RoomNode` a `RoomProfileSink` port for its profile zones (`cdf5c341`).
 - 2026-11-10 — host: Keep a slot whose descriptor the catalogue does not know (RW-93, `f8fb2217`).
 - 2026-11-10 — room: Build the spherical head once per sample rate and share it across prepares (RW-92, `93b67702`).
 - 2026-11-10 — tests_ci: Give a Debug tree the Release packages its imported-config map links (RW-91, `8207f272`).

@@ -1,6 +1,6 @@
 # Test review: plan
 
-**Status:** Open — every job is applied once and the whole tree builds and passes (2026-11-10, 84 s wall); M1 and M21 are `failed`, because records listed under "Not done as written" are still not applied as written
+**Status:** Open — every job is applied once and the whole tree builds and passes (2026-11-10, 84 s wall); M1 is `failed`, because records listed under "Not done as written" are still not applied as written
 
 Applies the verdicts of `REPORT.md`, in hierarchy order: the shared helpers, adapters and seams the
 rewrites need come first, then the defects the review found, then each module's tests. A module job
@@ -38,7 +38,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M18 | the tests of `foundation/signal_measure` (7 files): 18 rewrite, 1 split, 4 merge | T1, T2, T3, T4, T5, T6, T7 | done |
 | M19 | the tests of `foundation/spice_reference` (2 files): 3 rewrite, 2 resize | T1, T2, T3, T4, T5, T6, T7 | done |
 | M20 | the tests of `nodes/cabinet` (2 files): 5 rewrite, 2 resize, 3 split, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done |
-| M21 | the tests of `nodes/capture` (13 files): 46 rewrite, 2 resize, 9 split, 9 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | failed |
+| M21 | the tests of `nodes/capture` (13 files): 46 rewrite, 2 resize, 9 split, 9 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M22 | the tests of `nodes/dd3` (9 files): 51 rewrite, 2 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M23 | the tests of `nodes/diezel_vh4` (5 files): 19 rewrite, 1 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M24 | the tests of `nodes/jcm800` (5 files): 27 rewrite, 1 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
@@ -58,15 +58,10 @@ Each item is a record or a ruling that was not applied as it is written. The job
 until it is. Owner marks an item whose shape the owner reserves. On 2026-11-10 the owner approved
 the owner-reserved items as ports with in-memory adapters beside the production code.
 
-- **M1.** Decision 708 for `set_cabinet`: `SlotGraph::set_cabinet` still calls `IrLoader::load`
-  itself, so `test_rig_controller/test_cabinet.cpp` stays `Medium_` (RW-95). The room HRTF file
-  seam for the `Medium_RigControllerRoomHrtf` cases (RW-96). Decision 1208 for every group but
+- **M1.** Decision 1208 for every group but
   `SincResampler`: `Resampler` and `ResamplerRoundTrip` need their bounds re-derived,
   `FrequencyResponse` and `AliasFloor` need a sweep-length parameter on `frequency_response()`,
   a public interface (owner), and the nodes and circuits groups were not shrunk (RW-97).
-- **M21.** Decision 301: the writer port exists (`AudioFileWriterOpener`), but `TrackRecorder` takes
-  no log sink port; its logging case still installs `LogCapture` on the process-wide logger
-  (RW-98).
 
 Applied on 2026-11-10: M13 (decision 110, `EnvironmentReader` on the SushiDSP side;
 `apply_log_level_setting` has no production caller yet), M20 (decision 300, `CabinetLog`), M31
