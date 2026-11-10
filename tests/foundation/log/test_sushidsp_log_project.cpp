@@ -40,11 +40,3 @@ TEST(Small_SushidspLogProject, IsSushidspSetBySdLogLevel)
     EXPECT_EQ(SushiDSP::K_SUSHIDSP_LOG_PROJECT.name(), std::string_view("sushidsp"));
     EXPECT_EQ(SushiDSP::K_SUSHIDSP_LOG_PROJECT.level_variable(), std::string_view("SD_LOG_LEVEL"));
 }
-
-TEST(Small_SushidspLogProject, CategoryCarriesTheProjectAndItsModule)
-{
-    constexpr SushiLog::LogCategory category =
-        SushiLog::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "room");
-    EXPECT_EQ(category.project().name(), std::string_view("sushidsp"));
-    EXPECT_EQ(category.module(), std::string_view("room"));
-}

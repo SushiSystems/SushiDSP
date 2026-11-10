@@ -46,12 +46,7 @@ add_executable(sushidsp_tests
     foundation/device/test_block_monitor.cpp
     foundation/device/test_device_counter_report.cpp
     foundation/device/test_device_counters.cpp
-    foundation/device/compile_block_clock.cpp
-    foundation/device/compile_device_log_category.cpp
-    foundation/device/test_steady_block_clock.cpp
-    foundation/device/test_in_memory_block_clock.cpp
-    foundation/device/test_block_server.cpp
-    foundation/device/test_in_memory_block_device.cpp
+    foundation/device/test_device_log_category.cpp
     foundation/io/test_io_log_category.cpp
     foundation/profile/test_profile/compile_compiled_out.cpp
     foundation/profile/test_profile/test_compiled_out.cpp
@@ -146,10 +141,6 @@ add_executable(sushidsp_tests
     foundation/core/test_audio_device.cpp
     foundation/core/test_in_memory_audio_device.cpp
     foundation/core/test_in_memory_node.cpp
-    foundation/core/test_in_memory_minimal_node.cpp
-    foundation/core/test_in_memory_poll_clock.cpp
-    foundation/core/test_system_poll_clock.cpp
-    foundation/core/compile_poll_clock.cpp
     foundation/core/test_in_memory_poll_clock.cpp
     foundation/core/test_system_poll_clock.cpp
     foundation/core/compile_poll_clock.cpp

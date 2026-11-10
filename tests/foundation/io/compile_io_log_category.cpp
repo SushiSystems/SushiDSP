@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_io_log_category.cpp                                               */
+/* compile_io_log_category.cpp                                            */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,9 @@
 /**************************************************************************/
 
 /**
- * @file test_io_log_category.cpp
- * @brief Tests that the io module logs under its own category.
+ * @file compile_io_log_category.cpp
+ * @brief Compiles io_log_category.hpp, which declares the category every io record is written under.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
-
 #include <SushiDSP/foundation/io/io_log_category.hpp>
-
-#include <string_view>
-
-TEST(Small_IoLogCategory, IsNamedIo)
-{
-    EXPECT_EQ(K_IO_LOG_CATEGORY.module(), std::string_view("io"));
-}

@@ -28,12 +28,18 @@
  */
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
+
+#include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/io/io_log_category.hpp>
 #include <SushiDSP/foundation/io/ir_loader.hpp>
@@ -123,60 +129,143 @@ namespace
     }
 } // namespace
 
-TEST(Medium_IrLoader, IrLoaderTrimsAndFadesToMaxLength)
+namespace
 {
-    std::vector<float> samples(48000, 1.0f);
-    const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0,
-                                                SushiDSP::IrLoadOptions{200.0f, 5.0f, false});
+    /// @brief Holds the length of the fade the trim tests ask for, in samples: 5 ms at 48 kHz.
+    constexpr std::size_t K_FADE_SAMPLES = 240;
 
-    EXPECT_EQ(ir.samples.size(), 9600u);
-    EXPECT_NEAR(ir.samples[9599], 0.0f, 1e-3f);
-    EXPECT_NEAR(ir.samples[9600 - 240 - 1], 1.0f, 1e-3f);
+    /// @brief Holds the length the trim tests cut to, in samples: 200 ms at 48 kHz.
+    constexpr std::size_t K_TRIMMED_SAMPLES = 9600;
+
+    /// @brief Holds the decibels in one neper of amplitude, 20 / ln 10.
+    constexpr double K_DECIBELS_PER_NEPER = 8.685889638065035;
+
+    /// @brief Holds log2 of the 8192-point transform the shaped comb is padded to.
+    constexpr double K_FFT_STAGES = 13.0;
+
+    /// @brief Holds the two comb taps and their spacing in samples.
+    constexpr float K_FIRST_TAP = 1.0f;
+    constexpr float K_SECOND_TAP = 0.9f;
+    constexpr std::size_t K_TAP_SPACING = 64;
+
+    /// @brief Removes the file it names when it goes out of scope, so no run leaves a fixture behind.
+    class ScopedFile
+    {
+        public:
+            explicit ScopedFile(std::string path) : path_(std::move(path))
+            {
+            }
+
+            ~ScopedFile()
+            {
+                std::error_code ignored;
+                std::filesystem::remove(path_, ignored);
+            }
+
+            ScopedFile(const ScopedFile&) = delete;
+            ScopedFile& operator=(const ScopedFile&) = delete;
+
+            /// @brief Returns the path.
+            const std::string& path() const
+            {
+                return path_;
+            }
+
+        private:
+            std::string path_;
+    };
+
+    /// @brief Returns the one-second-of-ones response, prepared to 200 ms with a 5 ms fade and no normalisation.
+    SushiDSP::Ir trimmed_ir()
+    {
+        const std::vector<float> samples(48000, 1.0f);
+        return SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0, SushiDSP::IrLoadOptions{200.0f, 5.0f, false});
+    }
+
+    /// @brief Returns a 500 Hz sine of @p count samples at 44.1 kHz, as 16-bit PCM values.
+    std::vector<std::int16_t> sine_pcm16(std::size_t count)
+    {
+        std::vector<std::int16_t> samples(count);
+        for (std::size_t i = 0; i < count; ++i)
+        {
+            samples[i] =
+                static_cast<std::int16_t>(16000.0 * std::sin(2.0 * PI * 500.0 * static_cast<double>(i) / 44100.0));
+        }
+        return samples;
+    }
+
+    /// @brief Returns the two-tap comb the shaped test normalises.
+    std::vector<float> comb()
+    {
+        std::vector<float> samples(4096, 0.0f);
+        samples[0] = K_FIRST_TAP;
+        samples[K_TAP_SPACING] = K_SECOND_TAP;
+        return samples;
+    }
+
+    /// @brief Bounds the band average of the prepared comb, in decibels.
+    ///
+    /// The loader's own transform runs in float: each bin of the 8192-point transform is within
+    /// 13 * u * sum|x| of the true bin (13 stages, sum|x| = 1.9), and the weakest bin of the comb
+    /// is 1 - 0.9 = 0.1 strong, so a bin's relative error is at most that over 0.1, which is
+    /// 20 / ln 10 times as many decibels. The scaled samples round once more, by one u.
+    double comb_band_bound_db()
+    {
+        const double u = TestSupport::unit_roundoff<float>();
+        const double bin_error = K_FFT_STAGES * u * (K_FIRST_TAP + K_SECOND_TAP) / (K_FIRST_TAP - K_SECOND_TAP);
+        return K_DECIBELS_PER_NEPER * (bin_error + u);
+    }
+} // namespace
+
+TEST(Small_IrLoader, IrLoaderTrimsToMaxLength)
+{
+    EXPECT_EQ(trimmed_ir().samples.size(), K_TRIMMED_SAMPLES);
 }
 
-TEST(Medium_IrLoader, IrLoaderNormalisesBandAverageToZeroDb)
+TEST(Small_IrLoader, IrLoaderFadesTheTailToTheCosineLaw)
 {
-    std::vector<float> samples(4096, 0.0f);
-    samples[0] = 0.1f;
+    // The last fade sample, i = 239 of 240, has gain 0.5 * (1 + cos(pi * 239 / 240)) = sin^2(pi / 480).
+    const double sine = std::sin(PI / 480.0);
 
-    const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0);
+    const SushiDSP::Ir ir = trimmed_ir();
 
-    EXPECT_NEAR(ir.samples[0], 1.0f, 1e-3f);
-    EXPECT_DOUBLE_EQ(ir.sample_rate, 48000.0);
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_relative_error<float>(ir.samples[K_TRIMMED_SAMPLES - 1], sine * sine, 4)));
 }
 
-TEST(Medium_IrLoader, IrLoaderNormalisesShapedBandAverageToZeroDb)
+TEST(Small_IrLoader, IrLoaderLeavesTheSamplesBeforeTheFadeUntouched)
+{
+    EXPECT_EQ(trimmed_ir().samples[K_TRIMMED_SAMPLES - K_FADE_SAMPLES - 1], 1.0f);
+}
+
+TEST(Small_IrLoader, IrLoaderNormalisesShapedBandAverageToZeroDb)
 {
     // A two-tap comb makes the band selection matter. See tests/foundation/io/README.md.
-    std::vector<float> samples(4096, 0.0f);
-    samples[0] = 1.0f;
-    samples[64] = 0.9f;
-
-    const auto ir = SushiDSP::IrLoader::prepare(samples, 48000.0, 48000.0);
+    const auto ir = SushiDSP::IrLoader::prepare(comb(), 48000.0, 48000.0);
 
     // IrLoader pads to the next power of two at or above twice the length.
     const double measured = band_mean_decibels(ir.samples, 48000.0, 8192, 100.0, 5000.0);
-    EXPECT_NEAR(measured, 0.0, 0.1);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(measured, 0.0, comb_band_bound_db())));
+}
 
-    // The conditioning is a single scalar gain: the tap ratio must be untouched.
-    EXPECT_NEAR(ir.samples[64] / ir.samples[0], 0.9f, 1e-5f);
+TEST(Small_IrLoader, IrLoaderNormalisationLeavesTheTapRatioUntouched)
+{
+    // One scalar gain leaves the ratio untouched; each tap rounds once, so the ratio is within 2 u.
+    const auto ir = SushiDSP::IrLoader::prepare(comb(), 48000.0, 48000.0);
+
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<float>(
+        ir.samples[K_TAP_SPACING] / ir.samples[0], K_SECOND_TAP / K_FIRST_TAP, 2)));
 }
 
 TEST(Medium_IrLoader, IrLoaderLoadResamplesAWavFileToTheTargetRate)
 {
-    std::vector<std::int16_t> source(441);
-    for (std::size_t i = 0; i < source.size(); ++i)
-    {
-        source[i] = static_cast<std::int16_t>(
-            16000.0 * std::sin(2.0 * PI * 500.0 * static_cast<double>(i) / 44100.0));
-    }
-    const std::string path = write_pcm16_wav("sushidsp_ir_loader_44k.wav", 44100, source);
+    const ScopedFile file(write_pcm16_wav("sushidsp_ir_loader_44k.wav", 44100, sine_pcm16(441)));
 
-    const auto ir = SushiDSP::IrLoader::load(path, 48000.0);
+    const auto ir = SushiDSP::IrLoader::load(file.path(), 48000.0);
 
+    // 441 samples at 44.1 kHz are 10 ms, exactly 480 samples at 48 kHz, so the rounded count is exact.
     EXPECT_DOUBLE_EQ(ir.sample_rate, 48000.0);
-    const auto expected_length = static_cast<double>(source.size()) * 48000.0 / 44100.0;
-    EXPECT_NEAR(static_cast<double>(ir.samples.size()), expected_length, 2.0);
+    EXPECT_EQ(ir.samples.size(), 480u);
 }
 
 TEST(Small_IrLoaderLogging, IrLoaderLogsOneInfoNamingBothRatesWhenItResamples)

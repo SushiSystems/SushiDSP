@@ -27,6 +27,8 @@
 - 2026-11-10 — core: Added `InMemoryMinimalNode`, an `AudioNode` that overrides only its pure virtual methods (`in_memory_minimal_node.hpp`).
 - 2026-11-10 — device: Added the `BlockClock` port with `SteadyBlockClock` and `InMemoryBlockClock`, and gave `BlockMonitor` a constructor that takes a clock (`block_clock.hpp`).
 - 2026-11-10 — device: Moved the block answer of `Sdl2AudioDevice` into `BlockServer` and added `InMemoryBlockDevice` beside it (`block_server.hpp`).
+- 2026-11-10 — golden_compare: Added the `GoldenStore` port with `FileGoldenStore` and `InMemoryGoldenStore`, and a `compare_or_regenerate` overload that takes a store (`golden_store.hpp`).
+- 2026-11-10 — io: Added `WavFile::decode_mono` and `decode_channels`, which decode the bytes of a WAV file the caller holds (`wav_file.hpp`).
 - 2026-11-09 — math: Added the DK glue port `PoisonablePort` and moved the DK fault test onto it (`poisonable_port.hpp`).
 - 2026-11-09 — tubescreamer: Made `tube_screamer_circuits::LinearPort` an alias of `dk::LinearPort` (`tube_screamer_circuits.hpp`).
 - 2026-11-09 — golden_compare: Made a golden regeneration report a 0 dB residual, so a regenerating run fails its golden tests instead of passing, and added the `GoldenMode` overload of `compare_or_regenerate` (`golden_file.hpp`).

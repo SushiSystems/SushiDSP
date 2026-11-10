@@ -31,12 +31,13 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
-#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <vector>
 
+#include <SushiDSP/foundation/golden_compare/file_golden_store.hpp>
 #include <SushiDSP/foundation/golden_compare/golden_compare_log_category.hpp>
+#include <SushiDSP/foundation/golden_compare/golden_store.hpp>
 #include <SushiDSP/foundation/log/log.hpp>
 
 #ifndef M_PI
@@ -99,51 +100,59 @@ namespace SushiDSP::golden
                                                                     : GoldenMode::Compare;
     }
 
-    /// @brief Compares rendered output with <directory>/<name>.f32, or rewrites that file.
+    /// @brief Compares rendered output with <directory>/<name>.f32 in @p store, or rewrites that entry.
+    /// @param store Where the reference samples live.
     /// @param directory Folder that holds the reference files.
     /// @param name File stem, e.g. "jcm800_48k".
     /// @param rendered The node's output for stimulus().
-    /// @param mode Compare, or Regenerate to rewrite the file.
+    /// @param mode Compare, or Regenerate to rewrite the entry.
     /// @return Residual in dB; 0 when no comparison was made: after a regeneration, or when the
-    /// file is missing or short. A regeneration therefore never reports a pass.
-    inline double compare_or_regenerate(const std::string& directory, const char* name,
+    /// entry is missing or short. A regeneration therefore never reports a pass.
+    inline double compare_or_regenerate(GoldenStore& store, const std::string& directory, const char* name,
                                         const std::vector<float>& rendered, GoldenMode mode)
     {
         const std::string path = directory + "/" + name + ".f32";
         if (mode == GoldenMode::Regenerate)
         {
-            std::FILE* file = std::fopen(path.c_str(), "wb");
-            if (file == nullptr)
+            if (!store.write(path, rendered))
             {
                 SD_LOG_ERROR(K_GOLDEN_COMPARE_LOG_CATEGORY,
                              "cannot open {} to regenerate it; reporting a 0 dB residual", path);
                 return 0.0;
             }
-            std::fwrite(rendered.data(), sizeof(float), rendered.size(), file);
-            std::fclose(file);
             SD_LOG_WARN(K_GOLDEN_COMPARE_LOG_CATEGORY,
                         "regenerated {} from {} samples; reporting a 0 dB residual", path,
                         rendered.size());
             return 0.0;
         }
-        std::FILE* file = std::fopen(path.c_str(), "rb");
-        if (file == nullptr)
+        std::vector<float> stored;
+        if (!store.read(path, stored, rendered.size()))
         {
             SD_LOG_ERROR(K_GOLDEN_COMPARE_LOG_CATEGORY,
                          "cannot open golden file {}; reporting a 0 dB residual", path);
             return 0.0;
         }
-        std::vector<float> stored(rendered.size(), 0.0f);
-        const std::size_t read = std::fread(stored.data(), sizeof(float), stored.size(), file);
-        std::fclose(file);
-        if (read != rendered.size())
+        if (stored.size() != rendered.size())
         {
             SD_LOG_ERROR(K_GOLDEN_COMPARE_LOG_CATEGORY,
                          "golden file {} holds {} samples, not {}; reporting a 0 dB residual",
-                         path, read, rendered.size());
+                         path, stored.size(), rendered.size());
             return 0.0;
         }
         return residual_db(stored, rendered);
+    }
+
+    /// @brief Compares rendered output with <directory>/<name>.f32, or rewrites that file.
+    /// @param directory Folder that holds the reference files.
+    /// @param name File stem, e.g. "jcm800_48k".
+    /// @param rendered The node's output for stimulus().
+    /// @param mode Compare, or Regenerate to rewrite the file.
+    /// @return As the overload that takes a store, over files.
+    inline double compare_or_regenerate(const std::string& directory, const char* name,
+                                        const std::vector<float>& rendered, GoldenMode mode)
+    {
+        FileGoldenStore store;
+        return compare_or_regenerate(store, directory, name, rendered, mode);
     }
 
     /// @brief Compares rendered output with <directory>/<name>.f32 in the mode the environment

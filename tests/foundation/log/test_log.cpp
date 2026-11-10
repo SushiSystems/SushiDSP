@@ -34,6 +34,7 @@
 
 #include <SushiDSP/foundation/log/log.hpp>
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
+#include <SushiDSP/foundation/log_capture/log_level_scope.hpp>
 #include <SushiLog/log/log_calls.hpp>
 
 namespace
@@ -41,35 +42,31 @@ namespace
     /// @brief Names the records this file logs.
     constexpr SushiLog::LogCategory K_FRONT_TEST_LOG_CATEGORY =
         SushiLog::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "front_test");
+} // namespace
 
-    /// @brief Counts how often an argument is evaluated.
+TEST(Small_Log, ACallBelowTheCategoryLevelEvaluatesNoArgument)
+{
+    SushiDSP::LogCapture capture;
+    const SushiDSP::LogLevelScope level(K_FRONT_TEST_LOG_CATEGORY, SushiLog::LogLevel::Warn);
     int evaluated = 0;
-
-    /// @brief Returns its argument and counts the call.
-    int counted(int value)
+    const auto counted = [&evaluated](int value)
     {
         ++evaluated;
         return value;
-    }
-} // namespace
+    };
 
-TEST(Small_Log, CeilingIsDebugUnderNdebugAndTraceOtherwise)
-{
-#if defined(NDEBUG)
-    EXPECT_EQ(SushiDSP::K_SUSHIDSP_LOG_CEILING, SushiLog::LogLevel::Debug);
-#else
-    EXPECT_EQ(SushiDSP::K_SUSHIDSP_LOG_CEILING, SushiLog::LogLevel::Trace);
-#endif
+    SD_LOG_INFO(K_FRONT_TEST_LOG_CATEGORY, "hidden {}", counted(1));
+
+    EXPECT_EQ(evaluated, 0);
 }
 
-TEST(Small_Log, CallBelowTheCategoryLevelEvaluatesNoArgumentAndOneAboveIsDelivered)
+TEST(Small_Log, ACallAtTheCategoryLevelIsDelivered)
 {
     SushiDSP::LogCapture capture;
-    evaluated = 0;
-    SD_LOG_INFO(K_FRONT_TEST_LOG_CATEGORY, "hidden {}", counted(1));
-    SD_LOG_WARN(K_FRONT_TEST_LOG_CATEGORY, "shown {}", counted(2));
+    const SushiDSP::LogLevelScope level(K_FRONT_TEST_LOG_CATEGORY, SushiLog::LogLevel::Warn);
 
-    EXPECT_EQ(evaluated, 1);
+    SD_LOG_WARN(K_FRONT_TEST_LOG_CATEGORY, "shown {}", 2);
+
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);
     EXPECT_EQ(lines[0].message, "shown 2");
@@ -78,9 +75,10 @@ TEST(Small_Log, CallBelowTheCategoryLevelEvaluatesNoArgumentAndOneAboveIsDeliver
 TEST(Small_Log, LevelSetForTheCategoryLetsItsDebugCallsThrough)
 {
     SushiDSP::LogCapture capture;
-    SushiLog::set_log_level(K_FRONT_TEST_LOG_CATEGORY, SushiLog::LogLevel::Debug);
-    SD_LOG_DEBUG(K_FRONT_TEST_LOG_CATEGORY, "state {}", 7);
-    SushiLog::set_log_level(K_FRONT_TEST_LOG_CATEGORY, SushiLog::LogLevel::Warn);
+    {
+        const SushiDSP::LogLevelScope level(K_FRONT_TEST_LOG_CATEGORY, SushiLog::LogLevel::Debug);
+        SD_LOG_DEBUG(K_FRONT_TEST_LOG_CATEGORY, "state {}", 7);
+    }
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);

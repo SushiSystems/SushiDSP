@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_ir.cpp                                                            */
+/* test_in_memory_golden_store.cpp                                        */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,30 +22,61 @@
 /**************************************************************************/
 
 /**
- * @file test_ir.cpp
- * @brief Tests that an impulse response holds its samples and its sample rate.
+ * @file test_in_memory_golden_store.cpp
+ * @brief Tests that the in-memory GoldenStore keeps what it is given and refuses what it lacks.
  * @author Mustafa Garip
  */
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/io/ir.hpp>
+#include <SushiDSP/foundation/golden_compare/in_memory_golden_store.hpp>
 
 #include <vector>
 
-TEST(Small_Ir, DefaultIsEmptyWithNoSampleRate)
+namespace
 {
-    const SushiDSP::Ir ir;
-    EXPECT_TRUE(ir.samples.empty());
-    EXPECT_EQ(ir.sample_rate, 0.0);
+    /// @brief Holds the samples the cases below store.
+    const std::vector<float> K_SAMPLES{0.0f, 0.5f, -0.25f, 1.0f};
+} // namespace
+
+TEST(Small_InMemoryGoldenStore, SamplesWrittenToAPathAreReadBackExactly)
+{
+    SushiDSP::golden::InMemoryGoldenStore store;
+    ASSERT_TRUE(store.write("a/b.f32", K_SAMPLES));
+
+    std::vector<float> read;
+    ASSERT_TRUE(store.read("a/b.f32", read, K_SAMPLES.size()));
+
+    EXPECT_EQ(read, K_SAMPLES);
 }
 
-TEST(Small_Ir, HoldsTheSamplesAndRateItWasGiven)
+TEST(Small_InMemoryGoldenStore, ReadingMoreThanTheEntryHoldsReturnsWhatItHolds)
 {
-    SushiDSP::Ir ir;
-    ir.samples = std::vector<float>{1.0f, 0.25f, -0.5f};
-    ir.sample_rate = 48000.0;
-    EXPECT_EQ(ir.samples.size(), 3u);
-    EXPECT_FLOAT_EQ(ir.samples[2], -0.5f);
-    EXPECT_EQ(ir.sample_rate, 48000.0);
+    SushiDSP::golden::InMemoryGoldenStore store;
+    ASSERT_TRUE(store.write("a/b.f32", K_SAMPLES));
+
+    std::vector<float> read;
+    ASSERT_TRUE(store.read("a/b.f32", read, K_SAMPLES.size() + 3));
+
+    EXPECT_EQ(read, K_SAMPLES);
+}
+
+TEST(Small_InMemoryGoldenStore, ReadingAPathNothingWasWrittenToFails)
+{
+    const SushiDSP::golden::InMemoryGoldenStore store;
+    std::vector<float> read;
+
+    EXPECT_FALSE(store.read("a/b.f32", read, 4));
+}
+
+TEST(Small_InMemoryGoldenStore, AWriteReplacesTheEntryAtThePath)
+{
+    SushiDSP::golden::InMemoryGoldenStore store;
+    ASSERT_TRUE(store.write("a/b.f32", K_SAMPLES));
+    ASSERT_TRUE(store.write("a/b.f32", std::vector<float>{2.0f}));
+
+    std::vector<float> read;
+    ASSERT_TRUE(store.read("a/b.f32", read, K_SAMPLES.size()));
+
+    EXPECT_EQ(read, std::vector<float>{2.0f});
 }

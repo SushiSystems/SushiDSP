@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -55,5 +56,29 @@ namespace SushiDSP
             /// @throws std::runtime_error if the file cannot be opened or parsed.
             static std::vector<std::vector<float>> load_channels(const std::string& path,
                                                                  double* out_sample_rate = nullptr);
+
+            /// @brief Decodes the bytes of a WAV file, downmixing to mono and converting to float in [-1, 1].
+            /// @param bytes The whole file.
+            /// @param source A name for @p bytes in error messages, such as the path they came from.
+            /// @param out_sample_rate If non-null, receives the sample rate in Hz.
+            /// @return The mono sample data.
+            /// @throws std::runtime_error if @p bytes are not a supported WAV file.
+            static std::vector<float> decode_mono(const std::vector<std::uint8_t>& bytes,
+                                                  const std::string& source,
+                                                  double* out_sample_rate = nullptr);
+
+            /// @brief Decodes the bytes of a WAV file, keeping its channels apart.
+            /// @param bytes The whole file.
+            /// @param source A name for @p bytes in error messages, such as the path they came from.
+            /// @param out_sample_rate If non-null, receives the sample rate in Hz.
+            /// @return One vector of samples per channel, in the file's own channel order.
+            /// @throws std::runtime_error if @p bytes are not a supported WAV file.
+            static std::vector<std::vector<float>> decode_channels(const std::vector<std::uint8_t>& bytes,
+                                                                   const std::string& source,
+                                                                   double* out_sample_rate = nullptr);
+
+        private:
+            /// @brief Averages the channels of a decoded file into one.
+            static std::vector<float> downmix(const std::vector<std::vector<float>>& channels);
     };
 } // namespace SushiDSP

@@ -17,6 +17,10 @@ and the overload that takes a `GoldenMode` lets a caller name the mode itself.
 A regeneration measures nothing, so it reads as a 0 dB residual like a missing file, and every
 golden test of a regenerating run fails. A second run without the variable confirms the new pins.
 
+Where the reference samples live is the `GoldenStore` port (`golden_store.hpp`): `FileGoldenStore`
+reads and writes the raw float32 files and is what the overloads without a store use, and
+`InMemoryGoldenStore` keeps them in memory for a test.
+
 The module depends on `log` and logs under `K_GOLDEN_COMPARE_LOG_CATEGORY`, declared in
 `golden_compare_log_category.hpp`. A file it cannot open or that holds too few samples is an
 `ERROR` and reads as a 0 dB residual; a regeneration is a `WARN`.

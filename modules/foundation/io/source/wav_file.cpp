@@ -88,9 +88,15 @@ namespace SushiDSP
             throw std::runtime_error("WavFile: could not open '" + path + "'");
         }
 
-        std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)),
-                                   std::istreambuf_iterator<char>());
+        const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(file)),
+                                         std::istreambuf_iterator<char>());
+        return decode_channels(bytes, path, out_sample_rate);
+    }
 
+    std::vector<std::vector<float>> WavFile::decode_channels(const std::vector<std::uint8_t>& bytes,
+                                                             const std::string& path,
+                                                             double* out_sample_rate)
+    {
         if (bytes.size() < 44)
         {
             throw std::runtime_error("WavFile: '" + path + "' is too small to be a valid WAV file");
@@ -202,7 +208,17 @@ namespace SushiDSP
 
     std::vector<float> WavFile::load_mono(const std::string& path, double* out_sample_rate)
     {
-        const std::vector<std::vector<float>> channels = load_channels(path, out_sample_rate);
+        return downmix(load_channels(path, out_sample_rate));
+    }
+
+    std::vector<float> WavFile::decode_mono(const std::vector<std::uint8_t>& bytes, const std::string& source,
+                                            double* out_sample_rate)
+    {
+        return downmix(decode_channels(bytes, source, out_sample_rate));
+    }
+
+    std::vector<float> WavFile::downmix(const std::vector<std::vector<float>>& channels)
+    {
         const std::size_t frame_count = channels[0].size();
 
         std::vector<float> mono(frame_count, 0.0f);

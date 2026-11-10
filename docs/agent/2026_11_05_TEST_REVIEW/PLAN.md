@@ -48,7 +48,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M28 | the tests of `nodes/room` (52 files): 240 rewrite, 14 resize, 15 split, 8 merge, 19 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M29 | the tests of `nodes/room_scenes` (2 files): 3 rewrite, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 210) |
 | M30 | the tests of `nodes/routing` (7 files): 34 rewrite, 3 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane B, 2026-11-10, syntax-checked only; decisions 218 to 220; no production change) |
-| M31 | the tests of `nodes/tubescreamer` (7 files): 34 rewrite, 2 resize, 4 split, 1 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
+| M31 | the tests of `nodes/tubescreamer` (7 files): 34 rewrite, 2 resize, 4 split, 1 merge, 7 delete | T1, T2, T3, T4, T5, T6, T7 | partial (lane C, 2026-11-10, syntax-checked only): `test_output.cpp`, `test_rt_safety.cpp` and `test_profile.cpp` of `test_tube_screamer` done; resume at `test_tube_screamer/test_behaviour.cpp`, then `test_tube_screamer_circuits/test_clip_stage.cpp` and `test_tone_stage.cpp`, then the log-category test |
 | M32 | the tests of `session` (1 file): 7 rewrite, 1 merge | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 211) |
 | M33 | the tests of `tools` (3 files): 1 rewrite, 3 resize, 1 split, 5 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane D, 2026-11-10, pytest run; decision 404) |
 

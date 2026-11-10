@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_golden_compare_log_category.cpp                                   */
+/* compile_golden_store.cpp                                               */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,13 @@
 /**************************************************************************/
 
 /**
- * @file test_golden_compare_log_category.cpp
- * @brief Tests the category the golden-file comparison logs under.
+ * @file compile_golden_store.cpp
+ * @brief Compiles golden_store.hpp and checks that the port is abstract.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
-#include <SushiDSP/foundation/golden_compare/golden_compare_log_category.hpp>
+#include <SushiDSP/foundation/golden_compare/golden_store.hpp>
 
-#include <string_view>
-
-TEST(Small_GoldenCompareLogCategory, IsNamedGoldenCompare)
-{
-    EXPECT_EQ(K_GOLDEN_COMPARE_LOG_CATEGORY.module(), std::string_view("golden_compare"));
-}
+static_assert(std::is_abstract_v<SushiDSP::golden::GoldenStore>, "a golden store is a port; only an adapter is built");

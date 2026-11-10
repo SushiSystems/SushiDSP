@@ -28,9 +28,8 @@
  */
 
 #include <cstdint>
-#include <cstdio>
 #include <cstring>
-#include <fstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -87,16 +86,6 @@ namespace
         }
 
         return buffer;
-    }
-
-    std::string write_temp_wav(const std::vector<uint8_t>& bytes, const std::string& name)
-    {
-        const std::string path = std::string(::testing::TempDir()) + name;
-        std::ofstream out(path, std::ios::binary);
-        out.write(reinterpret_cast<const char*>(bytes.data()),
-                  static_cast<std::streamsize>(bytes.size()));
-        out.close();
-        return path;
     }
 
     void write_fmt_and_riff_header(std::vector<uint8_t>& buffer, uint16_t format_tag,
@@ -187,28 +176,20 @@ namespace
     }
 } // namespace
 
-TEST(Medium_WavFile, WavFileLoadsMonoPcm16SamplesInCorrectRange)
+TEST(Small_WavFile, WavFileLoadsMonoPcm16SamplesInCorrectRange)
 {
     const std::vector<int16_t> samples = {0, 16384, -16384, 32767, -32768};
-    const std::string path = write_temp_wav(build_pcm16_wav(48000, samples), "wav_pcm16.wav");
 
-    const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
+    const std::vector<float> loaded = SushiDSP::WavFile::decode_mono(build_pcm16_wav(48000, samples), "pcm16");
 
-    ASSERT_EQ(loaded.size(), samples.size());
-    EXPECT_NEAR(loaded[0], 0.0f, 1e-4f);
-    EXPECT_NEAR(loaded[1], 0.5f, 1e-3f);
-    EXPECT_NEAR(loaded[2], -0.5f, 1e-3f);
-    EXPECT_NEAR(loaded[3], 1.0f, 1e-3f);
-    EXPECT_NEAR(loaded[4], -1.0f, 1e-3f);
+    // Every value is an int16 over 2^15, which float holds exactly.
+    EXPECT_EQ(loaded, (std::vector<float>{0.0f, 0.5f, -0.5f, 0.999969482421875f, -1.0f}));
 }
 
-TEST(Medium_WavFile, WavFileReportsTheFileSampleRate)
+TEST(Small_WavFile, WavFileReportsTheFileSampleRate)
 {
-    const std::vector<int16_t> samples = {0, 0};
-    const std::string path = write_temp_wav(build_pcm16_wav(44100, samples), "wav_rate.wav");
-
     double sample_rate = 0.0;
-    SushiDSP::WavFile::load_mono(path, &sample_rate);
+    static_cast<void>(SushiDSP::WavFile::decode_mono(build_pcm16_wav(44100, {0, 0}), "rate", &sample_rate));
 
     EXPECT_EQ(sample_rate, 44100.0);
 }
@@ -219,81 +200,55 @@ TEST(Medium_WavFile, WavFileThrowsOnMissingFile)
                  std::runtime_error);
 }
 
-TEST(Medium_WavFile, WavFileThrowsOnTruncatedHeader)
+TEST(Small_WavFile, WavFileThrowsOnTruncatedHeader)
 {
-    std::vector<uint8_t> truncated = {'R', 'I', 'F', 'F', 0, 0};
-    const std::string path = write_temp_wav(truncated, "wav_truncated.wav");
+    const std::vector<uint8_t> truncated = {'R', 'I', 'F', 'F', 0, 0};
 
-    EXPECT_THROW(SushiDSP::WavFile::load_mono(path), std::runtime_error);
+    EXPECT_THROW(SushiDSP::WavFile::decode_mono(truncated, "truncated"), std::runtime_error);
 }
 
-TEST(Medium_WavFile, WavFileLoadsMonoPcm24SamplesWithSignExtension)
+TEST(Small_WavFile, WavFileLoadsMonoPcm24SamplesWithSignExtension)
 {
     // The samples cover zero, both extremes and -1 LSB. See tests/foundation/io/README.md.
     const std::vector<int32_t> samples = {0x000000, 0x400000, 0x7FFFFF,
                                           static_cast<int32_t>(0xFFFFFFFF),
                                           static_cast<int32_t>(0xFF800000)};
-    const std::string path = write_temp_wav(build_pcm24_wav(48000, samples), "wav_pcm24.wav");
 
-    const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
+    const std::vector<float> loaded = SushiDSP::WavFile::decode_mono(build_pcm24_wav(48000, samples), "pcm24");
 
-    ASSERT_EQ(loaded.size(), samples.size());
-    EXPECT_NEAR(loaded[0], 0.0f, 1e-6f);
-    EXPECT_NEAR(loaded[1], 0.5f, 1e-6f);
-    EXPECT_NEAR(loaded[2], 1.0f, 1e-4f);
-    EXPECT_NEAR(loaded[3], -1.0f / 8388608.0f, 1e-6f);
-    EXPECT_NEAR(loaded[4], -1.0f, 1e-6f);
+    // Every value is an integer under 2^24 over 2^23, which float holds exactly.
+    EXPECT_EQ(loaded, (std::vector<float>{0.0f, 0.5f, 0.99999988079071044921875f,
+                                          -1.1920928955078125e-7f, -1.0f}));
 }
 
-TEST(Medium_WavFile, WavFileLoadsMonoPcm32SamplesInCorrectRange)
+TEST(Small_WavFile, WavFileLoadsMonoPcm32SamplesInCorrectRange)
 {
     const std::vector<int32_t> samples = {0, 1073741824, -1073741824, 2147483647, -2147483647 - 1};
-    const std::string path = write_temp_wav(build_pcm32_wav(48000, samples), "wav_pcm32.wav");
 
-    const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
+    const std::vector<float> loaded = SushiDSP::WavFile::decode_mono(build_pcm32_wav(48000, samples), "pcm32");
 
-    ASSERT_EQ(loaded.size(), samples.size());
-    EXPECT_NEAR(loaded[0], 0.0f, 1e-6f);
-    EXPECT_NEAR(loaded[1], 0.5f, 1e-6f);
-    EXPECT_NEAR(loaded[2], -0.5f, 1e-6f);
-    EXPECT_NEAR(loaded[3], 1.0f, 1e-6f);
-    EXPECT_NEAR(loaded[4], -1.0f, 1e-6f);
+    // 2147483647 rounds to 2^31 in float, so the largest sample reads as exactly 1.
+    EXPECT_EQ(loaded, (std::vector<float>{0.0f, 0.5f, -0.5f, 1.0f, -1.0f}));
 }
 
-TEST(Medium_WavFile, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
+TEST(Small_WavFile, WavFileLoadsMonoIeeeFloatSamplesUnscaled)
 {
     const std::vector<float> samples = {0.0f, 0.5f, -0.5f, 1.0f, -1.0f, 2.0f};
-    const std::string path = write_temp_wav(build_float32_wav(48000, samples), "wav_float32.wav");
 
-    const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
+    const std::vector<float> loaded = SushiDSP::WavFile::decode_mono(build_float32_wav(48000, samples), "float32");
 
-    ASSERT_EQ(loaded.size(), samples.size());
-    for (std::size_t i = 0; i < samples.size(); ++i)
-    {
-        // IEEE float samples pass through via memcpy, so they should be exact.
-        EXPECT_FLOAT_EQ(loaded[i], samples[i]);
-    }
+    EXPECT_EQ(loaded, samples);
 }
 
-TEST(Medium_WavFile, WavFileDownmixesStereoAsAverageOfChannels)
+TEST(Small_WavFile, WavFileDownmixesStereoAsAverageOfChannels)
 {
     // Same-sign values make a sum twice the average. See tests/foundation/io/README.md.
     const std::vector<int16_t> left = {0, 16384, 8000, 20000};
     const std::vector<int16_t> right = {0, 8192, 12000, 10000};
-    const std::string path =
-        write_temp_wav(build_pcm16_stereo_wav(48000, left, right), "wav_pcm16_stereo.wav");
 
-    const std::vector<float> loaded = SushiDSP::WavFile::load_mono(path);
+    const std::vector<float> loaded =
+        SushiDSP::WavFile::decode_mono(build_pcm16_stereo_wav(48000, left, right), "stereo");
 
-    ASSERT_EQ(loaded.size(), left.size());
-    for (std::size_t i = 0; i < left.size(); ++i)
-    {
-        const float expected =
-            ((static_cast<float>(left[i]) / 32768.0f) + (static_cast<float>(right[i]) / 32768.0f)) /
-            2.0f;
-        EXPECT_NEAR(loaded[i], expected, 1e-4f);
-    }
-    // Confirms it's a genuine average and not just one channel passed through.
-    EXPECT_NE(loaded[1], static_cast<float>(left[1]) / 32768.0f);
-    EXPECT_NE(loaded[1], static_cast<float>(right[1]) / 32768.0f);
+    // Each sample is (l + r) / 65536: both channels are int16 over 2^15, so the sum is exact in float.
+    EXPECT_EQ(loaded, (std::vector<float>{0.0f, 24576.0f / 65536.0f, 20000.0f / 65536.0f, 30000.0f / 32768.0f / 2.0f}));
 }
