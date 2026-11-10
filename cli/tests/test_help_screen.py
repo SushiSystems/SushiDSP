@@ -6,15 +6,17 @@
 
 from __future__ import annotations
 
+import io
 import re
 
 import pytest
+from sushicore import Console, RichRenderer, get_icon_set, get_theme
 from typer.testing import CliRunner
 
-from sushidsp.cli import app
+from sushidsp.cli import make_app
 
 
-pytestmark = pytest.mark.medium
+pytestmark = pytest.mark.small
 
 K_GROUPS = {
     "Build": [
@@ -27,11 +29,23 @@ K_GROUPS = {
 K_ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*m")
 
 
+K_THEME = "default"
+K_ICONS = "text"
+
+
+def _in_memory_console(page: io.StringIO) -> Console:
+    """Return a console that draws its pages into *page* and touches no terminal."""
+    theme = get_theme(K_THEME)
+    renderer = RichRenderer(theme, no_color=True, stream=page, enable_virtual_terminal=lambda: None)
+    return Console(renderer, theme, get_icon_set(K_ICONS))
+
+
 def _run(*args: str) -> str:
-    """Return the output of one sd invocation without colour codes, asserting it exited zero."""
-    result = CliRunner().invoke(app, list(args))
+    """Return the page one sd invocation draws on an in-memory console, asserting it exited zero."""
+    page = io.StringIO()
+    result = CliRunner().invoke(make_app(lambda: _in_memory_console(page)), list(args))
     assert result.exit_code == 0, result.output
-    return K_ANSI_ESCAPE.sub("", result.output)
+    return K_ANSI_ESCAPE.sub("", page.getvalue())
 
 
 def _commands_by_heading(page: str) -> dict[str, list[str]]:

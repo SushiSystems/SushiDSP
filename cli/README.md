@@ -2,7 +2,7 @@
 
 `cli/` is `sd`, the SushiDSP developer CLI: a Python package that configures, builds, tests and
 runs the repository. Each command in `sushidsp/cli.py` parses its arguments and hands them to
-`sushidsp/services/`, which issues the `cmake` and `ctest` calls. The commands and their flags
+`sushidsp/services/`, which issues the `cmake` and `ctest` calls. `make_app(console_provider)` builds the Typer app and its help group on the console the provider returns, and `cli.app` is `make_app()`. The commands and their flags
 are described in [`docs/guides/COMMAND_LINE_INTERFACE.md`](../docs/guides/COMMAND_LINE_INTERFACE.md).
 
 ## Install
