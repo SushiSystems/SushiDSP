@@ -471,13 +471,16 @@ TEST(Small_Biquad, ResetClearsState)
     EXPECT_EQ(filter.process_sample(0.0f), 0.0f);
 }
 
-// The step response is y[0] R^n. See tests/foundation/math/README.md.
+// The step response is y[0] R^n with R = exp(-omega). The output is a float, so the last sample must stay a normal float to carry u_f of relative error: past exp(-80) = 1.8e-35 the 7.23 Hz row falls into the denormals (a quantum of 6e-6 of the value) and the 10.58 Hz row underflows to zero, so the run stops at n = 80 / omega when that comes before two seconds. See tests/foundation/math/README.md.
 TEST_P(Small_BiquadLowCorner, StepResponseDecaysAsTheRealPolePowerN)
 {
+    constexpr double decay_exponent_limit = 80.0;
     const Row row = GetParam();
     SushiDSP::Biquad filter;
     filter.set_first_order_high_pass(row.sample_rate, row.corner_hz);
-    const long long last_index = 2 * static_cast<long long>(row.sample_rate) - 1;
+    const double omega = 2.0 * K_PI * row.corner_hz / row.sample_rate;
+    const long long last_index =
+        std::min(2 * static_cast<long long>(row.sample_rate) - 1, static_cast<long long>(decay_exponent_limit / omega));
 
     const float first = filter.process_sample(1.0f);
     float last = first;
@@ -486,7 +489,7 @@ TEST_P(Small_BiquadLowCorner, StepResponseDecaysAsTheRealPolePowerN)
         last = filter.process_sample(1.0f);
     }
 
-    const double expected = std::exp(-2.0 * K_PI * row.corner_hz / row.sample_rate * static_cast<double>(last_index));
+    const double expected = std::exp(-omega * static_cast<double>(last_index));
     const double relative_bound = 2.0 * kUf + 3.0 * static_cast<double>(last_index) * kUd;
     EXPECT_TRUE(TestSupport::is_within(
         TestSupport::measure_error(static_cast<double>(last) / first, expected, expected * relative_bound)));

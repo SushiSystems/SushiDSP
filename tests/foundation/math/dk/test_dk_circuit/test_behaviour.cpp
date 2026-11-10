@@ -68,6 +68,9 @@ namespace
     /// The relative step limit of the circuit's solver as shipped: it stops once a step is below this times (1 + |v|).
     constexpr double K_SOLVER_STEP_TOLERANCE = 1e-9;
 
+    /// The absolute residual limit of the circuit's solver as shipped: it stops at once when the residual's largest entry, in volts for a DK port, is below this.
+    constexpr double K_SOLVER_RESIDUAL_TOLERANCE = 1e-12;
+
     /// The sample rate of every circuit here unless a test names another.
     constexpr double K_SAMPLE_RATE = 48000.0;
 
@@ -386,10 +389,9 @@ namespace
 
     /// @brief Steps the antiparallel-diode clipper over a rising sweep and returns the worst distance to the root.
     ///
-    /// |residual| / slope of the scalar diode equation is a first-order bound on the distance of a voltage from its
-    /// root. The solver stops after a step below K_SOLVER_STEP_TOLERANCE (1 + |v|), and from there Newton's error
-    /// is at most f'' / (2 f') times the square of that step, with f'' / f' at most 1 / Vt for this sinh law; the
-    /// residual itself is evaluated to about 16 u (|source| + |v|), which the slope of at least 1 does not enlarge.
+    /// |residual| / slope bounds the distance to the root to first order. After a step below K_SOLVER_STEP_TOLERANCE
+    /// (1 + |v|) Newton's error is at most f'' / (2 f') = 1 / (2 Vt) times that step squared; a residual below
+    /// K_SOLVER_RESIDUAL_TOLERANCE ends the solve at most that tolerance over the slope (at least 1) from the root.
     /// @param prepared Receives whether the circuit prepared.
     /// @return The largest ratio of an error to its bound over the sweep.
     double worst_clipper_error_ratio(bool& prepared)
@@ -430,8 +432,9 @@ namespace
             circuit.process_sample(port, std::array<double, 1>{source}, outputs);
 
             const double step = K_SOLVER_STEP_TOLERANCE * (1.0 + std::fabs(outputs[0]));
-            const double bound = step * step / (2.0 * K_THERMAL_VOLTAGE) + 16.0 * kU * (std::fabs(source) + std::fabs(outputs[0]));
             const double error = std::fabs(residual(outputs[0], source)) / slope(outputs[0]);
+            const double bound = step * step / (2.0 * K_THERMAL_VOLTAGE) + K_SOLVER_RESIDUAL_TOLERANCE / slope(outputs[0]) +
+                                 16.0 * kU * (std::fabs(source) + std::fabs(outputs[0]));
             worst = std::max(worst, TestSupport::measure_error(error, 0.0, bound).ratio);
         }
         return worst;

@@ -52,6 +52,22 @@ namespace
     /// @brief The gain error in decibels of the measurement: the input and the output are floats and the filter state is double, so the rms carries 8 u of relative error, and 20 / ln 10 turns it into decibels. One second of settle leaves e^(-1 s / tau) of the start, with tau = Q / (pi f) at most 6 ms at the lowest band, which is below 1e-70.
     const double kMeasurementDb = 8.686 * 8.0 * kU;
 
+    /// @brief Holds the length of the measured window and of the settle before it, in samples: one second.
+    constexpr int K_WINDOW_SAMPLES = 48000;
+
+    /// @brief Returns the gain error in decibels from a window that holds a fractional number of cycles.
+    ///
+    /// Over N samples a sine of A sin(w n + phi) has mean square A^2 / 2 (1 - e) with e = (1 / N) sum cos(2 w n + 2 phi),
+    /// and |sum| is at most |sin(N w) / sin(w)|, so |e| is at most |sin(N w)| / (N |sin(w)|): zero when the window holds
+    /// whole cycles. The input and the output are each such a sine at the same w, and the gain is ten decades of their
+    /// power ratio, so each adds at most 10 / ln 10 times -ln(1 - |e|).
+    double window_leakage_db(double frequency_hz)
+    {
+        const double omega = 2.0 * K_PI * frequency_hz / K_SAMPLE_RATE;
+        const double leak = std::fabs(std::sin(K_WINDOW_SAMPLES * omega)) / (K_WINDOW_SAMPLES * std::fabs(std::sin(omega)));
+        return 2.0 * 10.0 / std::log(10.0) * -std::log(1.0 - leak);
+    }
+
     /// @brief Holds the shape of one equalizer: the centres, the Q of each band and the gain at slider 1.
     struct Bank
     {
@@ -79,7 +95,7 @@ namespace
     {
         const double angular_step = 2.0 * K_PI * frequency_hz / K_SAMPLE_RATE;
 
-        for (int i = 0; i < 48000; ++i)
+        for (int i = 0; i < K_WINDOW_SAMPLES; ++i)
         {
             const float sample = static_cast<float>(std::sin(angular_step * i));
             equalizer.process_sample(sample);
@@ -87,7 +103,7 @@ namespace
 
         double input_sum_squares = 0.0;
         double output_sum_squares = 0.0;
-        for (int i = 48000; i < 96000; ++i)
+        for (int i = K_WINDOW_SAMPLES; i < 2 * K_WINDOW_SAMPLES; ++i)
         {
             const float input_sample = static_cast<float>(std::sin(angular_step * i));
             const float output_sample = equalizer.process_sample(input_sample);
@@ -95,7 +111,7 @@ namespace
             output_sum_squares += static_cast<double>(output_sample) * output_sample;
         }
 
-        return 20.0 * std::log10(std::sqrt(output_sum_squares / 48000.0) / std::sqrt(input_sum_squares / 48000.0));
+        return 20.0 * std::log10(std::sqrt(output_sum_squares / K_WINDOW_SAMPLES) / std::sqrt(input_sum_squares / K_WINDOW_SAMPLES));
     }
 
     /// @brief The magnitude in decibels of one peaking band at one frequency, from the Audio EQ Cookbook's peaking transfer function evaluated on the unit circle.
@@ -190,7 +206,7 @@ TEST_P(Small_GraphicEqualizerSliders, GraphicEqualizerGainIsTheCookbookCascadeAt
 
     EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
         steady_gain_db(equalizer, row.probe_hz), cascade_gain_db(kUniformBank, row.band, row.position, row.probe_hz),
-        kMeasurementDb)));
+        kMeasurementDb + window_leakage_db(row.probe_hz))));
 }
 
 INSTANTIATE_TEST_SUITE_P(Moves, Small_GraphicEqualizerSliders, ::testing::ValuesIn(kSliderRows),
@@ -217,7 +233,8 @@ TEST_P(Small_GraphicEqualizerBandQ, GraphicEqualizerPerBandQShapesOneBandAndLeav
     equalizer.set_band(1, 1.0f);
 
     EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
-        steady_gain_db(equalizer, row.probe_hz), cascade_gain_db(kPerBandQBank, 1, 1.0, row.probe_hz), kMeasurementDb)));
+        steady_gain_db(equalizer, row.probe_hz), cascade_gain_db(kPerBandQBank, 1, 1.0, row.probe_hz),
+        kMeasurementDb + window_leakage_db(row.probe_hz))));
 }
 
 INSTANTIATE_TEST_SUITE_P(Probes, Small_GraphicEqualizerBandQ, ::testing::ValuesIn(kProbeRows),
