@@ -195,7 +195,7 @@ TEST_P(Small_MaterialsReflection, MaterialsReflectionFactorIsTheSquareRootOfWhat
 
     // The function casts the root once to float, from an absorption stored as a float, which moves the root by under half a roundoff: three units bound the cast, the input and the double root.
     EXPECT_TRUE(TestSupport::is_within(
-        TestSupport::measure_relative_error<float>(response.gain[GetParam().band], expected, 3, 1.0)));
+        TestSupport::measure_relative_error<float>(response.gain[GetParam().band], expected, 3)));
 }
 
 INSTANTIATE_TEST_SUITE_P(Cases, Small_MaterialsReflection, ::testing::ValuesIn(kReflectionCases), reflection_name);
