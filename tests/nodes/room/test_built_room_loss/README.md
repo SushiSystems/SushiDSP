@@ -2,7 +2,7 @@
 
 ## `test_motus_reference.cpp`
 
-### `MotusEmptyRoomDecayIsNotShorterThanMeasuredAndAtMostTwiceAsLong`
+### `MotusEmptyRoomDecayIsAtMostTwiceTheMeasured`
 
 `// Two times is a ceiling on the error, not a target.`
 

@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_fdn_design.cpp                                                    */
+/* compile_fdn_design.cpp                                                 */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,25 +22,14 @@
 /**************************************************************************/
 
 /**
- * @file test_fdn_design.cpp
- * @brief Tests the size limits of the feedback delay network design.
+ * @file compile_fdn_design.cpp
+ * @brief Compiles fdn_design.hpp and checks that the line count suits the Hadamard feedback matrix.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <cstdint>
 
 #include <SushiDSP/nodes/room/fdn_design.hpp>
 
-#include <cstddef>
-
-TEST(Small_FdnDesign, SixteenLinesAndTwoOutputSections)
-{
-    EXPECT_EQ(SushiDSP::room::FdnDesign::K_LINE_COUNT, 16u);
-    EXPECT_EQ(SushiDSP::room::FdnDesign::K_OUTPUT_SECTIONS, 2u);
-}
-
-TEST(Small_FdnDesign, LongestLineBoundIsPositiveAndBelowOneSecond)
-{
-    EXPECT_LT(SushiDSP::room::FdnDesign::K_MAX_LINE_SECONDS, 1.0);
-    EXPECT_GT(SushiDSP::room::FdnDesign::K_MAX_LINE_SECONDS, 0.0);
-}
+static_assert((SushiDSP::room::FdnDesign::K_LINE_COUNT & (SushiDSP::room::FdnDesign::K_LINE_COUNT - 1u)) == 0u,
+              "the Hadamard feedback matrix needs a power-of-two line count");

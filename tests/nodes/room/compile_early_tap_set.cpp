@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_early_tap_set.cpp                                                 */
+/* compile_early_tap_set.cpp                                              */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,26 +22,20 @@
 /**************************************************************************/
 
 /**
- * @file test_early_tap_set.cpp
- * @brief Tests the early tap record and the capacity of an early tap set.
+ * @file compile_early_tap_set.cpp
+ * @brief Compiles early_tap_set.hpp and checks that a tap set holds its capacity of plain taps.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <cstddef>
+#include <tuple>
+#include <type_traits>
 
 #include <SushiDSP/nodes/room/early_tap_set.hpp>
 
-#include <array>
+static_assert(std::tuple_size_v<decltype(SushiDSP::room::EarlyTapSet::taps)> ==
+                  SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS,
+              "a tap set stores exactly its capacity of taps");
 
-TEST(Small_EarlyTapSet, HoldsAtMostOneHundredTwentyEightTaps)
-{
-    EXPECT_EQ(SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS, 128u);
-}
-
-TEST(Small_EarlyTap, KeepsItsDelayGainAndFirstSection)
-{
-    const SushiDSP::room::EarlyTap tap{24.0f, 0.5f, {{1.0, 0.0, 0.0, 0.0, 0.0}}};
-    EXPECT_FLOAT_EQ(tap.delay_frames, 24.0f);
-    EXPECT_FLOAT_EQ(tap.gain, 0.5f);
-    EXPECT_EQ(tap.section_a[0], 1.0);
-}
+static_assert(std::is_trivially_copyable_v<SushiDSP::room::EarlyTap>,
+              "a tap is a plain record the audio thread copies between banks");

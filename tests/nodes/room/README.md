@@ -2,7 +2,7 @@
 
 ## `test_ambisonic_encoder.cpp`
 
-### `AmbisonicEncoderIsOrthonormalOverTheSphere`
+### `AmbisonicEncoderSelfProductsAreOneOverTwoOrderPlusOneOverTheSphere`
 
 `// The quadrature is exact here; the residual is rounding.`
 
@@ -23,7 +23,7 @@ path through the 4x12, whose 2 kHz octave the array null pulls down. Measured: 0
 
 ## `test_cabinet_directivity.cpp`
 
-### `CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive`
+### `CabinetDirectivityBeamsAtTwoKilohertz`
 
 `// The 2 kHz band's energy mean reads -15.29 dB.`
 
@@ -32,6 +32,8 @@ k\*a\*sin60 = 3.0958 so the piston is 0.195099 (-14.19 dB), and the array is |co
 0.30 \* 0.866025 / 2)| = 0.046834 (-26.59 dB), together -40.78 dB. The array factor's null sits
 26 Hz above the centre, so the band's energy mean over 1414 to 2828 Hz reads -15.29 dB by the
 1024-point midpoint rule of the same closed form.
+
+### `CabinetDirectivityDoesNotBeamAtOneTwentyFive`
 
 `// The 125 Hz band's energy mean reads -0.49 dB.`
 
@@ -56,7 +58,7 @@ The model samples sixteen points per octave; the test integrates the same closed
 and the two agree within 0.05 dB in every band at every direction tried, 60 degrees off axis,
 15.64 degrees up, and 52.85 degrees up.
 
-### `CabinetDirectivityIndexIsSmallWhereTheConeIsOmnidirectional`
+### `CabinetDirectivityIndexIsUnderOneAndAHalfDecibelsAtOneTwentyFive`
 
 `// The index stays under 1.5 dB at 125 Hz.`
 
@@ -65,7 +67,7 @@ the closed box's rear shelf reads -1.55 dB over the back hemisphere, which is 10
 0.70)) = 0.71 dB of index on its own. Together the index stays under 1.5 dB, and by 2 kHz the
 beam is over 10 dB.
 
-### `CabinetDirectivityFallsSixDecibelsBehindTheBaffleAboveTheStep`
+### `CabinetDirectivityFallsSixDecibelsBehindTheBaffleAtFourKilohertz`
 
 `// Straight behind, only the rear shelf remains.`
 
@@ -127,26 +129,15 @@ made the call renders the same block.
 
 ## `test_eyring_decay.cpp`
 
-### `EyringDecayReproducesTheGaragesSixBandDecay`
+### `EyringDecayReproducesTheRoomsSixBandDecay`
 
-`// V = 60 and S = 98 give these six decay times.`
+`// The garage is V = 60 and S = 98, the bedroom V = 36.4, S = 67 and the block room V = 54, S = 88.6.`
 
-V = 60, S = 98; alpha = (92 concrete + 6 doorway) / 98 per band, m from ISO 9613-1: 1.3415,
-1.3326, 1.1608, 1.1460, 1.1081, 0.8931 s.
-
-### `EyringDecayReproducesTheBedroomsSixBandDecay`
-
-`// V = 36.4 and S = 67 give these six decay times.`
-
-V = 36.4, S = 67; alpha = (14 carpet + 51.5 gypsum + 1.5 glass) / 67 per band: 0.3264, 0.8705,
-1.1542, 0.7307, 0.4281, 0.3565 s.
-
-### `EyringDecayReproducesTheBlockRoomsSixBandDecay`
-
-`// V = 54 and S = 88.6 give these six decay times.`
-
-V = 54, S = 88.6; alpha is the painted block row itself: 0.9292, 1.8860, 1.5476, 1.3051, 0.9826,
-0.9809 s.
+Garage: V = 60, S = 98; alpha = (92 concrete + 6 doorway) / 98 per band, m from ISO 9613-1:
+1.3415, 1.3326, 1.1608, 1.1460, 1.1081, 0.8931 s. Bedroom: V = 36.4, S = 67; alpha = (14 carpet
++ 51.5 gypsum + 1.5 glass) / 67 per band: 0.3264, 0.8705, 1.1542, 0.7307, 0.4281, 0.3565 s.
+Block room: V = 54, S = 88.6; alpha is the painted block row itself: 0.9292, 1.8860, 1.5476,
+1.3051, 0.9826, 0.9809 s.
 
 ### `EyringDecayComputesTheSchroederFrequency`
 
@@ -155,21 +146,23 @@ V = 54, S = 88.6; alpha is the painted block row itself: 0.9292, 1.8860, 1.5476,
 2000 \* sqrt(RT60(500 Hz) / V): garage 2000 \* sqrt(1.1608 / 60) = 278.18 Hz, bedroom 2000 \*
 sqrt(1.1542 / 36.4) = 356.14 Hz, block room 2000 \* sqrt(1.5476 / 54) = 338.58 Hz.
 
-### `EyringDecayDivergesFromSabineOnlyInAnAbsorbentRoom`
+### `EyringDecayDivergesFromSabineByMinusLogOfOneMinusAlphaOverAlpha`
 
 `// Without air, Sabine / Eyring is -ln(1 - a) / a.`
 
-Without the air term the ratio Sabine / Eyring is exactly -ln(1 - a) / a: 1.010 at a = 0.02,
-1.042 at a = 0.0796 and 1.386 at a = 0.5. Both forms below keep the air term, so the 125 Hz band
-is used: there 4 m V is 0.024 m2 against a surface term of at least 1.98 m2, and the three
-ratios still land within 0.002.
+Without the air term the ratio Sabine / Eyring is exactly -ln(1 - a) / a. The rows read the 125
+Hz band of the three reference rooms at their own mean absorption. The air term A = 4 m V moves
+the ratio (E + A) / (s + A) from E / s by under A (E / s - 1) / s, with s = S a and E = -S ln(1 -
+a), and the test's bound is that.
+
+### `EyringDecayAgreesWithSabineWithinFivePercentInAConcreteGarage`
 
 `// The garage's mean absorption never exceeds 0.09.`
 
 The garage's mean absorption never exceeds 0.09, so its Sabine and Eyring decays agree within 5
 % in every band, which is why a concrete garage comes out the same either way.
 
-### `EyringDecayHandlesAFullyAbsorbentRoom`
+### `EyringDecayHandlesAFullyAbsorbentRoomWithZeroDecay`
 
 `// A mean alpha of 1 gives 0 s, not a NaN.`
 

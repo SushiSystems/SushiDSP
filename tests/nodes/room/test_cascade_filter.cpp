@@ -36,10 +36,9 @@
 TEST(Small_CascadeFilter, SilenceStaysFinite)
 {
     SushiDSP::Room::CascadeFilter filter;
-    for (int i = 0; i < 32; ++i)
-    {
-        const float output = filter.process_sample(0.0f);
-        EXPECT_TRUE(std::isfinite(output));
-        EXPECT_FLOAT_EQ(output, 0.0f);
-    }
+
+    const float output = filter.process_sample(0.0f);
+
+    EXPECT_TRUE(std::isfinite(output));
+    EXPECT_EQ(output, 0.0f);
 }

@@ -33,7 +33,9 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <numeric>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
@@ -43,12 +45,11 @@
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
 namespace
 {
+    /// @brief Holds pi.
+    constexpr float K_PI = 3.14159265358979323846f;
+
     /// @brief Holds the sample rate every test runs at.
     constexpr double K_SAMPLE_RATE = 48000.0;
 
@@ -60,6 +61,27 @@ namespace
 
     /// @brief Counts the decoder filters, left ear then right.
     constexpr std::uint32_t K_FILTERS = 2u * K_CHANNELS;
+
+    /// @brief Holds one Ambisonic channel.
+    struct ChannelRow
+    {
+            const char* name;
+            std::uint32_t channel;
+    };
+
+    /// @brief Names a row for gtest.
+    std::string channel_row_name(const ::testing::TestParamInfo<ChannelRow>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Returns the channel numbers zero to fifteen.
+    std::vector<std::uint32_t> all_channels()
+    {
+        std::vector<std::uint32_t> channels(K_CHANNELS);
+        std::iota(channels.begin(), channels.end(), 0u);
+        return channels;
+    }
 
     /// @brief Builds a set whose left-ear decoder filters are deltas at tap 0 for the channels
     /// listed and zero everywhere else, the right ear included.
@@ -119,28 +141,96 @@ namespace
             }
         }
     }
+
+    /// @brief Renders the impulse of @p channels through a fresh decoder on @p set and returns
+    /// the ear outputs and the decoder's latency.
+    std::uint32_t render_through_fresh_decoder(const SushiDSP::room::HrtfSet& set,
+                                               const std::vector<std::uint32_t>& channels,
+                                               std::vector<float>& left, std::vector<float>& right)
+    {
+        SushiDSP::room::BinauralDecoder decoder;
+        decoder.prepare(set, K_SAMPLE_RATE, K_BLOCK);
+        render_impulse(decoder, channels, 1024, left, right);
+        return decoder.latency_frames();
+    }
+
+    /// @brief Expects @p samples to be zero in every frame but @p onset, which holds @p level.
+    void expect_single_impulse(const std::vector<float>& samples, std::size_t onset, float level)
+    {
+        for (std::size_t frame = 0; frame < samples.size(); ++frame)
+        {
+            EXPECT_EQ(samples[frame], frame == onset ? level : 0.0f) << "frame " << frame;
+        }
+    }
+
+    /// @brief Expects every sample of @p samples to be zero.
+    void expect_silent(const std::vector<float>& samples)
+    {
+        for (std::size_t frame = 0; frame < samples.size(); ++frame)
+        {
+            EXPECT_EQ(samples[frame], 0.0f) << "frame " << frame;
+        }
+    }
+
+    /// @brief Expects every sample of @p samples to be finite.
+    void expect_all_finite(const std::vector<float>& samples)
+    {
+        for (const float sample : samples)
+        {
+            EXPECT_TRUE(std::isfinite(sample));
+        }
+    }
+
+    /// @brief Holds sixteen channels of a 220 Hz tone at 0.3 of full scale and the pointer table
+    /// over them.
+    struct RoomToneBlock
+    {
+            /// @brief Stores the channels, 256 frames each.
+            std::array<std::vector<float>, K_CHANNELS> channels;
+
+            /// @brief Stores one pointer per channel.
+            std::array<const float*, K_CHANNELS> inputs{};
+
+            /// @brief Fills every channel with the tone.
+            RoomToneBlock()
+            {
+                for (std::size_t channel = 0; channel < channels.size(); ++channel)
+                {
+                    channels[channel].assign(256, 0.0f);
+                    for (std::size_t i = 0; i < channels[channel].size(); ++i)
+                    {
+                        channels[channel][i] =
+                            0.3f * std::sin(2.0f * K_PI * 220.0f * static_cast<float>(i) / 48000.0f);
+                    }
+                    inputs[channel] = channels[channel].data();
+                }
+            }
+    };
+
+    /// @brief Processes @p blocks blocks of 256 frames of @p tone through @p decoder.
+    void process_blocks(SushiDSP::room::BinauralDecoder& decoder, const RoomToneBlock& tone,
+                        std::vector<float>& left, std::vector<float>& right, int blocks)
+    {
+        for (int block = 0; block < blocks; ++block)
+        {
+            decoder.process(tone.inputs.data(), left.data(), right.data(), 256);
+        }
+    }
+
+    class Small_BinauralDecoderChannel : public ::testing::TestWithParam<ChannelRow>
+    {
+    };
 } // namespace
 
-TEST(Small_BinauralDecoder, BinauralDecoderWithDeltaFiltersPassesChannelZeroThrough)
+TEST(Small_BinauralDecoder, BinauralDecoderWithDeltaFiltersPassesChannelZeroThroughAndLeavesTheRightEarSilent)
 {
-    SushiDSP::room::BinauralDecoder decoder;
-    decoder.prepare(delta_set({0}), K_SAMPLE_RATE, K_BLOCK);
-    ASSERT_TRUE(decoder.ready());
-
     std::vector<float> left;
     std::vector<float> right;
-    render_impulse(decoder, {0}, 1024, left, right);
 
-    const std::uint32_t onset = decoder.latency_frames();
-    EXPECT_EQ(left[onset], 1.0f);
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        if (frame != onset)
-        {
-            EXPECT_EQ(left[frame], 0.0f) << "left frame " << frame;
-        }
-        EXPECT_EQ(right[frame], 0.0f) << "right frame " << frame;
-    }
+    const std::uint32_t onset = render_through_fresh_decoder(delta_set({0}), {0}, left, right);
+
+    expect_single_impulse(left, onset, 1.0f);
+    expect_silent(right);
 }
 
 TEST(Small_BinauralDecoder, BinauralDecoderReportsOnePartitionOfLatency)
@@ -152,35 +242,44 @@ TEST(Small_BinauralDecoder, BinauralDecoderReportsOnePartitionOfLatency)
     EXPECT_EQ(decoder.latency_frames(), 128u);
 }
 
-TEST(Small_BinauralDecoder, BinauralDecoderSumsSixteenChannelsIntoEachEar)
+TEST_P(Small_BinauralDecoderChannel, BinauralDecoderSendsEachChannelIntoTheLeftEar)
 {
-    std::vector<std::uint32_t> all_channels;
-    for (std::uint32_t channel = 0; channel < K_CHANNELS; ++channel)
-    {
-        all_channels.push_back(channel);
-    }
-    const SushiDSP::room::HrtfSet set = delta_set(all_channels);
-
-    for (const std::uint32_t channel : all_channels)
-    {
-        SushiDSP::room::BinauralDecoder decoder;
-        decoder.prepare(set, K_SAMPLE_RATE, K_BLOCK);
-        std::vector<float> left;
-        std::vector<float> right;
-        render_impulse(decoder, {channel}, 256, left, right);
-        EXPECT_EQ(left[decoder.latency_frames()], 1.0f) << "channel " << channel;
-    }
-
-    SushiDSP::room::BinauralDecoder decoder;
-    decoder.prepare(set, K_SAMPLE_RATE, K_BLOCK);
     std::vector<float> left;
     std::vector<float> right;
-    render_impulse(decoder, all_channels, 256, left, right);
-    EXPECT_EQ(left[decoder.latency_frames()], 16.0f);
-    EXPECT_EQ(right[decoder.latency_frames()], 0.0f);
+
+    const std::uint32_t onset =
+        render_through_fresh_decoder(delta_set(all_channels()), {GetParam().channel}, left, right);
+
+    EXPECT_EQ(left[onset], 1.0f);
 }
 
-TEST(Small_BinauralDecoder, BinauralDecoderRefusesASetWithNoDecoder)
+INSTANTIATE_TEST_SUITE_P(Channels, Small_BinauralDecoderChannel,
+                         ::testing::Values(ChannelRow{"Channel0", 0u}, ChannelRow{"Channel1", 1u},
+                                           ChannelRow{"Channel2", 2u}, ChannelRow{"Channel3", 3u},
+                                           ChannelRow{"Channel4", 4u}, ChannelRow{"Channel5", 5u},
+                                           ChannelRow{"Channel6", 6u}, ChannelRow{"Channel7", 7u},
+                                           ChannelRow{"Channel8", 8u}, ChannelRow{"Channel9", 9u},
+                                           ChannelRow{"Channel10", 10u},
+                                           ChannelRow{"Channel11", 11u},
+                                           ChannelRow{"Channel12", 12u},
+                                           ChannelRow{"Channel13", 13u},
+                                           ChannelRow{"Channel14", 14u},
+                                           ChannelRow{"Channel15", 15u}),
+                         channel_row_name);
+
+TEST(Small_BinauralDecoder, BinauralDecoderSumsSixteenChannelsIntoEachEar)
+{
+    std::vector<float> left;
+    std::vector<float> right;
+
+    const std::uint32_t onset =
+        render_through_fresh_decoder(delta_set(all_channels()), all_channels(), left, right);
+
+    EXPECT_EQ(left[onset], 16.0f);
+    EXPECT_EQ(right[onset], 0.0f);
+}
+
+TEST(Small_BinauralDecoder, BinauralDecoderRefusesASetWithNoDecoderAndStaysNotReady)
 {
     SushiDSP::room::BinauralDecoder decoder;
     EXPECT_THROW(decoder.prepare(SushiDSP::room::HrtfSet{}, K_SAMPLE_RATE, 256u),
@@ -193,32 +292,16 @@ TEST(Small_BinauralDecoder, BinauralDecoderResetClearsTheHistory)
 {
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(delta_set({0}), K_SAMPLE_RATE, K_BLOCK);
-
     std::vector<float> left;
     std::vector<float> right;
     render_impulse(decoder, {0}, K_BLOCK, left, right);
     decoder.reset();
 
     render_impulse(decoder, {}, 2048, left, right);
-    for (std::size_t frame = 0; frame < left.size(); ++frame)
-    {
-        EXPECT_EQ(left[frame], 0.0f) << "left frame " << frame;
-        EXPECT_EQ(right[frame], 0.0f) << "right frame " << frame;
-    }
-}
 
-namespace
-{
-    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
-    void fill_room_tone(std::vector<float>& block)
-    {
-        for (std::size_t i = 0; i < block.size(); ++i)
-        {
-            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
-                                       static_cast<float>(i) / 48000.0f);
-        }
-    }
-} // namespace
+    expect_silent(left);
+    expect_silent(right);
+}
 
 TEST(Medium_BinauralDecoder, ProcessPerformsNoHeapAllocation)
 {
@@ -227,30 +310,16 @@ TEST(Medium_BinauralDecoder, ProcessPerformsNoHeapAllocation)
     SushiDSP::room::BinauralDecoder decoder;
     decoder.prepare(set, 48000.0, 256);
     ASSERT_TRUE(decoder.ready());
-
-    std::array<std::vector<float>, SushiDSP::room::BinauralDecoder::K_CHANNELS> channels;
-    std::array<const float*, SushiDSP::room::BinauralDecoder::K_CHANNELS> inputs{};
-    for (std::size_t channel = 0; channel < channels.size(); ++channel)
-    {
-        channels[channel].assign(256, 0.0f);
-        fill_room_tone(channels[channel]);
-        inputs[channel] = channels[channel].data();
-    }
+    const RoomToneBlock tone;
     std::vector<float> left(256, 0.0f);
     std::vector<float> right(256, 0.0f);
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-    for (int block = 0; block < 16; ++block)
-    {
-        decoder.process(inputs.data(), left.data(), right.data(), 256);
-    }
+    process_blocks(decoder, tone, left, right, 16);
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
-    for (std::size_t i = 0; i < left.size(); ++i)
-    {
-        EXPECT_TRUE(std::isfinite(left[i]));
-        EXPECT_TRUE(std::isfinite(right[i]));
-    }
+    expect_all_finite(left);
+    expect_all_finite(right);
 }

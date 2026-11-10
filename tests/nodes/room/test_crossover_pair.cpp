@@ -39,9 +39,7 @@
 #include <SushiDSP/foundation/math/fft.hpp>
 #include <SushiDSP/nodes/room/crossover_pair.hpp>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <support/tolerance.hpp>
 
 namespace
 {
@@ -56,6 +54,24 @@ namespace
 
     /// @brief Holds the crossover the spec's example room puts at 278.2 Hz.
     constexpr double K_CROSSOVER_HZ = 278.2;
+
+    /// @brief Characterised band, in decibels, of the power sum: float rounding and the response's
+    /// tail past 8192 samples are both under 0.001 dB, so 0.01 dB. Kept from the original test.
+    constexpr double K_POWER_SUM_BAND_DB = 0.01;
+
+    /// @brief Characterised band, in decibels, of a level read by direct DFT of the 8192-point
+    /// response at the corner. Kept from the original test.
+    constexpr double K_CORNER_BAND_DB = 0.05;
+
+    /// @brief Characterised band, in decibels, of the passband gain. Kept from the original test.
+    constexpr double K_PASSBAND_BAND_DB = 0.01;
+
+    /// @brief Characterised band, in decibels, of the level two octaves above the corner. Kept
+    /// from the original test.
+    constexpr double K_ROLLOFF_BAND_DB = 0.1;
+
+    /// @brief Counts the frames of silence the reset and bypass checks run.
+    constexpr int K_CHECK_FRAMES = 64;
 
     /// @brief Holds both halves' impulse responses and their sum.
     struct ImpulseResponses
@@ -119,49 +135,154 @@ namespace
         }
         return 10.0 * std::log10(real * real + imaginary * imaginary);
     }
+
+    /// @brief Expects @p computed to be @p reference within @p bound, in decibels.
+    void expect_decibels_near(double computed, double reference, double bound)
+    {
+        EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(computed, reference, bound, 1.0)))
+            << computed << " against " << reference;
+    }
+
+    /// @brief Expects the two halves' powers to sum to one, to within the band, at every bin from
+    /// 20 Hz to 20 kHz.
+    void expect_powers_sum_to_one(const ImpulseResponses& responses)
+    {
+        const std::vector<double> low_db = magnitude_db(responses.low);
+        const std::vector<double> high_db = magnitude_db(responses.high);
+        const double bin_hz = K_SAMPLE_RATE / K_FFT_SIZE;
+        const auto first_bin = static_cast<std::size_t>(std::ceil(20.0 / bin_hz));
+        const auto last_bin = static_cast<std::size_t>(std::floor(20000.0 / bin_hz));
+        for (std::size_t bin = first_bin; bin <= last_bin; ++bin)
+        {
+            const double power = std::pow(10.0, low_db[bin] / 10.0) + std::pow(10.0, high_db[bin] / 10.0);
+            expect_decibels_near(10.0 * std::log10(power), 0.0, K_POWER_SUM_BAND_DB);
+        }
+    }
+
+    /// @brief Returns the closed-form level of the low half of a fourth-order Butterworth at
+    /// @p frequency_hz when the corner is K_CROSSOVER_HZ, in decibels: the bilinear transform
+    /// maps the analogue ratio f / fc to tan(pi f / fs) / tan(pi fc / fs).
+    double butterworth_low_db(double frequency_hz)
+    {
+        const double ratio = std::tan(K_PI * frequency_hz / K_SAMPLE_RATE) /
+                             std::tan(K_PI * K_CROSSOVER_HZ / K_SAMPLE_RATE);
+        return -10.0 * std::log10(1.0 + std::pow(ratio, 8.0));
+    }
+
+    /// @brief Expects the pair, after a reset, to answer silence with exact silence.
+    void expect_silent_after_reset(SushiDSP::room::CrossoverPair& crossover)
+    {
+        float low = 0.0f;
+        float high = 0.0f;
+        for (int frame = 0; frame < K_CHECK_FRAMES; ++frame)
+        {
+            crossover.process_sample(0.0f, low, high);
+            EXPECT_EQ(low, 0.0f) << "frame " << frame;
+            EXPECT_EQ(high, 0.0f) << "frame " << frame;
+        }
+    }
+
+    /// @brief Expects a pair at zero crossover to answer zero low and the input as high.
+    void expect_everything_high(SushiDSP::room::CrossoverPair& crossover)
+    {
+        for (int frame = 0; frame < 256; ++frame)
+        {
+            const float input = static_cast<float>(std::sin(0.37 * frame));
+            float low = 1.0f;
+            float high = 0.0f;
+            crossover.process_sample(input, low, high);
+            EXPECT_EQ(low, 0.0f) << "frame " << frame;
+            EXPECT_EQ(high, input) << "frame " << frame;
+        }
+    }
+
+    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
+    std::vector<float> room_tone()
+    {
+        std::vector<float> block(256);
+        for (std::size_t i = 0; i < block.size(); ++i)
+        {
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(K_PI) * 220.0f * static_cast<float>(i) / 48000.0f);
+        }
+        return block;
+    }
+
+    /// @brief Runs eight blocks through the pair, moving the crossover at blocks four and six, as
+    /// the node does when it adopts a design.
+    void process_blocks_moving_the_crossover(SushiDSP::room::CrossoverPair& pair, const std::vector<float>& input,
+                                             std::vector<float>& low, std::vector<float>& high)
+    {
+        for (int block = 0; block < 8; ++block)
+        {
+            if (block == 4)
+            {
+                pair.set_crossover(48000.0, 356.1);
+            }
+            if (block == 6)
+            {
+                pair.set_crossover(48000.0, 0.0);
+            }
+            for (std::size_t i = 0; i < input.size(); ++i)
+            {
+                pair.process_sample(input[i], low[i], high[i]);
+            }
+        }
+    }
+
+    /// @brief Expects every sample of @p samples to be finite.
+    void expect_all_finite(const std::vector<float>& samples)
+    {
+        for (const float sample : samples)
+        {
+            EXPECT_TRUE(std::isfinite(sample));
+        }
+    }
 } // namespace
 
 TEST(Small_CrossoverPair, CrossoverPairSumsToUnityPowerEverywhere)
 {
     // The pair's powers sum to one at every frequency. See tests/nodes/room/README.md.
-    const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
-    const std::vector<double> low_db = magnitude_db(responses.low);
-    const std::vector<double> high_db = magnitude_db(responses.high);
-    const double bin_hz = K_SAMPLE_RATE / K_FFT_SIZE;
-    const auto first_bin = static_cast<std::size_t>(std::ceil(20.0 / bin_hz));
-    const auto last_bin = static_cast<std::size_t>(std::floor(20000.0 / bin_hz));
-    for (std::size_t bin = first_bin; bin <= last_bin; ++bin)
-    {
-        const double power =
-            std::pow(10.0, low_db[bin] / 10.0) + std::pow(10.0, high_db[bin] / 10.0);
-        EXPECT_NEAR(10.0 * std::log10(power), 0.0, 0.01)
-            << "bin " << bin << " at " << bin * bin_hz << " Hz";
-    }
+    expect_powers_sum_to_one(impulse_responses(K_CROSSOVER_HZ));
 }
 
-TEST(Small_CrossoverPair, CrossoverPairIsMinusThreeDecibelsPerHalfAtTheCrossover)
+TEST(Small_CrossoverPair, CrossoverPairLowHalfIsMinusThreeDecibelsAtTheCrossover)
 {
     // Each half is a fourth-order Butterworth, at half power at its corner: -3.01 dB.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
-    EXPECT_NEAR(magnitude_db_at(responses.low, K_CROSSOVER_HZ), -3.01, 0.05);
-    EXPECT_NEAR(magnitude_db_at(responses.high, K_CROSSOVER_HZ), -3.01, 0.05);
+
+    expect_decibels_near(magnitude_db_at(responses.low, K_CROSSOVER_HZ), 10.0 * std::log10(0.5), K_CORNER_BAND_DB);
+}
+
+TEST(Small_CrossoverPair, CrossoverPairHighHalfIsMinusThreeDecibelsAtTheCrossover)
+{
+    const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
+
+    expect_decibels_near(magnitude_db_at(responses.high, K_CROSSOVER_HZ), 10.0 * std::log10(0.5), K_CORNER_BAND_DB);
 }
 
 TEST(Small_CrossoverPair, CrossoverPairAmplitudeSumPeaksThreeDecibelsAtTheCrossover)
 {
     // The amplitude sum reads +3.01 dB at the corner. See tests/nodes/room/README.md.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
-    EXPECT_NEAR(magnitude_db_at(responses.sum, K_CROSSOVER_HZ), 3.01, 0.05);
+
+    expect_decibels_near(magnitude_db_at(responses.sum, K_CROSSOVER_HZ), 20.0 * std::log10(std::sqrt(2.0)),
+                         K_CORNER_BAND_DB);
+}
+
+TEST(Small_CrossoverPair, CrossoverPairLowHalfHasUnityGainInThePassband)
+{
+    const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
+
+    expect_decibels_near(magnitude_db_at(responses.low, 5.0), 0.0, K_PASSBAND_BAND_DB);
 }
 
 TEST(Small_CrossoverPair, CrossoverPairFallsTwentyFourDecibelsPerOctave)
 {
     // The closed form two octaves up is -48.16 dB. See tests/nodes/room/README.md.
     const ImpulseResponses responses = impulse_responses(K_CROSSOVER_HZ);
-    const double passband_db = magnitude_db_at(responses.low, 5.0);
-    const double two_octaves_up_db = magnitude_db_at(responses.low, 4.0 * K_CROSSOVER_HZ);
-    EXPECT_NEAR(passband_db, 0.0, 0.01);
-    EXPECT_NEAR(two_octaves_up_db - passband_db, -48.16, 0.1);
+
+    expect_decibels_near(magnitude_db_at(responses.low, 4.0 * K_CROSSOVER_HZ),
+                         butterworth_low_db(4.0 * K_CROSSOVER_HZ), K_ROLLOFF_BAND_DB);
 }
 
 TEST(Small_CrossoverPair, CrossoverPairResetClearsItsState)
@@ -172,76 +293,34 @@ TEST(Small_CrossoverPair, CrossoverPairResetClearsItsState)
     float high = 0.0f;
     crossover.process_sample(1.0f, low, high);
     crossover.reset();
-    for (int frame = 0; frame < 64; ++frame)
-    {
-        crossover.process_sample(0.0f, low, high);
-        EXPECT_LT(std::fabs(low), 1e-15f) << "frame " << frame;
-        EXPECT_LT(std::fabs(high), 1e-15f) << "frame " << frame;
-    }
+
+    expect_silent_after_reset(crossover);
 }
 
 TEST(Small_CrossoverPair, CrossoverPairAtZeroCrossoverPassesEverythingHigh)
 {
     SushiDSP::room::CrossoverPair crossover;
     crossover.set_crossover(K_SAMPLE_RATE, 0.0);
-    for (int frame = 0; frame < 256; ++frame)
-    {
-        const float input = static_cast<float>(std::sin(0.37 * frame));
-        float low = 1.0f;
-        float high = 0.0f;
-        crossover.process_sample(input, low, high);
-        EXPECT_EQ(low, 0.0f) << "frame " << frame;
-        EXPECT_EQ(high, input) << "frame " << frame;
-    }
-}
 
-namespace
-{
-    /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
-    void fill_room_tone(std::vector<float>& block)
-    {
-        for (std::size_t i = 0; i < block.size(); ++i)
-        {
-            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
-                                       static_cast<float>(i) / 48000.0f);
-        }
-    }
-} // namespace
+    expect_everything_high(crossover);
+}
 
 TEST(Medium_CrossoverPair, ProcessPerformsNoHeapAllocation)
 {
     // set_crossover is arithmetic on the audio thread. See tests/nodes/room/README.md.
     SushiDSP::room::CrossoverPair pair;
-    std::vector<float> input(256);
-    fill_room_tone(input);
+    const std::vector<float> input = room_tone();
     std::vector<float> low(256, 0.0f);
     std::vector<float> high(256, 0.0f);
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
     pair.set_crossover(48000.0, 278.18);
-    for (int block = 0; block < 8; ++block)
-    {
-        if (block == 4)
-        {
-            pair.set_crossover(48000.0, 356.1);
-        }
-        if (block == 6)
-        {
-            pair.set_crossover(48000.0, 0.0);
-        }
-        for (std::size_t i = 0; i < input.size(); ++i)
-        {
-            pair.process_sample(input[i], low[i], high[i]);
-        }
-    }
+    process_blocks_moving_the_crossover(pair, input, low, high);
     pair.reset();
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
-    for (std::size_t i = 0; i < low.size(); ++i)
-    {
-        EXPECT_TRUE(std::isfinite(low[i]));
-        EXPECT_TRUE(std::isfinite(high[i]));
-    }
+    expect_all_finite(low);
+    expect_all_finite(high);
 }

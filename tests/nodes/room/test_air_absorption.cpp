@@ -35,50 +35,155 @@
 
 #include <SushiDSP/nodes/room/air_absorption.hpp>
 
-TEST(Small_AirAbsorption, AirAbsorptionMatchesIso9613AtTwentyDegreesAndFiftyPercent)
+#include <support/tolerance.hpp>
+
+namespace
 {
-    const std::array<double, 6> expected = {0.00044, 0.00131, 0.00273, 0.00466, 0.00989, 0.02967};
-    for (std::size_t band = 0; band < 6u; ++band)
+    using SushiDSP::room::AirAbsorption;
+    using SushiDSP::room::BandResponse;
+
+    /// @brief Characterised band: the ISO 9613-1 table is printed to three digits and the
+    /// module's own fit follows the standard's closed form, so a reading may sit this far,
+    /// relative to the table value, from the printed figure. Kept from the original test.
+    constexpr double K_TABLE_RELATIVE_BAND = 0.05;
+
+    /// @brief Characterised band of the 8 kHz row, in decibels per metre. Kept from the
+    /// original test.
+    constexpr double K_EIGHT_KILOHERTZ_BAND = 0.006;
+
+    /// @brief Gives the decibels-per-neper factor, 10 log10(e), from its definition.
+    constexpr double K_DECIBELS_PER_NEPER = 4.342944819032518;
+
+    /// @brief Holds one tabulated attenuation of ISO 9613-1 at 20 degrees C and 50 percent.
+    struct AttenuationRow
     {
-        const double computed = SushiDSP::room::AirAbsorption::attenuation_db_per_metre(
-            SushiDSP::room::K_BAND_CENTRES_HZ[band]);
-        EXPECT_NEAR(computed, expected[band], 0.05 * expected[band]) << "band " << band;
+            const char* name;
+            double frequency_hz;
+            double db_per_metre;
+            double band;
+    };
+
+    /// @brief Holds one band of the energy coefficient with its tabulated decibel figure.
+    struct CoefficientRow
+    {
+            const char* name;
+            std::size_t band;
+            double db_per_metre;
+    };
+
+    /// @brief Holds the index of one band.
+    struct BandRow
+    {
+            const char* name;
+            std::size_t band;
+    };
+
+    /// @brief Names a row for gtest.
+    template <typename Row>
+    std::string row_name(const ::testing::TestParamInfo<Row>& info)
+    {
+        return info.param.name;
     }
-    EXPECT_NEAR(SushiDSP::room::AirAbsorption::attenuation_db_per_metre(8000.0), 0.1053, 0.006);
+
+    /// @brief Expects @p computed to be @p reference within @p band.
+    void expect_within(double computed, double reference, double band)
+    {
+        EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(computed, reference, band, 1.0)));
+    }
+
+    class Small_AirAbsorptionTable : public ::testing::TestWithParam<AttenuationRow>
+    {
+    };
+
+    class Small_AirAbsorptionCoefficient : public ::testing::TestWithParam<CoefficientRow>
+    {
+    };
+
+    class Small_AirAbsorptionBand : public ::testing::TestWithParam<BandRow>
+    {
+    };
+} // namespace
+
+TEST_P(Small_AirAbsorptionTable, AirAbsorptionMatchesIso9613AtTwentyDegreesAndFiftyPercent)
+{
+    const AttenuationRow row = GetParam();
+
+    expect_within(AirAbsorption::attenuation_db_per_metre(row.frequency_hz), row.db_per_metre, row.band);
 }
 
-TEST(Small_AirAbsorption, AirAbsorptionEnergyCoefficientIsTheDecibelFigureOverFourPointThreeFourThree)
+INSTANTIATE_TEST_SUITE_P(
+    Bands, Small_AirAbsorptionTable,
+    ::testing::Values(
+        AttenuationRow{"Hz125", 125.0, 0.00044, K_TABLE_RELATIVE_BAND * 0.00044},
+        AttenuationRow{"Hz250", 250.0, 0.00131, K_TABLE_RELATIVE_BAND * 0.00131},
+        AttenuationRow{"Hz500", 500.0, 0.00273, K_TABLE_RELATIVE_BAND * 0.00273},
+        AttenuationRow{"Hz1000", 1000.0, 0.00466, K_TABLE_RELATIVE_BAND * 0.00466},
+        AttenuationRow{"Hz2000", 2000.0, 0.00989, K_TABLE_RELATIVE_BAND * 0.00989},
+        AttenuationRow{"Hz4000", 4000.0, 0.02967, K_TABLE_RELATIVE_BAND * 0.02967},
+        AttenuationRow{"Hz8000", 8000.0, 0.1053, K_EIGHT_KILOHERTZ_BAND}),
+    row_name<AttenuationRow>);
+
+TEST_P(Small_AirAbsorptionCoefficient, AirAbsorptionEnergyCoefficientIsTheTabulatedDecibelFigureOverFourPointThreeFourThree)
 {
-    const double four_kilohertz = SushiDSP::room::AirAbsorption::attenuation_db_per_metre(4000.0);
-    EXPECT_NEAR(SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(5u),
-                four_kilohertz / (10.0 * std::log10(std::exp(1.0))), 1e-9);
-    EXPECT_NEAR(SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(5u), 6.831e-3, 3.5e-4);
-    EXPECT_NEAR(SushiDSP::room::AirAbsorption::energy_coefficient_per_metre(0u), 1.01e-4, 5.1e-6);
+    const CoefficientRow row = GetParam();
+    const double reference = row.db_per_metre / K_DECIBELS_PER_NEPER;
+
+    expect_within(AirAbsorption::energy_coefficient_per_metre(row.band), reference,
+                  K_TABLE_RELATIVE_BAND * reference);
 }
 
-TEST(Small_AirAbsorption, AirAbsorptionOverThirtyMetresCostsUnderOneDecibel)
+INSTANTIATE_TEST_SUITE_P(Bands, Small_AirAbsorptionCoefficient,
+                         ::testing::Values(CoefficientRow{"Hz125", 0u, 0.00044},
+                                           CoefficientRow{"Hz4000", 5u, 0.02967}),
+                         row_name<CoefficientRow>);
+
+TEST(Small_AirAbsorption, AirAbsorptionOverThirtyMetresAtFourKilohertzCostsUnderOneDecibel)
 {
-    const SushiDSP::room::BandResponse thirty = SushiDSP::room::AirAbsorption::over_path(30.0);
-    EXPECT_NEAR(thirty.decibels()[5], -0.89f, 0.05f); // 30 * 0.02967
-    EXPECT_GT(thirty.decibels()[0], -0.02f);
+    const BandResponse thirty = AirAbsorption::over_path(30.0);
+
+    // Thirty metres at 0.02967 dB per metre is 0.8901 dB.
+    const double reference = -30.0 * 0.02967;
+    expect_within(thirty.decibels()[5], reference, K_TABLE_RELATIVE_BAND * -reference);
+}
+
+TEST(Small_AirAbsorption, AirAbsorptionOverThirtyMetresAtOneTwentyFiveHertzCostsUnderTwoHundredthsOfADecibel)
+{
+    const BandResponse thirty = AirAbsorption::over_path(30.0);
+
+    // Thirty metres at 0.00044 dB per metre is 0.0132 dB.
+    const double reference = -30.0 * 0.00044;
+    expect_within(thirty.decibels()[0], reference, K_TABLE_RELATIVE_BAND * -reference);
 }
 
 TEST(Small_AirAbsorption, AirAbsorptionOverZeroMetresIsUnity)
 {
-    const SushiDSP::room::BandResponse none = SushiDSP::room::AirAbsorption::over_path(0.0);
+    const BandResponse none = AirAbsorption::over_path(0.0);
+
     for (std::size_t band = 0; band < 6u; ++band)
     {
         EXPECT_FLOAT_EQ(none.gain[band], 1.0f);
     }
 }
 
-TEST(Small_AirAbsorption, AirAbsorptionGrowsWithFrequencyAndDistance)
+TEST_P(Small_AirAbsorptionBand, AirAbsorptionGrowsWithFrequency)
 {
-    const SushiDSP::room::BandResponse ten = SushiDSP::room::AirAbsorption::over_path(10.0);
-    const SushiDSP::room::BandResponse twenty = SushiDSP::room::AirAbsorption::over_path(20.0);
-    for (std::size_t band = 1; band < 6u; ++band)
-    {
-        EXPECT_LE(ten.gain[band], ten.gain[band - 1u]);
-        EXPECT_LT(twenty.gain[band], ten.gain[band]);
-    }
+    const std::size_t band = GetParam().band;
+    const BandResponse ten = AirAbsorption::over_path(10.0);
+
+    EXPECT_LE(ten.gain[band], ten.gain[band - 1u]);
+}
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_AirAbsorptionBand,
+                         ::testing::Values(BandRow{"Hz250", 1u}, BandRow{"Hz500", 2u},
+                                           BandRow{"Hz1000", 3u}, BandRow{"Hz2000", 4u},
+                                           BandRow{"Hz4000", 5u}),
+                         row_name<BandRow>);
+
+TEST_P(Small_AirAbsorptionBand, AirAbsorptionGrowsWithDistance)
+{
+    const std::size_t band = GetParam().band;
+    const BandResponse ten = AirAbsorption::over_path(10.0);
+    const BandResponse twenty = AirAbsorption::over_path(20.0);
+
+    EXPECT_LT(twenty.gain[band], ten.gain[band]);
 }

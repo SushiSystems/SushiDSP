@@ -32,27 +32,90 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <string>
 
 #include <SushiDSP/nodes/room/cabinet_directivity.hpp>
 
+#include <support/tolerance.hpp>
+
 namespace
 {
+    using SushiDSP::room::BandResponse;
+    using SushiDSP::room::CabinetDirectivity;
+
     /// @brief Holds pi.
     constexpr double K_PI = 3.14159265358979323846;
-} // namespace
 
-TEST(Small_CabinetDirectivity, CabinetDirectivityIsUnityOnAxis)
-{
-    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
-    const SushiDSP::room::BandResponse on_axis = cabinet.gain_for(0.0, 0.0);
-    for (std::size_t band = 0; band < 6u; ++band)
+    /// @brief Bounds the on-axis gain: the energy mean of sixteen ones is exactly one in
+    /// double, and the cast to float rounds once; four roundings leave room for the square root.
+    constexpr double K_ON_AXIS_BOUND = 4.0 * TestSupport::unit_roundoff<float>();
+
+    /// @brief Characterised band, in decibels: the model samples sixteen points per octave and
+    /// the closed form below 1024, and the two agree to this at every direction tried. Kept
+    /// from the original test, as is its use for the printed octave means.
+    constexpr double K_OCTAVE_MEAN_BAND_DB = 0.05;
+
+    /// @brief Characterised band, in decibels, of the printed rear-shelf levels. Kept from the
+    /// original test.
+    constexpr double K_REAR_BAND_DB = 0.05;
+
+    /// @brief Bounds the rounding of the ascending series of 2 J1(x) / x in double: the largest term at x = 10 is
+    /// near 565 and each term rounds by u, 565 u is 6e-14.
+    constexpr double K_SERIES_BOUND = 1.0e-10;
+
+    /// @brief Holds one argument of the piston factor with the value the Bessel table gives.
+    struct PistonRow
     {
-        EXPECT_NEAR(on_axis.gain[band], 1.0f, 1e-6f);
-    }
-}
+            const char* name;
+            double x;
+            double factor;
+            double bound;
+    };
 
-namespace
-{
+    /// @brief Holds one direction with the left and up sines its closed form needs.
+    struct DirectionRow
+    {
+            const char* name;
+            double azimuth_rad;
+            double elevation_rad;
+    };
+
+    /// @brief Holds one azimuth.
+    struct AzimuthRow
+    {
+            const char* name;
+            double azimuth_rad;
+    };
+
+    /// @brief Holds one band index.
+    struct BandRow
+    {
+            const char* name;
+            std::size_t band;
+    };
+
+    /// @brief Names a row for gtest.
+    template <typename Row>
+    std::string row_name(const ::testing::TestParamInfo<Row>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Returns 2 J1(x) / x from its ascending series, 40 terms, for |x| below 12 where
+    /// the series converges to double: sum over k of (-1)^k (x / 2)^(2k) / (k! (k + 1)!).
+    double series_piston_factor(double x)
+    {
+        const double half_squared = 0.25 * x * x;
+        double term = 1.0;
+        double sum = term;
+        for (int index = 1; index < 40; ++index)
+        {
+            term *= -half_squared / (static_cast<double>(index) * static_cast<double>(index + 1));
+            sum += term;
+        }
+        return sum;
+    }
+
     /// @brief Returns the 4x12 closed form at one frequency in the front hemisphere: the piston
     /// factor at the shrinking effective radius times the two-by-two array factor.
     double closed_form(double frequency_hz, double left, double up)
@@ -62,8 +125,7 @@ namespace
         const double ratio = frequency_hz / g.breakup_frequency_hz;
         const double radius = g.cone_radius_m / std::sqrt(1.0 + ratio * ratio);
         const double sine = std::sqrt(left * left + up * up);
-        const double piston =
-            SushiDSP::room::CabinetDirectivity::piston_factor(wavenumber * radius * sine);
+        const double piston = series_piston_factor(wavenumber * radius * sine);
         const double half_spacing = 0.5 * wavenumber * g.driver_spacing_m;
         return std::fabs(piston) * std::fabs(std::cos(half_spacing * left)) *
                std::fabs(std::cos(half_spacing * up));
@@ -84,89 +146,194 @@ namespace
         }
         return 10.0 * std::log10(power_sum / points);
     }
+
+    /// @brief Returns the cabinet's gain per band for the 4x12 in decibels at a direction.
+    std::array<float, SushiDSP::room::K_BAND_COUNT> decibels_at(double azimuth, double elevation)
+    {
+        const CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
+        return cabinet.gain_for(azimuth, elevation).decibels();
+    }
+
+    /// @brief Expects @p computed to be @p reference within @p bound, in decibels.
+    void expect_decibels_near(double computed, double reference, double bound)
+    {
+        EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(computed, reference, bound, 1.0)))
+            << computed << " against " << reference;
+    }
+
+    /// @brief Expects every band of the 4x12's gain at a direction to match the octave mean of
+    /// the closed form at that direction.
+    void expect_matches_octave_means(double azimuth, double elevation)
+    {
+        const double left = std::cos(elevation) * std::sin(azimuth);
+        const double up = std::sin(elevation);
+        const std::array<float, SushiDSP::room::K_BAND_COUNT> got = decibels_at(azimuth, elevation);
+        for (std::size_t band = 0; band < got.size(); ++band)
+        {
+            expect_decibels_near(got[band], octave_mean_db(band, left, up), K_OCTAVE_MEAN_BAND_DB);
+        }
+    }
+
+    /// @brief Expects the 4x12's gain at @p azimuth to equal its gain at minus @p azimuth, band
+    /// by band, to one float rounding.
+    void expect_mirror_symmetric(double azimuth)
+    {
+        const CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
+        const BandResponse left = cabinet.gain_for(azimuth, 0.0);
+        const BandResponse right = cabinet.gain_for(-azimuth, 0.0);
+        for (std::size_t band = 0; band < SushiDSP::room::K_BAND_COUNT; ++band)
+        {
+            EXPECT_TRUE(TestSupport::is_within(
+                TestSupport::measure_relative_error<float>(left.gain[band], right.gain[band], 1u)))
+                << "band " << band;
+        }
+    }
+
+    class Small_CabinetDirectivityPiston : public ::testing::TestWithParam<PistonRow>
+    {
+    };
+
+    class Small_CabinetDirectivityOctaveMean : public ::testing::TestWithParam<DirectionRow>
+    {
+    };
+
+    class Small_CabinetDirectivitySymmetry : public ::testing::TestWithParam<AzimuthRow>
+    {
+    };
+
+    class Small_CabinetDirectivityIndex : public ::testing::TestWithParam<BandRow>
+    {
+    };
 } // namespace
 
-TEST(Small_CabinetDirectivity, CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive)
+TEST_P(Small_CabinetDirectivityPiston, CabinetDirectivityPistonFactorMatchesTheBesselTable)
 {
-    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
-    const SushiDSP::room::BandResponse off = cabinet.gain_for(K_PI / 3.0, 0.0); // 60 degrees
+    const PistonRow row = GetParam();
+
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_error(CabinetDirectivity::piston_factor(row.x), row.factor, row.bound)));
+}
+
+/*
+ * Abramowitz and Stegun table 9.1 gives J1 to ten digits: J1(1) = 0.4400505857, J1(2) =
+ * 0.5767248078, J1(5) = -0.3275791376 and J1(10) = 0.04347274617, so 2 J1(x) / x is 0.8801011714,
+ * 0.5767248078, -0.1310316550 and 0.008694549234, each good to the table's half digit. The first
+ * zero of J1 is 3.8317059702; the argument is given to seven digits, which moves the factor by
+ * 3e-8 times 2 J1'(x) / x = 6.3e-9, so that row takes 1e-8.
+ */
+INSTANTIATE_TEST_SUITE_P(Arguments, Small_CabinetDirectivityPiston,
+                         ::testing::Values(PistonRow{"Zero", 0.0, 1.0, 0.0},
+                                           PistonRow{"One", 1.0, 0.8801011714, K_SERIES_BOUND},
+                                           PistonRow{"Two", 2.0, 0.5767248078, K_SERIES_BOUND},
+                                           PistonRow{"FirstZero", 3.831706, 0.0, 1.0e-8},
+                                           PistonRow{"Five", 5.0, -0.1310316550, K_SERIES_BOUND},
+                                           PistonRow{"Ten", 10.0, 0.008694549234, K_SERIES_BOUND}),
+                         row_name<PistonRow>);
+
+TEST(Small_CabinetDirectivity, CabinetDirectivityPistonFactorIsEvenInItsArgument)
+{
+    EXPECT_EQ(CabinetDirectivity::piston_factor(-1.0), CabinetDirectivity::piston_factor(1.0));
+}
+
+TEST(Small_CabinetDirectivity, CabinetDirectivityIsUnityOnAxis)
+{
+    const CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
+
+    const BandResponse on_axis = cabinet.gain_for(0.0, 0.0);
+
+    for (std::size_t band = 0; band < SushiDSP::room::K_BAND_COUNT; ++band)
+    {
+        EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(on_axis.gain[band], 1.0, K_ON_AXIS_BOUND)))
+            << "band " << band;
+    }
+}
+
+TEST(Small_CabinetDirectivity, CabinetDirectivityBeamsAtTwoKilohertz)
+{
     // The 2 kHz band's energy mean reads -15.29 dB. See tests/nodes/room/README.md.
-    EXPECT_NEAR(off.decibels()[4], -15.29f, 0.05f);
+    expect_decibels_near(decibels_at(K_PI / 3.0, 0.0)[4], -15.29, K_OCTAVE_MEAN_BAND_DB);
+}
+
+TEST(Small_CabinetDirectivity, CabinetDirectivityDoesNotBeamAtOneTwentyFive)
+{
     // The 125 Hz band's energy mean reads -0.49 dB. See tests/nodes/room/README.md.
-    EXPECT_NEAR(off.decibels()[0], -0.49f, 0.05f);
+    expect_decibels_near(decibels_at(K_PI / 3.0, 0.0)[0], -0.49, K_OCTAVE_MEAN_BAND_DB);
 }
 
 TEST(Small_CabinetDirectivity, CabinetDirectivityAveragesTheArrayNullOverTheOctave)
 {
     // The row null at 2120 Hz averages to -11.48 dB. See tests/nodes/room/README.md.
-    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
-    const double elevation = std::atan2(0.7, 2.5);
-    const std::array<float, 6> direct = cabinet.gain_for(0.0, elevation).decibels();
-    EXPECT_NEAR(20.0 * std::log10(closed_form(2000.0, 0.0, std::sin(elevation))), -22.05, 0.02);
-    EXPECT_NEAR(direct[4], -11.48f, 0.05f);
-    EXPECT_NEAR(direct[5], -3.49f, 0.05f);
+    const std::array<float, SushiDSP::room::K_BAND_COUNT> direct = decibels_at(0.0, std::atan2(0.7, 2.5));
+
+    expect_decibels_near(direct[4], -11.48, K_OCTAVE_MEAN_BAND_DB);
+    expect_decibels_near(direct[5], -3.49, K_OCTAVE_MEAN_BAND_DB);
 }
 
-TEST(Small_CabinetDirectivity, CabinetDirectivityMatchesTheOctaveMeanOfItsClosedForm)
+TEST_P(Small_CabinetDirectivityOctaveMean, CabinetDirectivityMatchesTheOctaveMeanOfItsClosedForm)
 {
     // Sixteen points per octave match 1024 within 0.05 dB. See tests/nodes/room/README.md.
-    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
-    for (const double elevation : {0.0, std::atan2(0.7, 2.5), std::atan2(3.3, 2.5)})
-    {
-        const double azimuth = elevation == 0.0 ? K_PI / 3.0 : 0.0;
-        const double left = std::cos(elevation) * std::sin(azimuth);
-        const double up = std::sin(elevation);
-        const std::array<float, 6> got = cabinet.gain_for(azimuth, elevation).decibels();
-        for (std::size_t band = 0; band < 6u; ++band)
-        {
-            EXPECT_NEAR(got[band], octave_mean_db(band, left, up), 0.05)
-                << "elevation " << elevation << " band " << band;
-        }
-    }
+    const DirectionRow row = GetParam();
+
+    expect_matches_octave_means(row.azimuth_rad, row.elevation_rad);
 }
 
-TEST(Small_CabinetDirectivity, CabinetDirectivityPistonFactorMatchesTheBesselSeries)
-{
-    EXPECT_NEAR(SushiDSP::room::CabinetDirectivity::piston_factor(0.0), 1.0, 1e-12);
-    EXPECT_NEAR(SushiDSP::room::CabinetDirectivity::piston_factor(1.0), 0.880101, 1e-6);
-    EXPECT_NEAR(SushiDSP::room::CabinetDirectivity::piston_factor(3.831706), 0.0, 1e-4);
-    EXPECT_NEAR(SushiDSP::room::CabinetDirectivity::piston_factor(-1.0), 0.880101, 1e-6);
-}
+INSTANTIATE_TEST_SUITE_P(Directions, Small_CabinetDirectivityOctaveMean,
+                         ::testing::Values(DirectionRow{"SixtyDegreesOffAxis", K_PI / 3.0, 0.0},
+                                           DirectionRow{"DirectPathUp", 0.0, std::atan2(0.7, 2.5)},
+                                           DirectionRow{"SteeplyUp", 0.0, std::atan2(3.3, 2.5)}),
+                         row_name<DirectionRow>);
 
-TEST(Small_CabinetDirectivity, CabinetDirectivityIndexIsSmallWhereTheConeIsOmnidirectional)
+TEST(Small_CabinetDirectivity, CabinetDirectivityIndexIsUnderOneAndAHalfDecibelsAtOneTwentyFive)
 {
     // The index stays under 1.5 dB at 125 Hz. See tests/nodes/room/README.md.
-    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
-    const std::array<float, 6> index = cabinet.directivity_index_db();
-    EXPECT_GT(index[0], 0.5f);
-    EXPECT_LT(index[0], 1.5f);
-    EXPECT_GT(index[4], 10.0f);
-    for (std::size_t band = 1; band < 6u; ++band)
-    {
-        EXPECT_GT(index[band], index[band - 1u]);
-    }
+    const CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
+
+    const float index = cabinet.directivity_index_db()[0];
+
+    EXPECT_GT(index, 0.5f);
+    EXPECT_LT(index, 1.5f);
 }
 
-TEST(Small_CabinetDirectivity, CabinetDirectivityIsSymmetricLeftAndRight)
+TEST(Small_CabinetDirectivity, CabinetDirectivityIndexIsOverTenDecibelsAtTwoKilohertz)
 {
-    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
-    for (const double azimuth : {0.2, 0.7, 1.4, 2.4})
-    {
-        const SushiDSP::room::BandResponse left = cabinet.gain_for(azimuth, 0.0);
-        const SushiDSP::room::BandResponse right = cabinet.gain_for(-azimuth, 0.0);
-        for (std::size_t band = 0; band < 6u; ++band)
-        {
-            EXPECT_NEAR(left.gain[band], right.gain[band], 1e-6f) << "azimuth " << azimuth;
-        }
-    }
+    const CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
+
+    EXPECT_GT(cabinet.directivity_index_db()[4], 10.0f);
 }
 
-TEST(Small_CabinetDirectivity, CabinetDirectivityFallsSixDecibelsBehindTheBaffleAboveTheStep)
+TEST_P(Small_CabinetDirectivityIndex, CabinetDirectivityIndexRisesWithBand)
+{
+    const std::size_t band = GetParam().band;
+    const CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
+
+    const std::array<float, SushiDSP::room::K_BAND_COUNT> index = cabinet.directivity_index_db();
+
+    EXPECT_GT(index[band], index[band - 1u]);
+}
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_CabinetDirectivityIndex,
+                         ::testing::Values(BandRow{"Hz250", 1u}, BandRow{"Hz500", 2u},
+                                           BandRow{"Hz1000", 3u}, BandRow{"Hz2000", 4u},
+                                           BandRow{"Hz4000", 5u}),
+                         row_name<BandRow>);
+
+TEST_P(Small_CabinetDirectivitySymmetry, CabinetDirectivityIsSymmetricLeftAndRight)
+{
+    expect_mirror_symmetric(GetParam().azimuth_rad);
+}
+
+INSTANTIATE_TEST_SUITE_P(Azimuths, Small_CabinetDirectivitySymmetry,
+                         ::testing::Values(AzimuthRow{"Rad0Point2", 0.2}, AzimuthRow{"Rad0Point7", 0.7},
+                                           AzimuthRow{"Rad1Point4", 1.4}, AzimuthRow{"Rad2Point4", 2.4}),
+                         row_name<AzimuthRow>);
+
+TEST(Small_CabinetDirectivity, CabinetDirectivityFallsSixDecibelsBehindTheBaffleAtFourKilohertz)
 {
     // Straight behind, only the rear shelf remains. See tests/nodes/room/README.md.
-    const SushiDSP::room::CabinetDirectivity cabinet(SushiDSP::room::K_CABINET4X12);
-    const std::array<float, 6> behind = cabinet.gain_for(K_PI, 0.0).decibels();
-    EXPECT_NEAR(behind[5], -6.00f, 0.05f);
-    EXPECT_NEAR(behind[0], -1.55f, 0.05f);
-    EXPECT_NEAR(behind[5] - behind[0], -4.45f, 0.10f);
+    expect_decibels_near(decibels_at(K_PI, 0.0)[5], -6.00, K_REAR_BAND_DB);
+}
+
+TEST(Small_CabinetDirectivity, CabinetDirectivityFallsOnePointFiveFiveDecibelsBehindTheBaffleBelowTheStep)
+{
+    expect_decibels_near(decibels_at(K_PI, 0.0)[0], -1.55, K_REAR_BAND_DB);
 }
