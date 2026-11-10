@@ -18,12 +18,11 @@ decode was run.
 1000 \* 48000 / 44100 = 1088.43..., and the 44.1 kHz song the cache was measured on is 9093888
 frames long, which is 9898109 frames at 48 kHz.
 
-### `ResampleChannelsDoublesTheRateAndKeepsTheWave`
+### `ResampleChannelsKeepsTheWaveAwayFromTheEnds` and `ResampleChannelsKeepsTheWaveWithinTheEndErrorAtTheEnds`
 
-`// The ends read silence on one side and stay within 0.035.`
-
-Away from the ends the converted tone sits on the analytic sine to within 4e-6; the first and
-last samples read a filter that has silence on one side of it, and stay within 0.035.
+The interior bound is two stopband levels of the kernel (-100.477 dB) plus two float roundings; the
+tone is measured at 4e-6. The first and last samples read a filter that has silence on one side of
+it, and stay within the characterised 0.035, which no derivation backs.
 
 ## `test_rig_controller.cpp`
 

@@ -27,6 +27,7 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <vector>
@@ -34,6 +35,7 @@
 #include <gtest/gtest.h>
 
 #include "channel_resampler.hpp"
+#include "support/tolerance.hpp"
 
 namespace
 {
@@ -97,21 +99,65 @@ TEST(Small_ChannelResampler, ResampleChannelsReturnsTheInputWhenTheRatesMatch)
     EXPECT_EQ(SushiDSP::host::resample_channels(channels, 0.0, 48000.0), channels);
 }
 
-TEST(Small_ChannelResampler, ResampleChannelsDoublesTheRateAndKeepsTheWave)
+namespace
 {
-    const std::vector<float> tone = sine(400, 500.0, 8000.0);
-    const std::vector<std::vector<float>> channels{tone, tone};
+    constexpr double K_SOURCE_RATE = 8000.0;
+    constexpr double K_DOUBLED_RATE = 16000.0;
+    constexpr double K_TONE_HZ = 500.0;
+    constexpr std::size_t K_TONE_FRAMES = 400;
 
-    const std::vector<std::vector<float>> converted =
-        SushiDSP::host::resample_channels(channels, 8000.0, 16000.0);
+    /// The kernel's stopband level, 10^(-100.477 / 20) as K_RESAMPLER_STOPBAND_DECIBELS states it.
+    /// The tone sits at 0.0625 of the source rate, inside the 0.4 passband edge, and a Kaiser
+    /// design of that stopband holds its passband ripple to the same level, so the interior of
+    /// the output differs from the analytic sine by the ripple plus the image, two stopband
+    /// levels, plus two float roundings of a sample of magnitude one.
+    const double K_INTERIOR_BOUND = 2.0 * std::pow(10.0, -100.477 / 20.0) + 2.0 * TestSupport::unit_roundoff<float>();
+
+    /// The error at the first and last samples, where the filter has silence on one side. It is
+    /// characterised from the converter as measured, 0.035, and no derivation backs it.
+    constexpr double K_END_ERROR_CHARACTERISED = 0.035;
+
+    /// The samples skipped at each end of the interior check; 100 is the skip the converter was measured with.
+    constexpr std::size_t K_EDGE_SKIP = 100;
+
+    /// @brief Converts two copies of the test tone from 8 kHz to 16 kHz.
+    std::vector<std::vector<float>> doubled()
+    {
+        const std::vector<float> tone = sine(K_TONE_FRAMES, K_TONE_HZ, K_SOURCE_RATE);
+        return SushiDSP::host::resample_channels({tone, tone}, K_SOURCE_RATE, K_DOUBLED_RATE);
+    }
+} // namespace
+
+TEST(Small_ChannelResampler, ResampleChannelsDoublesTheLengthOfEveryChannel)
+{
+    const std::vector<std::vector<float>> converted = doubled();
 
     ASSERT_EQ(converted.size(), 2u);
-    EXPECT_EQ(converted[0].size(), 800u);
-    EXPECT_EQ(converted[0], converted[1]);
+    EXPECT_EQ(converted[0].size(), 2 * K_TONE_FRAMES);
+}
 
-    // The ends read silence on one side and stay within 0.035. See tests/applications/host_gui/README.md.
-    EXPECT_LT(worst_error(converted[0], 500.0, 16000.0, 100), 1.0e-3);
-    EXPECT_LT(worst_error(converted[0], 500.0, 16000.0, 0), 0.05);
+TEST(Small_ChannelResampler, ResampleChannelsConvertsEveryChannelTheSameWay)
+{
+    const std::vector<std::vector<float>> converted = doubled();
+
+    ASSERT_EQ(converted.size(), 2u);
+    EXPECT_EQ(converted[0], converted[1]);
+}
+
+TEST(Small_ChannelResampler, ResampleChannelsKeepsTheWaveAwayFromTheEnds)
+{
+    const std::vector<std::vector<float>> converted = doubled();
+
+    ASSERT_FALSE(converted.empty());
+    EXPECT_LT(worst_error(converted[0], K_TONE_HZ, K_DOUBLED_RATE, K_EDGE_SKIP), K_INTERIOR_BOUND);
+}
+
+TEST(Small_ChannelResampler, ResampleChannelsKeepsTheWaveWithinTheEndErrorAtTheEnds)
+{
+    const std::vector<std::vector<float>> converted = doubled();
+
+    ASSERT_FALSE(converted.empty());
+    EXPECT_LT(worst_error(converted[0], K_TONE_HZ, K_DOUBLED_RATE, 0), K_END_ERROR_CHARACTERISED);
 }
 
 TEST(Small_ChannelResampler, ResampleChannelsAcceptsAnEmptyInput)
