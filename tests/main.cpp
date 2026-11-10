@@ -36,15 +36,24 @@
 
 namespace
 {
-    /// @brief Reports whether a suite name starts with a size: Small_, Medium_ or Large_.
-    bool has_size_prefix(const char* suite)
+    /// @brief Reports whether a part of a suite name starts with a size: Small_, Medium_ or Large_.
+    bool starts_with_size(const char* part)
     {
         for (const char* prefix : {"Small_", "Medium_", "Large_"})
         {
-            if (std::strncmp(suite, prefix, std::strlen(prefix)) == 0)
+            if (std::strncmp(part, prefix, std::strlen(prefix)) == 0)
                 return true;
         }
         return false;
+    }
+
+    /// @brief Reports whether a suite name carries a size, as `Small_X`, `Rows/Small_X` or `Small_X/0`.
+    bool has_size_prefix(const char* suite)
+    {
+        if (starts_with_size(suite))
+            return true;
+        const char* slash = std::strchr(suite, '/');
+        return slash != nullptr && starts_with_size(slash + 1);
     }
 
     /// @brief Prints every suite whose name carries no size.
