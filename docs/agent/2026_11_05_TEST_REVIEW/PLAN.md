@@ -58,10 +58,8 @@ Each item is a record or a ruling that was not applied as it is written. The job
 until it is. Owner marks an item whose shape the owner reserves. On 2026-11-10 the owner approved
 the owner-reserved items as ports with in-memory adapters beside the production code.
 
-- **M1.** Decision 1208 for every group but
-  `SincResampler`: `Resampler` and `ResamplerRoundTrip` need their bounds re-derived,
-  `FrequencyResponse` and `AliasFloor` need a sweep-length parameter on `frequency_response()`,
-  a public interface (owner), and the nodes and circuits groups were not shrunk (RW-97).
+- **M1.** Decision 1208 for `Medium_AliasFloor.UnoversampledTanhIsPoor`: `alias_floor()` has a fixed
+  one-second settle and no length to shorten, so the case is unshrunk at 0.115 s (RW-101).
 
 Applied on 2026-11-10: M13 (decision 110, `EnvironmentReader` on the SushiDSP side;
 `apply_log_level_setting` has no production caller yet), M20 (decision 300, `CabinetLog`), M31

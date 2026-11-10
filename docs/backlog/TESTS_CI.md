@@ -9,7 +9,7 @@
 | RW-85 | P3 | open | Derive the amplitude band of the half-speed track player tone test | TrackPlayerAtHalfSpeedKeepsTheToneAmplitude holds a derived bound, not the 0.01 band |  | `docs/agent/2026_11_05_TEST_REVIEW/REPORT.md` | 2026-11-10 |
 | RW-86 | P3 | open | Derive the image rejection floor of the half-speed vari-rate reader test | VariRateReaderAtHalfSpeedKeepsTheSourceToneImageDown holds a derived floor, not 80 dB |  | `docs/agent/2026_11_05_TEST_REVIEW/REPORT.md` | 2026-11-10 |
 | RW-90 | P2 | open | Run the test shards and confirm every case runs once | A full sd test run executes each case in exactly one shard and test_budget.py reads the shard XML. |  | `cmake/SushiDSPTests.cmake` | 2026-11-10 |
-| RW-97 | P2 | open | Shrink the remaining decision-1208 medium groups | Resampler, ResamplerRoundTrip, FrequencyResponse, AliasFloor and the nodes and circuits groups fit their label with derived bounds |  |  | 2026-11-10 |
+| RW-101 | P3 | open | Give alias_floor a settle length so UnoversampledTanhIsPoor can shrink | alias_floor takes a settle length defaulting to one second and UnoversampledTanhIsPoor runs Small_ with a derived bound |  |  | 2026-11-10 |
 
 ## Known issues
 
