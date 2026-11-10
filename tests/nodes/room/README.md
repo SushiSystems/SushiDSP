@@ -458,45 +458,74 @@ has already reduced; the design's gain follows that arithmetic to two float roun
 
 ## `test_microphone_model.cpp`
 
-### `MicrophoneModelCardioidAtFiveCentimetresGainsFifteenPointFiveDecibels`
+Every figure worked out by hand is held to half a unit of its last typed digit, the most a figure
+rounded to those digits can sit from the exact value, plus the float roundoff where the model
+returns floats.
+
+### `CardioidGainsTheWorkedOutDecibelsOverTheFarFieldAtOneHundredHertz`
 
 `// At 100 Hz the two distances differ by 15.47 dB.`
 
 Spec section 8.1 states its 15.5 dB at 100 Hz, which is not a band centre. At 100 Hz the boost
 is 10.9637 at 5 cm and 1.0164 at 3 m: 0.5 + 0.5 \* 10.9637 = 5.9819 (15.54 dB) against 1.0082
-(0.07 dB), a difference of 15.47 dB.
+(0.07 dB), a difference of 15.47 dB. At 30 cm the difference is 3.67 dB.
 
-`// At 125 Hz the two distances differ by 13.75 dB.`
+### `CardioidAtThirtyCentimetresGainsThreePointSevenFourDecibelsAtOneHundredHertz`
+
+`// At 100 Hz and 30 cm the capsule gains 3.74 dB.`
+
+At 100 Hz, 0.5 + 0.5 \* 2.07634 = 1.53817, which is 3.74 dB over the far-field value of 1.
+
+### `ModelGainAtTheFirstBandIsTheWorkedOutDecibels`
+
+`// At 125 Hz and 5 cm the model reads 13.80 dB.`
 
 Band 0 is 125 Hz: the boost is 8.7915 at 5 cm and 1.01054 at 3 m, so the model reads 0.5 + 0.5
-\* 8.7915 = 4.8957 (13.80 dB) against 1.00527 (0.046 dB), 13.75 dB apart.
+\* 8.7915 = 4.8957 (13.80 dB) against 1.00527 (0.046 dB), 13.75 dB apart. At 30 cm the boost is
+1.76612, so 0.5 + 0.5 \* 1.76612 = 1.38306 (2.82 dB), 2.77 dB over the capsule at 3 m.
+`ModelGainOverTheFarFieldIsTheWorkedOutDecibels` holds the differences.
 
-### `MicrophoneModelProximityBoostIsTheSphericalWaveTerm`
+### `ProximityBoostIsTheSphericalWaveTerm`
 
 `// sqrt(1 + 10.9180^2) = 10.9637 at 100 Hz and 5 cm.`
 
 f_p = c / (2 pi r) is 1091.8 Hz at 5 cm and 182.0 Hz at 30 cm. 343 / (2 pi \* 100 \* 0.05) =
-10.9180, sqrt(1 + 119.204) = 10.9637.
+10.9180, sqrt(1 + 119.204) = 10.9637; at 30 cm 1.81967 gives 2.07634; at 1 kHz and 3 m 0.018197
+gives 1.000166.
 
-### `MicrophoneModelCardioidAtThirtyCentimetresGainsThreePointSevenDecibels`
+### `FigureEightSideReadsAsTheDecibelFloorBand`
 
-`// At 100 Hz and 30 cm the capsule gains 3.74 dB.`
-
-At 100 Hz, 0.5 + 0.5 \* 2.07634 = 1.53817, which is 3.74 dB over the far-field value of 1;
-against the same capsule at 3 m (0.07 dB) the difference is 3.67 dB.
-
-`// At 125 Hz and 30 cm the capsule gains 2.82 dB.`
-
-Band 0, 125 Hz: the boost is 1.76612 at 30 cm, so 0.5 + 0.5 \* 1.76612 = 1.38306 (2.82 dB), 2.77
-dB over the capsule at 3 m.
-
-### `MicrophoneModelFigureEightRejectsNinetyDegreesByFortyDecibels`
-
-`// The pattern term floors at K_DECIBEL_FLOOR, never a NaN.`
+`// The pattern term floors at K_DECIBEL_FLOOR.`
 
 cos(pi/2) is 6.1e-17 in double, so the pattern term is of that order and the decibel conversion
-floors it at K_DECIBEL_FLOOR; no band may be a NaN and every band is at least 40 dB below the same
-capsule on axis.
+floors it at K_DECIBEL_FLOOR in every band. `FigureEightSideIsNeverANaN` holds the gains
+themselves, since the conversion floors a NaN as well, and
+`FigureEightSideGainIsTheResidueOfCosineOfAQuarterTurn` holds each gain under that residue times
+the largest boost, the 125 Hz one at 1 m.
+
+### `FigureEightRejectsNinetyDegreesByAtLeastFortyDecibels`
+
+Every band at the side is at least 40 dB below the same capsule on axis.
+
+### `OmniGainIsUnityAtEveryBand`
+
+An omni's pressure share is 1, so the gradient term is zero and the gain is exactly 1 at any
+incidence and distance.
+
+### `AppliesItsOnAxisCurveAtEveryDistanceOffAxis`
+
+The coloured cardioid reads the curve's decibels above the flat one in each band, at 0.3 rad
+off axis and at three distances. The error is held to the float roundoff of the two gains and of
+the difference.
+
+### `PressureShareIsTheDocumentedOne`
+
+The shares 1, 0.5, 0.366 and 0 of the header, compared exactly.
+
+### `FindsEveryRowByItsOwnKey`
+
+The table's own key finds its own row. `NamesItsTransducerAndItsCitation` holds that each row
+carries a name, a transducer and a citation.
 
 ## `test_modal_bank.cpp`
 
