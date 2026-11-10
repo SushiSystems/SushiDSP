@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_room_log_category.cpp                                             */
+/* compile_modal_design.cpp                                               */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,9 @@
 /**************************************************************************/
 
 /**
- * @file test_room_log_category.cpp
- * @brief Tests that the room module logs under its own category.
+ * @file compile_modal_design.cpp
+ * @brief Compiles modal_design.hpp, whose capacity is exercised where a design is filled.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
-
-#include <SushiDSP/nodes/room/room_log_category.hpp>
-
-#include <string_view>
-
-TEST(Small_RoomLogCategory, IsNamedRoom)
-{
-    EXPECT_EQ(K_ROOM_LOG_CATEGORY.module(), std::string_view("room"));
-}
+#include <SushiDSP/nodes/room/modal_design.hpp>

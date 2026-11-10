@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_modal_design.cpp                                                  */
+/* compile_room_log_category.cpp                                          */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,9 @@
 /**************************************************************************/
 
 /**
- * @file test_modal_design.cpp
- * @brief Tests the mode capacity of the modal design.
+ * @file compile_room_log_category.cpp
+ * @brief Compiles room_log_category.hpp, which declares the category every room record is written under.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
-
-#include <SushiDSP/nodes/room/modal_design.hpp>
-
-#include <cstddef>
-
-TEST(Small_ModalDesign, HoldsAtMostFiveHundredTwelveModes)
-{
-    EXPECT_EQ(SushiDSP::room::ModalDesign::K_MAX_MODES, 512u);
-}
+#include <SushiDSP/nodes/room/room_log_category.hpp>

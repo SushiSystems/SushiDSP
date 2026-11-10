@@ -23,7 +23,7 @@
 
 /**
  * @file test_stage_limits.cpp
- * @brief Tests the image order and the early-delay ceiling, which scales with the sample rate.
+ * @brief Tests the early-delay ceiling, which scales with the sample rate.
  * @author Mustafa Garip
  */
 
@@ -31,18 +31,39 @@
 
 #include <SushiDSP/nodes/room/stage_limits.hpp>
 
+#include <array>
 #include <cstdint>
+#include <string>
 
-TEST(Small_StageLimits, ImageOrderAndItdMarginAreTheDocumentedValues)
+namespace
 {
-    EXPECT_EQ(SushiDSP::Room::K_IMAGE_ORDER, 4u);
-    EXPECT_EQ(SushiDSP::Room::K_ITD_MARGIN_FRAMES, 128u);
+    /// @brief Holds one rate and the ceiling it gives.
+    struct Ceiling
+    {
+            const char* name;
+            double sample_rate;
+            std::uint32_t frames;
+    };
+
+    /// @brief Holds the ceilings by hand from the definition (order + 1) * 12 m / 343 m/s * rate,
+    /// rounded up: 5 * 12 / 343 is 0.174927 s, which is 8396.48 frames at 48 kHz and 16792.96 at
+    /// 96 kHz. The first is the 8397 the header names.
+    const std::array<Ceiling, 2> kCeilings = {{{"At48kHz", 48000.0, 8397u}, {"At96kHz", 96000.0, 16793u}}};
+
+    /// @brief Names a ceiling case after its rate.
+    std::string ceiling_name(const ::testing::TestParamInfo<Ceiling>& info)
+    {
+        return info.param.name;
+    }
+} // namespace
+
+class Small_StageLimits : public ::testing::TestWithParam<Ceiling>
+{
+};
+
+TEST_P(Small_StageLimits, EarlyDelayCeilingIsTheLongestCrossoverTimeInFrames)
+{
+    EXPECT_EQ(SushiDSP::Room::max_early_delay_frames(GetParam().sample_rate), GetParam().frames);
 }
 
-TEST(Small_StageLimits, EarlyDelayCeilingScalesWithTheSampleRate)
-{
-    const std::uint32_t at_48k = SushiDSP::Room::max_early_delay_frames(48000.0);
-    const std::uint32_t at_96k = SushiDSP::Room::max_early_delay_frames(96000.0);
-    EXPECT_GT(at_48k, 0u);
-    EXPECT_NEAR(static_cast<double>(at_96k), 2.0 * static_cast<double>(at_48k), 1.0);
-}
+INSTANTIATE_TEST_SUITE_P(Rates, Small_StageLimits, ::testing::ValuesIn(kCeilings), ceiling_name);

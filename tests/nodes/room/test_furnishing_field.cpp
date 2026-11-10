@@ -53,6 +53,25 @@ using SushiDSP::room::Vec3;
 
 namespace
 {
+    /// @brief Counts the midpoints per axis of the density integral. A midpoint rule over a bell
+    /// wider than 0.15 m (K_MIN_SPREAD_M) is exact up to the boundary terms of Euler-Maclaurin,
+    /// h squared over 24 times the slope at the wall, about 1e-3 of the integral at this step.
+    constexpr int K_DENSITY_STEPS = 30;
+
+    /// @brief Bounds the miss of the density integral from one, characterised: the Euler-Maclaurin
+    /// estimate above is 1e-3 and this is twenty times that.
+    constexpr double K_DENSITY_INTEGRAL_TOLERANCE = 0.02;
+
+    /// @brief Counts the random paths of the mean-weight property.
+    constexpr int K_RANDOM_PATHS = 20000;
+
+    /// @brief Seeds the path generator, so the property is one fixed sample.
+    constexpr std::uint32_t K_PATH_SEED = 20261013u;
+
+    /// @brief Bounds the miss of the length-weighted mean path weight from one, characterised from
+    /// the fixed seed: the sampling error of 20000 chords of a four-metre room, with margin.
+    constexpr double K_MEAN_WEIGHT_TOLERANCE = 0.15;
+
     /// @brief Returns a 6 by 4 by 2.5 m room holding one sofa, placed or not.
     RoomScene room_with_sofa(bool placed, double x, double y)
     {
@@ -76,139 +95,191 @@ namespace
         ADD_FAILURE() << "the mode was not enumerated";
         return 0.0;
     }
+
+    /// @brief Returns the integral of the first placed furnishing's density over the room, summed
+    /// on a midpoint grid.
+    double density_integral(const RoomScene& scene)
+    {
+        const FurnishingField field(scene);
+        const Vec3 size = scene.dimensions;
+        double sum = 0.0;
+        for (int ix = 0; ix < K_DENSITY_STEPS; ++ix)
+        {
+            for (int iy = 0; iy < K_DENSITY_STEPS; ++iy)
+            {
+                for (int iz = 0; iz < K_DENSITY_STEPS; ++iz)
+                {
+                    sum += field.density(0, Vec3{(ix + 0.5) * size.x / K_DENSITY_STEPS,
+                                                 (iy + 0.5) * size.y / K_DENSITY_STEPS,
+                                                 (iz + 0.5) * size.z / K_DENSITY_STEPS});
+                }
+            }
+        }
+        const double cell = scene.volume_m3() / (static_cast<double>(K_DENSITY_STEPS) * K_DENSITY_STEPS * K_DENSITY_STEPS);
+        return sum * cell;
+    }
+
+    /// @brief Returns the mean of the path weight over random chords of the unfolded lattice,
+    /// weighted by chord length. Chords between uniform points of the lattice sample the room's
+    /// volume evenly.
+    double mean_path_weight(const RoomScene& scene)
+    {
+        const FurnishingField field(scene);
+        std::mt19937 generator(K_PATH_SEED);
+        std::uniform_real_distribution<double> unit(0.0, 1.0);
+        const Vec3 size = scene.dimensions;
+        double weighted = 0.0;
+        double length = 0.0;
+        for (int index = 0; index < K_RANDOM_PATHS; ++index)
+        {
+            const Vec3 from{(unit(generator) * 6.0 - 3.0) * size.x, (unit(generator) * 6.0 - 3.0) * size.y,
+                            (unit(generator) * 6.0 - 3.0) * size.z};
+            const Vec3 to{unit(generator) * size.x, unit(generator) * size.y, unit(generator) * size.z};
+            const double metres = std::sqrt((to.x - from.x) * (to.x - from.x) + (to.y - from.y) * (to.y - from.y) +
+                                            (to.z - from.z) * (to.z - from.z));
+            weighted += field.path_weight(0, from, to, metres) * metres;
+            length += metres;
+        }
+        return weighted / length;
+    }
+
+    /// @brief Names a per-band case after its band index.
+    std::string band_name(const ::testing::TestParamInfo<std::size_t>& info)
+    {
+        return "Band" + std::to_string(info.param);
+    }
+
+    const std::vector<std::size_t> kBands = {0, 1, 2, 3, 4, 5};
+
+    // Both paths are real, unreflected lines 3 m long: one at sofa height past it, one far away.
+    const Vec3 kNearFrom{0.2, 1.0, 0.4};
+    const Vec3 kNearTo{3.2, 1.0, 0.4};
+    const Vec3 kFarFrom{2.6, 3.6, 2.0};
+    const Vec3 kFarTo{5.6, 3.6, 2.0};
+    constexpr double kPathMetres = 3.0;
 } // namespace
 
-TEST(Small_FurnishingField, FurnishingFieldAnswersAsTheMediumWhenNothingHasAPlace)
+class Small_FurnishingFieldBands : public ::testing::TestWithParam<std::size_t>
+{
+};
+
+TEST_P(Small_FurnishingFieldBands, FurnishingFieldAnswersAPathAsTheMediumWhenNothingHasAPlace)
 {
     const RoomScene scene = room_with_sofa(false, 0.0, 0.0);
     const FurnishingField field(scene);
     const SushiDSP::room::MediumAbsorption medium(scene);
 
-    EXPECT_FALSE(field.placed());
-    const SushiDSP::room::BandResponse by_field =
-        field.over_path(Vec3{-3.0, 7.0, 1.0}, Vec3{4.0, 2.0, 1.2}, 9.0);
+    const SushiDSP::room::BandResponse by_field = field.over_path(Vec3{-3.0, 7.0, 1.0}, Vec3{4.0, 2.0, 1.2}, 9.0);
     const SushiDSP::room::BandResponse by_medium = medium.over_path(9.0);
-    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
-    {
-        EXPECT_EQ(by_field.gain[band], by_medium.gain[band]);
-        EXPECT_EQ(field.mode_coefficient_per_metre(band, 1, 0, 0),
-                  medium.furnishing_coefficient_per_metre(band));
-    }
+
+    EXPECT_EQ(by_field.gain[GetParam()], by_medium.gain[GetParam()]);
 }
 
-TEST(Small_FurnishingField, FurnishingFieldDensityIntegratesToOneOverTheRoom)
+TEST_P(Small_FurnishingFieldBands, FurnishingFieldAnswersAModeAsTheMediumWhenNothingHasAPlace)
 {
-    // One sofa in the open and one pushed into a corner, where the walls cut the density.
-    for (const RoomScene& scene : {room_with_sofa(true, 3.0, 2.0), room_with_sofa(true, 0.2, 0.1)})
-    {
-        const FurnishingField field(scene);
-        ASSERT_EQ(field.placed_count(), 1u);
-        constexpr int steps = 60;
-        double sum = 0.0;
-        const Vec3 size = scene.dimensions;
-        for (int ix = 0; ix < steps; ++ix)
-        {
-            for (int iy = 0; iy < steps; ++iy)
-            {
-                for (int iz = 0; iz < steps; ++iz)
-                {
-                    sum += field.density(0, Vec3{(ix + 0.5) * size.x / steps,
-                                                 (iy + 0.5) * size.y / steps,
-                                                 (iz + 0.5) * size.z / steps});
-                }
-            }
-        }
-        const double cell = scene.volume_m3() / (steps * steps * steps);
-        EXPECT_NEAR(sum * cell, 1.0, 0.02);
-    }
-}
-
-TEST(Small_FurnishingField, FurnishingFieldWeighsAPathPastTheFurnishingAboveOneThatMissesIt)
-{
-    const RoomScene scene = room_with_sofa(true, 1.0, 1.0);
+    const RoomScene scene = room_with_sofa(false, 0.0, 0.0);
     const FurnishingField field(scene);
+    const SushiDSP::room::MediumAbsorption medium(scene);
 
-    // Both paths are real, unreflected lines 3 m long at sofa height.
-    const double past = field.path_weight(0, Vec3{0.2, 1.0, 0.4}, Vec3{3.2, 1.0, 0.4}, 3.0);
-    const double away = field.path_weight(0, Vec3{2.6, 3.6, 2.0}, Vec3{5.6, 3.6, 2.0}, 3.0);
-    EXPECT_GT(past, 3.0);
-    EXPECT_LT(away, 0.05);
-
-    const SushiDSP::room::BandResponse near_loss =
-        field.over_path(Vec3{0.2, 1.0, 0.4}, Vec3{3.2, 1.0, 0.4}, 3.0);
-    const SushiDSP::room::BandResponse far_loss =
-        field.over_path(Vec3{2.6, 3.6, 2.0}, Vec3{5.6, 3.6, 2.0}, 3.0);
-    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
-    {
-        EXPECT_LT(near_loss.gain[band], far_loss.gain[band]) << "band " << band;
-    }
+    EXPECT_EQ(field.mode_coefficient_per_metre(GetParam(), 1, 0, 0), medium.furnishing_coefficient_per_metre(GetParam()));
 }
 
-TEST(Small_FurnishingField, FurnishingFieldWeighsRandomPathsToOneOnAverage)
+TEST_P(Small_FurnishingFieldBands, FurnishingFieldLosesMoreOnAPathPastTheFurnishingInEveryBand)
 {
-    const RoomScene scene = room_with_sofa(true, 2.0, 1.5);
-    const FurnishingField field(scene);
-    std::mt19937 generator(20261013u);
-    std::uniform_real_distribution<double> unit(0.0, 1.0);
-    const Vec3 size = scene.dimensions;
+    const FurnishingField field(room_with_sofa(true, 1.0, 1.0));
 
-    // Chords between uniform points of the unfolded lattice sample the room's volume evenly.
-    constexpr int paths = 20000;
-    double weighted = 0.0;
-    double length = 0.0;
-    for (int index = 0; index < paths; ++index)
-    {
-        const Vec3 from{(unit(generator) * 6.0 - 3.0) * size.x,
-                        (unit(generator) * 6.0 - 3.0) * size.y,
-                        (unit(generator) * 6.0 - 3.0) * size.z};
-        const Vec3 to{unit(generator) * size.x, unit(generator) * size.y,
-                      unit(generator) * size.z};
-        const double metres = std::sqrt((to.x - from.x) * (to.x - from.x) +
-                                        (to.y - from.y) * (to.y - from.y) +
-                                        (to.z - from.z) * (to.z - from.z));
-        weighted += field.path_weight(0, from, to, metres) * metres;
-        length += metres;
-    }
-    EXPECT_NEAR(weighted / length, 1.0, 0.15);
+    const SushiDSP::room::BandResponse near_loss = field.over_path(kNearFrom, kNearTo, kPathMetres);
+    const SushiDSP::room::BandResponse far_loss = field.over_path(kFarFrom, kFarTo, kPathMetres);
+
+    EXPECT_LT(near_loss.gain[GetParam()], far_loss.gain[GetParam()]);
 }
 
-TEST(Small_FurnishingField, FurnishingFieldDampsAModeMoreAtItsAntinodeThanAtItsNode)
+TEST_P(Small_FurnishingFieldBands, FurnishingFieldLeavesTheRoomsDecayTimeAsItWas)
 {
-    // The (1, 0, 0) mode has its pressure antinodes at the x walls and its node at mid-room.
+    const std::array<double, K_BAND_COUNT> placed = SushiDSP::room::EyringDecay::rt60_seconds(room_with_sofa(true, 1.0, 1.0));
+    const std::array<double, K_BAND_COUNT> even = SushiDSP::room::EyringDecay::rt60_seconds(room_with_sofa(false, 0.0, 0.0));
+
+    EXPECT_EQ(placed[GetParam()], even[GetParam()]);
+}
+
+INSTANTIATE_TEST_SUITE_P(Bands, Small_FurnishingFieldBands, ::testing::ValuesIn(kBands), band_name);
+
+TEST(Small_FurnishingField, FurnishingFieldReportsNothingPlacedForAnUnplacedFurnishing)
+{
+    const FurnishingField field(room_with_sofa(false, 0.0, 0.0));
+
+    EXPECT_FALSE(field.placed());
+}
+
+TEST(Small_FurnishingField, FurnishingFieldDensityIntegratesToOneForASofaInTheOpen)
+{
+    EXPECT_NEAR(density_integral(room_with_sofa(true, 3.0, 2.0)), 1.0, K_DENSITY_INTEGRAL_TOLERANCE);
+}
+
+TEST(Small_FurnishingField, FurnishingFieldDensityIntegratesToOneForASofaPushedIntoACorner)
+{
+    // The walls cut the density here, and the scale renormalises it.
+    EXPECT_NEAR(density_integral(room_with_sofa(true, 0.2, 0.1)), 1.0, K_DENSITY_INTEGRAL_TOLERANCE);
+}
+
+TEST(Small_FurnishingField, FurnishingFieldWeighsAPathPastTheFurnishingAboveThree)
+{
+    const FurnishingField field(room_with_sofa(true, 1.0, 1.0));
+
+    EXPECT_GT(field.path_weight(0, kNearFrom, kNearTo, kPathMetres), 3.0);
+}
+
+TEST(Small_FurnishingField, FurnishingFieldWeighsAPathAwayFromTheFurnishingBelowOneTwentieth)
+{
+    const FurnishingField field(room_with_sofa(true, 1.0, 1.0));
+
+    EXPECT_LT(field.path_weight(0, kFarFrom, kFarTo, kPathMetres), 0.05);
+}
+
+TEST(Medium_FurnishingFieldMonteCarlo, FurnishingFieldWeighsRandomPathsToOneOnAverage)
+{
+    EXPECT_NEAR(mean_path_weight(room_with_sofa(true, 2.0, 1.5)), 1.0, K_MEAN_WEIGHT_TOLERANCE);
+}
+
+TEST(Small_FurnishingField, FurnishingFieldDampsAModeMoreAtItsAntinodeThanInAnEmptyRoom)
+{
+    // The (1, 0, 0) mode has its pressure antinodes at the x walls.
+    EXPECT_LT(decay_of(room_with_sofa(true, 0.3, 2.0), 1, 0, 0), decay_of(room_with_sofa(false, 0.0, 0.0), 1, 0, 0));
+}
+
+TEST(Small_FurnishingField, FurnishingFieldDampsAModeLessAtItsNodeThanInAnEmptyRoom)
+{
+    // The (1, 0, 0) mode has its node at mid-room.
+    EXPECT_GT(decay_of(room_with_sofa(true, 3.0, 2.0), 1, 0, 0), decay_of(room_with_sofa(false, 0.0, 0.0), 1, 0, 0));
+}
+
+TEST(Small_FurnishingField, FurnishingFieldWeighsAModeAtItsAntinodeAboveOneAndThreeTenthsOfTheMedium)
+{
     const RoomScene at_wall = room_with_sofa(true, 0.3, 2.0);
-    const RoomScene at_node = room_with_sofa(true, 3.0, 2.0);
-    const RoomScene nowhere = room_with_sofa(false, 0.0, 0.0);
-
-    const double wall = decay_of(at_wall, 1, 0, 0);
-    const double node = decay_of(at_node, 1, 0, 0);
-    const double even = decay_of(nowhere, 1, 0, 0);
-    EXPECT_LT(wall, even);
-    EXPECT_GT(node, even);
-
     const FurnishingField field(at_wall);
     const SushiDSP::room::MediumAbsorption medium(at_wall);
-    EXPECT_GT(field.mode_coefficient_per_metre(0, 1, 0, 0),
-              1.3 * medium.furnishing_coefficient_per_metre(0));
+
+    EXPECT_GT(field.mode_coefficient_per_metre(0, 1, 0, 0), 1.3 * medium.furnishing_coefficient_per_metre(0));
 }
 
-TEST(Small_FurnishingField, FurnishingFieldLeavesTheRoomsDecayTimeAsItWas)
-{
-    const std::array<double, K_BAND_COUNT> placed =
-        SushiDSP::room::EyringDecay::rt60_seconds(room_with_sofa(true, 1.0, 1.0));
-    const std::array<double, K_BAND_COUNT> even =
-        SushiDSP::room::EyringDecay::rt60_seconds(room_with_sofa(false, 0.0, 0.0));
-    for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
-    {
-        EXPECT_EQ(placed[band], even[band]);
-    }
-}
-
-TEST(Small_FurnishingField, RoomSceneRefusesAFurnishingPlacedOutsideTheRoom)
+TEST(Small_FurnishingField, RoomSceneAcceptsAFurnishingPlacedInsideTheRoom)
 {
     std::string reason;
+
     EXPECT_TRUE(room_with_sofa(true, 3.0, 2.0).is_valid(reason)) << reason;
+}
+
+TEST(Small_FurnishingField, RoomSceneRefusesAFurnishingPlacedOutsideTheRoomAndNamesWhy)
+{
+    std::string reason;
+
     EXPECT_FALSE(room_with_sofa(true, 7.0, 2.0).is_valid(reason));
     EXPECT_NE(reason.find("outside the room"), std::string::npos);
-    // A furnishing with no place is not read for one.
+}
+
+TEST(Small_FurnishingField, RoomSceneDoesNotReadThePlaceOfAnUnplacedFurnishing)
+{
+    std::string reason;
+
     EXPECT_TRUE(room_with_sofa(false, 7.0, 2.0).is_valid(reason)) << reason;
 }

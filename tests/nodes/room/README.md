@@ -201,7 +201,7 @@ the barycentric weights are the coordinates' magnitudes over their sum.
 dx = 2.5 on every path but the two x images; dz = 0.7 on every path but the floor (1.7) and the
 ceiling (3.3); dy = 4.0 on the two y images; dx = 5.5 and 6.5 on the two x images.
 
-### `ImageSourceSolverPlacesTheFirstOrderArrivalsExactly`
+### `ImageSourceSolverPlacesTheFirstOrderArrivalExactly`
 
 `// The two y images share one arrival.`
 
@@ -211,7 +211,7 @@ times 48000 / 343 that is 363.3098, 423.0778, 579.3654, 667.3326, 667.3326, 775.
 914.8805 frames. At order 4 t_c is 1749.27 frames and all seven survive; the two y images share
 one arrival, so the lookup asks for a pair there and a single tap elsewhere.
 
-### `ImageSourceSolverCutsTheFirstOrderSetAtItsOwnHandover`
+### `ImageSourceSolverCutsTheFirstOrderSetAtFiveTaps`
 
 `// At order 1 t_c is 699.708 frames, so five taps remain.`
 
@@ -225,7 +225,7 @@ At order 1 t_c is 2 \* 2.5 / 343 = 0.0145773 s, 699.708 frames, so the -x and +x
 Order 4 enumerates 129 images and the far corners of the lattice arrive after t_c, so the set is
 smaller than the lattice.
 
-### `ImageSourceSolverHandsTheScatteredEnergyToTheTail`
+### `ImageSourceSolverKeepsClutteredAtTheSquareRootOfTheSharesOverFlat`
 
 `// Cluttered keeps sqrt(0.60 / 0.90) = 0.816497 of Flat.`
 
@@ -237,7 +237,7 @@ arrival, so the floor, ceiling, -x and +x taps are the ones looked up.
 
 A solve is the band fits plus the lattice, and it is the largest part of the render set. The
 case asserts what is deterministic: the tap count is positive, inside
-`EarlyTapSet::K_MAX_EARLY_TAPS`, and the same on a second solve. How long a solve takes is a
+`EarlyTapSet::K_MAX_EARLY_TAPS`, and every tap is the same on a second solve. How long a solve takes is a
 benchmark verdict, not a test: `benchmark_image_source_solver.cpp` runs it and
 `image_source_solver.checks.json` bounds its median at 25 ms, the 33 ms a 30 Hz republish
 allows less the tail design and the modal solve.

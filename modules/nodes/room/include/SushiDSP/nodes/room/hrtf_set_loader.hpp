@@ -30,6 +30,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 
@@ -46,5 +47,13 @@ namespace SushiDSP::room
             /// @return False and leaves set untouched on any failure.
             static bool load(const std::string& path, double expected_sample_rate, HrtfSet& set,
                              std::string& error_out);
+
+            /// @brief Reads the bytes of an asset into set, as load does once it has them.
+            /// @param source Names the asset in every error, as the path does for load.
+            /// @param error_out Filled with the reason on failure: too short, bad magic, wrong
+            /// version, a rate mismatch, or a truncated file, each naming source.
+            /// @return False and leaves set untouched on any failure.
+            static bool decode(const std::vector<unsigned char>& bytes, const std::string& source,
+                               double expected_sample_rate, HrtfSet& set, std::string& error_out);
     };
 } // namespace SushiDSP::room

@@ -221,10 +221,10 @@ evenly over the room, which is everything below. One with a place keeps the room
 moves who pays it. `FurnishingField` spreads its absorption as a bell around its box, normalised
 to one over the room, and answers twice. A reflected path loses by the density it runs through,
 sampled every 25 cm along the unfolded path and folded back into the room, so a reflection past
-the sofa loses more than one across the empty half (`FurnishingFieldWeighsAPathPastTheFurnishingAboveOneThatMissesIt`).
+the sofa loses more than one across the empty half (`FurnishingFieldLosesMoreOnAPathPastTheFurnishingInEveryBand`).
 A mode loses by its pressure squared over the density against its mean, so a bed at an antinode
 damps that mode more than the same bed at its node
-(`FurnishingFieldDampsAModeMoreAtItsAntinodeThanAtItsNode`). Eyring's time and the tail do not
+(`FurnishingFieldDampsAModeMoreAtItsAntinodeThanInAnEmptyRoom` and `FurnishingFieldDampsAModeLessAtItsNodeThanInAnEmptyRoom`). Eyring's time and the tail do not
 change, and the line of sight is still not thinned: a furnishing casts no shadow and reflects
 nothing.
 

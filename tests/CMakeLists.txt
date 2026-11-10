@@ -66,7 +66,7 @@ add_executable(sushidsp_tests
     nodes/tubescreamer/test_tube_screamer/test_profile.cpp
     nodes/tubescreamer/compile_tubescreamer_log_category.cpp
     # --- Unit tests written for the units that had none ---
-    nodes/room/test_room_log_category.cpp
+    nodes/room/compile_room_log_category.cpp
     nodes/room/test_fade_window.cpp
     nodes/room/test_stage_limits.cpp
     nodes/room/test_delay_ring.cpp
@@ -76,7 +76,7 @@ add_executable(sushidsp_tests
     nodes/room/test_cabinet_geometry.cpp
     nodes/room/test_early_tap_set.cpp
     nodes/room/test_fdn_design.cpp
-    nodes/room/test_modal_design.cpp
+    nodes/room/compile_modal_design.cpp
     nodes/room/test_room_host.cpp
     nodes/room/test_pair_stage.cpp
     nodes/room/test_source_stage.cpp
