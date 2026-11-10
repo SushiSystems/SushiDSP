@@ -118,24 +118,13 @@ namespace SushiDSP::host
 
         /// @brief Describes a source file by what would change if it were replaced.
         /// @param source_path The file.
+        /// @param stats Reports the file's size and write time.
         /// @return Its path, size and last write time joined; the size and the time read zero
         /// when the file cannot be examined.
-        std::string source_identity(const std::string& source_path)
+        std::string source_identity(const std::string& source_path, const SourceStatReader& stats)
         {
-            const std::filesystem::path file(source_path);
-
-            std::error_code size_failure;
-            const std::uintmax_t size = std::filesystem::file_size(file, size_failure);
-
-            std::error_code time_failure;
-            const std::filesystem::file_time_type written =
-                std::filesystem::last_write_time(file, time_failure);
-
-            const unsigned long long bytes =
-                size_failure ? 0ull : static_cast<unsigned long long>(size);
-            const long long stamp =
-                time_failure ? 0ll : static_cast<long long>(written.time_since_epoch().count());
-            return source_path + "|" + std::to_string(bytes) + "|" + std::to_string(stamp);
+            const SourceStat seen = stats.stat(source_path);
+            return source_path + "|" + std::to_string(seen.bytes) + "|" + std::to_string(seen.stamp);
         }
 
         /// @brief Writes planar channels to a WAV as 32-bit float, the shape the decoder and the
@@ -167,7 +156,10 @@ namespace SushiDSP::host
         }
     } // namespace
 
-    AudioImportCache::AudioImportCache(std::string directory) : directory_(std::move(directory)) {}
+    AudioImportCache::AudioImportCache(std::string directory, const SourceStatReader* stats)
+        : directory_(std::move(directory)), stats_(stats)
+    {
+    }
 
     bool AudioImportCache::can_import(const std::string& path)
     {
@@ -176,16 +168,25 @@ namespace SushiDSP::host
 
     std::string AudioImportCache::entry_name(const std::string& source_path, double target_rate)
     {
+        static const FileSourceStatReader files;
+        return entry_name(source_path, target_rate, files);
+    }
+
+    std::string AudioImportCache::entry_name(const std::string& source_path, double target_rate,
+                                             const SourceStatReader& stats)
+    {
         const std::filesystem::path source(source_path);
         const long long rate = static_cast<long long>(target_rate > 0.0 ? target_rate : 0.0);
-        return sanitized_stem(source.stem().string()) + "_" + hashed(source_identity(source_path)) +
+        return sanitized_stem(source.stem().string()) + "_" + hashed(source_identity(source_path, stats)) +
                "_" + std::to_string(rate) + ".wav";
     }
 
     std::string AudioImportCache::entry_path(const std::string& source_path,
                                              double target_rate) const
     {
-        return (std::filesystem::path(directory_) / entry_name(source_path, target_rate)).string();
+        const std::string name = stats_ != nullptr ? entry_name(source_path, target_rate, *stats_)
+                                                   : entry_name(source_path, target_rate);
+        return (std::filesystem::path(directory_) / name).string();
     }
 
     std::string AudioImportCache::import(const std::string& source_path, double target_rate) const

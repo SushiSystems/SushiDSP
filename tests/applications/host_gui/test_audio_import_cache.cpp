@@ -39,6 +39,13 @@
 
 namespace
 {
+    using SushiDSP::host::AudioImportCache;
+    using SushiDSP::host::InMemorySourceStatReader;
+    using SushiDSP::host::SourceStat;
+
+    constexpr double K_RATE_48K = 48000.0;
+    constexpr double K_RATE_44K = 44100.0;
+
     /// @brief Creates an empty fixture directory under the system temp directory, replacing one
     /// an interrupted run left behind.
     /// @param leaf The directory's own name, unique within this file.
@@ -69,29 +76,52 @@ namespace
         std::ifstream in(path, std::ios::binary);
         return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     }
+
+    /// @brief Builds a reader that reports one size and write time for a path.
+    /// @param path The source path.
+    /// @return A reader holding that one entry.
+    InMemorySourceStatReader reader_with(const std::string& path)
+    {
+        InMemorySourceStatReader reader;
+        reader.set(path, SourceStat{3ull, 7ll});
+        return reader;
+    }
+
+    /// @brief Holds one extension and whether the cache imports it.
+    struct ExtensionRow
+    {
+        const char* path;
+        bool imported;
+    };
+
+    class Small_AudioImportCacheExtensions : public ::testing::TestWithParam<ExtensionRow>
+    {
+    };
 } // namespace
 
-TEST(Medium_AudioImportCache, AudioImportCacheImportsOnlyMp3)
+TEST_P(Small_AudioImportCacheExtensions, ImportsOnlyMp3)
 {
-    EXPECT_TRUE(SushiDSP::host::AudioImportCache::can_import("C:/songs/track.mp3"));
-    EXPECT_TRUE(SushiDSP::host::AudioImportCache::can_import("C:/songs/track.MP3"));
-    EXPECT_FALSE(SushiDSP::host::AudioImportCache::can_import("C:/songs/take.wav"));
-    EXPECT_FALSE(SushiDSP::host::AudioImportCache::can_import("C:/songs/take"));
-    EXPECT_FALSE(SushiDSP::host::AudioImportCache::can_import("C:/songs/take.flac"));
+    EXPECT_EQ(AudioImportCache::can_import(GetParam().path), GetParam().imported);
 }
 
-TEST(Medium_AudioImportCache, AudioImportCacheNamesOneEntryPerSourceAndRate)
+INSTANTIATE_TEST_SUITE_P(Extensions, Small_AudioImportCacheExtensions,
+                         ::testing::Values(ExtensionRow{"C:/songs/track.mp3", true},
+                                           ExtensionRow{"C:/songs/track.MP3", true},
+                                           ExtensionRow{"C:/songs/take.wav", false},
+                                           ExtensionRow{"C:/songs/take", false},
+                                           ExtensionRow{"C:/songs/take.flac", false}));
+
+TEST(Small_AudioImportCache, AudioImportCacheNamesOneEntryPerSourceAndRate)
 {
-    const std::filesystem::path root = make_fixture("names");
-    const std::string source = (root / "song.mp3").string();
-    write_file(source, "one");
+    const std::string source = "C:/songs/song.mp3";
+    const InMemorySourceStatReader reader = reader_with(source);
 
-    const std::string at_48 = SushiDSP::host::AudioImportCache::entry_name(source, 48000.0);
-    const std::string at_44 = SushiDSP::host::AudioImportCache::entry_name(source, 44100.0);
+    const std::string at_48 = AudioImportCache::entry_name(source, K_RATE_48K, reader);
+    const std::string at_44 = AudioImportCache::entry_name(source, K_RATE_44K, reader);
 
-    EXPECT_EQ(at_48, SushiDSP::host::AudioImportCache::entry_name(source, 48000.0));
+    EXPECT_EQ(at_48, AudioImportCache::entry_name(source, K_RATE_48K, reader));
     EXPECT_NE(at_48, at_44);
-    EXPECT_NE(at_48.find("song_"), std::string::npos);
+    EXPECT_EQ(at_48.rfind("song_", 0), 0u);
     EXPECT_NE(at_48.find("_48000.wav"), std::string::npos);
     EXPECT_NE(at_44.find("_44100.wav"), std::string::npos);
 }
@@ -102,36 +132,33 @@ TEST(Medium_AudioImportCache, AudioImportCacheNamesANewEntryWhenTheSourceChanges
     const std::string source = (root / "song.mp3").string();
 
     write_file(source, "one");
-    const std::string before = SushiDSP::host::AudioImportCache::entry_name(source, 48000.0);
+    const std::string before = AudioImportCache::entry_name(source, K_RATE_48K);
     write_file(source, "one and a half");
-    const std::string after = SushiDSP::host::AudioImportCache::entry_name(source, 48000.0);
+    const std::string after = AudioImportCache::entry_name(source, K_RATE_48K);
 
     EXPECT_NE(before, after);
 }
 
-TEST(Medium_AudioImportCache, AudioImportCacheKeepsOnlySafeCharactersFromTheStem)
+TEST(Small_AudioImportCache, AudioImportCacheKeepsOnlySafeCharactersFromTheStem)
 {
-    const std::filesystem::path root = make_fixture("stem");
-    const std::string source = (root / "Peace Sells! (320 Kbps).mp3").string();
-    write_file(source, "one");
+    const std::string source = "C:/songs/Peace Sells! (320 Kbps).mp3";
+    const InMemorySourceStatReader reader = reader_with(source);
 
-    const std::string name = SushiDSP::host::AudioImportCache::entry_name(source, 48000.0);
+    const std::string name = AudioImportCache::entry_name(source, K_RATE_48K, reader);
 
     EXPECT_EQ(name.rfind("Peace_Sells___320_Kbps__", 0), 0u);
 }
 
-TEST(Medium_AudioImportCache, AudioImportCachePutsItsEntriesInItsOwnFolder)
+TEST(Small_AudioImportCache, AudioImportCachePutsItsEntriesInItsOwnFolder)
 {
-    const std::filesystem::path root = make_fixture("folder");
-    const std::string source = (root / "song.mp3").string();
-    write_file(source, "one");
+    const std::string source = "C:/songs/song.mp3";
+    const InMemorySourceStatReader reader = reader_with(source);
 
-    const SushiDSP::host::AudioImportCache cache((root / "cache").string());
-    const std::filesystem::path entry(cache.entry_path(source, 48000.0));
+    const AudioImportCache cache("cache_folder", &reader);
+    const std::filesystem::path entry(cache.entry_path(source, K_RATE_48K));
 
-    EXPECT_EQ(entry.parent_path(), root / "cache");
-    EXPECT_EQ(entry.filename().string(),
-              SushiDSP::host::AudioImportCache::entry_name(source, 48000.0));
+    EXPECT_EQ(entry.parent_path(), std::filesystem::path("cache_folder"));
+    EXPECT_EQ(entry.filename().string(), AudioImportCache::entry_name(source, K_RATE_48K, reader));
 }
 
 TEST(Medium_AudioImportCache, AudioImportCacheReusesTheWavItAlreadyHolds)
@@ -140,13 +167,13 @@ TEST(Medium_AudioImportCache, AudioImportCacheReusesTheWavItAlreadyHolds)
     const std::string source = (root / "song.mp3").string();
     write_file(source, "not an mp3 at all");
 
-    const SushiDSP::host::AudioImportCache cache((root / "cache").string());
-    const std::string entry = cache.entry_path(source, 48000.0);
+    const AudioImportCache cache((root / "cache").string());
+    const std::string entry = cache.entry_path(source, K_RATE_48K);
     std::filesystem::create_directories(root / "cache");
     write_file(entry, "kept");
 
     // An untouched file proves that no decode ran. See tests/applications/host_gui/README.md.
-    EXPECT_EQ(cache.import(source, 48000.0), entry);
+    EXPECT_EQ(cache.import(source, K_RATE_48K), entry);
     EXPECT_EQ(read_file(entry), "kept");
 }
 
@@ -156,9 +183,9 @@ TEST(Medium_AudioImportCache, AudioImportCacheRefusesAFileThatIsNotAnMp3AndLeave
     const std::string source = (root / "song.mp3").string();
     write_file(source, "not an mp3 at all");
 
-    const SushiDSP::host::AudioImportCache cache((root / "cache").string());
+    const AudioImportCache cache((root / "cache").string());
 
-    EXPECT_THROW(cache.import(source, 48000.0), std::runtime_error);
-    EXPECT_FALSE(std::filesystem::exists(cache.entry_path(source, 48000.0)));
-    EXPECT_FALSE(std::filesystem::exists(cache.entry_path(source, 48000.0) + ".part"));
+    EXPECT_THROW(cache.import(source, K_RATE_48K), std::runtime_error);
+    EXPECT_FALSE(std::filesystem::exists(cache.entry_path(source, K_RATE_48K)));
+    EXPECT_FALSE(std::filesystem::exists(cache.entry_path(source, K_RATE_48K) + ".part"));
 }

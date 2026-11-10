@@ -195,6 +195,10 @@ thick. At the grab strip's 14 px it read as a black band.
 `import()` writes a partial file first and renames it into place, so a run that dies mid-decode
 leaves nothing that could be mistaken for a finished entry.
 
+The entry name reads the source's size and write time through the `SourceStatReader` port of
+`source_stat.hpp`. The cache reads the filesystem unless it is given a reader, and a test gives it an
+`InMemorySourceStatReader`.
+
 ### `mp3_decoder.cpp`
 
 A path reaches the decoder narrow from the file browser and UTF-8 from the window's drop

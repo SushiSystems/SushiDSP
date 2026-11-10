@@ -31,6 +31,8 @@
 
 #include <string>
 
+#include "source_stat.hpp"
+
 namespace SushiDSP::host
 {
     /// @brief Turns a file the tree cannot read into one it can: decodes an mp3, converts it to
@@ -42,7 +44,9 @@ namespace SushiDSP::host
         public:
             /// @brief Names the folder the decoded WAVs are written into.
             /// @param directory The folder; it is created on the first import.
-            explicit AudioImportCache(std::string directory);
+            /// @param stats Reads the size and write time of each source; the filesystem by default.
+            /// It must outlive the cache.
+            explicit AudioImportCache(std::string directory, const SourceStatReader* stats = nullptr);
 
             /// @brief Reports whether a path names a file this cache can turn into a WAV.
             /// @param path The file's path; its extension is read case-insensitively.
@@ -56,6 +60,14 @@ namespace SushiDSP::host
             /// @param target_rate The rate the WAV is written at, in Hz.
             /// @return The file name, with no directory part.
             static std::string entry_name(const std::string& source_path, double target_rate);
+
+            /// @brief Names the WAV a source file converts into, reading the source through a port.
+            /// @param source_path The file to convert.
+            /// @param target_rate The rate the WAV is written at, in Hz.
+            /// @param stats Reports the source's size and write time.
+            /// @return The file name, with no directory part.
+            static std::string entry_name(const std::string& source_path, double target_rate,
+                                          const SourceStatReader& stats);
 
             /// @brief Names the full path a source file converts into.
             /// @param source_path The file to convert.
@@ -79,5 +91,8 @@ namespace SushiDSP::host
         private:
             /// @brief Holds the folder the decoded WAVs are written into.
             std::string directory_;
+
+            /// @brief Reads the size and write time of each source; null reads the filesystem.
+            const SourceStatReader* stats_;
     };
 } // namespace SushiDSP::host

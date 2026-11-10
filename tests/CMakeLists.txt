@@ -365,6 +365,7 @@ add_executable(sushidsp_tests
     nodes/room/test_furnishing_field.cpp
     applications/host_gui/test_channel_resampler.cpp
     applications/host_gui/test_audio_import_cache.cpp
+    applications/host_gui/test_source_stat.cpp
     applications/host_gui/test_audio_import_queue.cpp
     applications/host_gui/ui/test_arrangement_layout.cpp
     applications/host_gui/ui/test_tap_tempo.cpp
