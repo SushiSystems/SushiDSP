@@ -27,53 +27,98 @@
  * @author Mustafa Garip
  */
 
+#include <cstdint>
+
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/dd3/wet_fifo.hpp>
 
+namespace
+{
+    using SushiDSP::dd3::WetFifo;
+
+    /// @brief Pushes `count` samples valued first, first + 1, first + 2 and so on. Integers are exact in a float.
+    void push_ramp(WetFifo& fifo, std::uint32_t count, float first)
+    {
+        for (std::uint32_t n = 0; n < count; ++n)
+        {
+            fifo.push(first + static_cast<float>(n));
+        }
+    }
+
+    /// @brief Pops `count` samples and discards them.
+    void pop_many(WetFifo& fifo, std::uint32_t count)
+    {
+        for (std::uint32_t n = 0; n < count; ++n)
+        {
+            fifo.pop();
+        }
+    }
+
+    /// @brief A reset FIFO.
+    WetFifo fresh_fifo()
+    {
+        WetFifo fifo;
+        fifo.reset();
+        return fifo;
+    }
+} // namespace
+
 TEST(Small_WetFifo, StartsPrimingAndPopsSilence)
 {
-    SushiDSP::dd3::WetFifo fifo;
-    fifo.reset();
+    WetFifo fifo = fresh_fifo();
+
     EXPECT_TRUE(fifo.priming());
     EXPECT_EQ(fifo.pop(), 0.0f);
 }
 
+TEST(Small_WetFifo, PopsNothingUntilThePrimeIsMetOnRealSamples)
+{
+    WetFifo fifo = fresh_fifo();
+    push_ramp(fifo, WetFifo::K_PRIME_FRAMES - 1u, 1.0f);
+
+    EXPECT_TRUE(fifo.priming());
+    EXPECT_EQ(fifo.pop(), 0.0f);
+    EXPECT_EQ(fifo.depth(), WetFifo::K_PRIME_FRAMES - 1u);
+}
+
 TEST(Small_WetFifo, PopsTheOldestSampleOnceTheFifoIsPrimed)
 {
-    SushiDSP::dd3::WetFifo fifo;
-    fifo.reset();
-    for (int i = 1; i <= static_cast<int>(SushiDSP::dd3::WetFifo::K_PRIME_FRAMES); ++i)
-    {
-        fifo.push(static_cast<float>(i));
-    }
-    EXPECT_FLOAT_EQ(fifo.pop(), 1.0f);
-    EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::K_PRIME_FRAMES - 1u);
+    WetFifo fifo = fresh_fifo();
+    push_ramp(fifo, WetFifo::K_PRIME_FRAMES, 1.0f);
+
+    EXPECT_EQ(fifo.pop(), 1.0f);
+    EXPECT_EQ(fifo.depth(), WetFifo::K_PRIME_FRAMES - 1u);
+    EXPECT_FALSE(fifo.priming());
+    EXPECT_EQ(fifo.pop(), 2.0f);
 }
 
 TEST(Small_WetFifo, DepthNeverExceedsItsCapacity)
 {
-    SushiDSP::dd3::WetFifo fifo;
-    fifo.reset();
-    for (int i = 0; i < 100; ++i)
-    {
-        fifo.push(0.5f);
-    }
-    EXPECT_EQ(fifo.depth(), SushiDSP::dd3::WetFifo::K_CAPACITY);
+    WetFifo fifo = fresh_fifo();
+
+    push_ramp(fifo, 2u * WetFifo::K_CAPACITY, 1.0f);
+
+    EXPECT_EQ(fifo.depth(), WetFifo::K_CAPACITY);
+}
+
+TEST(Small_WetFifo, DropsTheOldestSampleRatherThanTheNewestWhenFull)
+{
+    WetFifo fifo = fresh_fifo();
+    const std::uint32_t overflow = 3u;
+
+    push_ramp(fifo, WetFifo::K_CAPACITY + overflow, 1.0f);
+
+    EXPECT_EQ(fifo.pop(), 1.0f + static_cast<float>(overflow));
+    EXPECT_EQ(fifo.pop(), 2.0f + static_cast<float>(overflow));
 }
 
 TEST(Small_WetFifo, StarvedFifoPopsSilence)
 {
-    SushiDSP::dd3::WetFifo fifo;
-    fifo.reset();
-    for (std::uint32_t i = 0; i < SushiDSP::dd3::WetFifo::K_PRIME_FRAMES; ++i)
-    {
-        fifo.push(1.0f);
-    }
-    for (std::uint32_t i = 0; i < SushiDSP::dd3::WetFifo::K_PRIME_FRAMES; ++i)
-    {
-        fifo.pop();
-    }
+    WetFifo fifo = fresh_fifo();
+    push_ramp(fifo, WetFifo::K_PRIME_FRAMES, 1.0f);
+    pop_many(fifo, WetFifo::K_PRIME_FRAMES);
+
     EXPECT_EQ(fifo.depth(), 0u);
     EXPECT_EQ(fifo.pop(), 0.0f);
 }

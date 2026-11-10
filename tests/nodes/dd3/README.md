@@ -149,13 +149,37 @@ within the float conversions. Dd3EmphasisPairIsTheIdentity is what pins the pair
 
 ## `test_dd3_clock.cpp`
 
+### `Dd3ClockHitsThePublishedEndpoints`
+
+`// N5: fs(TIME) = 82500 * (20000/82500)^TIME.`
+
+The exponent is 0 or 1, so the power is exact and only the ratio and the product round: the clock is
+82500 Hz at TIME 0 and 20000 Hz at TIME 1 to four double roundings. The earlier 2 % acceptance check
+of the same endpoints is implied by this one.
+
+### `Dd3ClockHitsTheGeometricMeansBetweenTheEndpoints`
+
+`// Half way along the knob the clock is the geometric mean of the ends.`
+
+At TIME 0.5 the clock is sqrt(82500 \* 20000) = 40620.19 Hz, and at TIME 0.25 it is the geometric
+mean of the fast end and that value, 57889.3 Hz. The oracle uses square roots where the code uses
+a power, so the two share no arithmetic.
+
 ### `Dd3ClockDelayTimesLandOnThePublishedRanges`
 
-`// The delay-time errors are printed, not asserted.`
+`// The delay times follow N over the clock.`
 
 N5's mode table, and the reason it is not exact: N = 1024/4096/16384 against published times
-computed with N = 1000/4000/16000. The delay-time errors are printed, not asserted; acceptance
-row 1 is a check on fs, which the case above makes.
+computed with N = 1000/4000/16000 at a clock of 80 kHz (N / 12.5 ms) at the fast end and 20 kHz at
+the slow end. The delay at an end is therefore the published time times (N / N published) times
+(published clock / clock): the fast end reads 0.703 % below the published time and the slow end
+2.4 % above it. The test holds the delay to that derived figure; the earlier 12 % tolerance was a
+guess. The exact times 12.412121 ms (S, fast) and 819.2 ms (L, slow) are the same arithmetic.
+Acceptance row 1 is a check on fs, which the endpoint test makes.
+
+### `Dd3ClockSlewConstantsFollowFromR56AndC52`
+
+tau = 22000 \* 2.7e-8 = 5.94e-4 s, held as seconds and as the float 0.594 ms.
 
 ### `Dd3ClockSlewMatchesTheR56C52Pole`
 
@@ -169,13 +193,25 @@ octaves, so the pitch has moved 1.2922934 octaves:
 fs = 82500 * 2^-1.2922934 = 82500 * 0.408259 = 33681.4 Hz
 ```
 
-### `Dd3ClockAdvancesOneQuarterOfTheRemainingDistancePerSubBlock`
+The test advances 28 whole samples, so its oracle is exp(log 20000 + (log 82500 - log 20000) \*
+e^(-28/28.512)), which reads 34004.3 Hz. The control holds float logs: the rounding of the start,
+the target and the result moves each log by at most u times its size, and the float decay
+coefficient's rounding is multiplied by the 28 samples of the power. The bound adds those to
+three roundings of the product and the two sums, each scaled by the distance travelled.
+
+### `Dd3ClockClosesTheDerivedFractionOfTheRemainingDistancePerSubBlock`
 
 `// The pole closes 0.2446570 of the rest per sub-block.`
 
 Ruling 11: 8 frames at 48 kHz is 8/28.512 = 0.28058305 time constants, so the pole closes 1 -
 exp(-0.28058305) = 0.2446570 of what is left, every sub-block. That figure is what makes the
-pitch trace a glide rather than a jump, so it is pinned here.
+pitch trace a glide rather than a jump, so it is pinned here, to the float bound of the slew test
+divided by the log distance.
+
+### `Dd3ClockResetSnapsWithoutGliding`
+
+Before reset() the control still sits at the fast end, and reset() puts it on the target. Both are
+read back through one float log, so the tolerance is u times the log of the rate.
 
 ## `test_dd3_converter.cpp`
 
@@ -186,6 +222,14 @@ pitch trace a glide rather than a jump, so it is pinned here.
 An ideal N-bit converter gives 6.0206\*N + 1.7609 dB of SNR for a full-scale sine: 6.0206\*12 +
 1.7609 = 74.008 dB. Measure it directly as the ratio of signal power to error power, which needs
 no window and no FFT.
+
+The tone is 997 Hz at 48 kHz, which shares no factor with 48000, so one second visits 48000
+equally spaced phases and the test needs no more. The error is uniform on a step, so its power is
+step^2/12, and the full-scale sine has A = 2048 steps and power A^2/2: the ratio is 6 \* 2048^2,
+74.0 dB. The tolerance is statistical: the variance of e^2 for a uniform e is step^4/180, so the
+mean over 48000 phases has a relative standard deviation of 12/sqrt(180 \* 48000) = 0.41 %, and the
+test allows six of them, 0.1 dB. The clipping of the top code, one step below full scale, costs
+about 3e-5 of the signal power.
 
 ### `Dd3ConverterHoldKeepsTheLoopAndInhibitsWrites`
 
@@ -215,8 +259,13 @@ V_in = 6.6125   (1.0 V_ref)  -> 6.6125                              (exactly V_r
 V_in = 26.45    (4.0 V_ref)  -> sqrt(6.6125*26.45)    = 13.225      (exactly 2 V_ref)
 ```
 
-The 2 % tolerance is the rectifier's own ripple at 1 kHz: the ripple sits at 2 kHz and the
-23.4051 Hz pole leaves 23.4051/2000 = 1.17 % of it on the control voltage.
+The tolerance is the rectifier's own ripple at 1 kHz. The full-wave rectified sine, scaled by
+pi/2, is 1 - 2 sum cos(2k w t)/(4k^2 - 1), and the one-pole smoother passes harmonic k with a gain
+of at most fc/(2 k f), so the ripple on the control voltage is at most (2 ln 2 - 1) fc/f =
+0.386 \* 23.4051/1000 = 0.90 %. The compressor closes a loop around the envelope, so the ripple
+reaches the output twice, once in the envelope and once in the gain it controls: the test allows
+two ripples plus the two float roundings of the input and output, 1.8 %. The sampled peak is the
+true peak because 1 kHz at 48 kHz is 48 samples a cycle and the settling is a whole number of cycles.
 
 ### `Ne570ExpanderFollowsTheOneToTwoLaw`
 
@@ -236,19 +285,30 @@ N6: V_out = V_in^2 / V_ref.
 `// tau = 10k * 0.68u = 6.8 ms, 326.4 samples at 48 kHz.`
 
 G(t) = (G_i - G_f)\*e^(-t/tau) + G_f with tau = 10k \* 0.68u = 6.8 ms exactly. 1 - e^-1 =
-0.6321206 of a step, at 0.0068 \* 48000 = 326.4 samples.
+0.6321206 of a step, at 0.0068 \* 48000 = 326.4 samples. The rectifier ramps its input over the
+first sample (8 sub-steps of j/8), which delays the crossing by a fraction of a sample, so the
+sample count is an integer and the test derives it from the closed form of the one-pole sum
+instead of a tolerance: E = (pi/2) [1 - a^M - (1 - a) sum_j (1 - j/8) a^(M-j)] with
+a = exp(-1/(8 fs tau)), M = 8 samples. The first sample at which E reaches (1 - 1/e) pi/2 is the
+327th, and the envelope passes the level by 2.9e-4 there and misses it by 1.5e-3 one sample earlier.
 
 `// The 63.21 % point is 0.6321206 * pi/2 = 0.9929407.`
 
 The rectifier reads |x| \* pi/2, so its final value is pi/2; the 63.21 % point is 0.6321206 \*
 pi/2 = 0.9929407.
 
+### `Ne570TimeConstantAndRippleCornerFollowFromTheRectifierComponents`
+
+tau = 10k \* 0.68u to four double roundings. The ripple corner 1/(2 pi tau) = 23.40514 Hz is stored
+as 23.4051, so it is held to half a unit of the last printed digit, 5e-5 Hz.
+
 ### `Ne570CompressorGainSaturatesAtTheEnvelopeFloor`
 
 `// Below 6.6125e-4 V the gain stops at 1e4.`
 
 Below V_ref \* K_ENVELOPE_FLOOR = 6.6125e-4 V the gain stops at 1/K_ENVELOPE_FLOOR = 1e4 and the law
-goes linear, which is the modelled end of the gain cell's range (N6).
+goes linear, which is the modelled end of the gain cell's range (N6). The gain is V_ref /
+(V_ref \* 1e-4) in double, and the float input and the float output each round once.
 
 ### `Ne570RectifierRippleReachesTheSignalAtLowFrequencies`
 
@@ -259,7 +319,10 @@ datasheet's stated penalty - ripple modulating the gain cell into third-harmonic
 low-frequency material - is a feature to reproduce, not an artefact to filter out. At 50 Hz the
 ripple sits at 100 Hz and the pole leaves 23.4051/100 = 23.4 % of it, so the third harmonic must
 be clearly present. This asserts a floor, not a ceiling: the test fails if a future
-"improvement" smooths the envelope.
+"improvement" smooths the envelope. The first-order estimate is a gain modulation of
+(2/3)/sqrt(1 + (100/23.4051)^2) = 0.152, which puts the third harmonic at 20 log10(0.152/2) =
+-22.4 dB; the earlier run read -23.75 dB. The -40 dB floor is characterized and has no
+derivation yet.
 
 ### `Ne570RectifierDoesNotFoldItsOwnHarmonicsOntoTheCarrier`
 
@@ -288,4 +351,6 @@ pivot point instead.
 `// The expander is open-loop; instances share no state.`
 
 The expander is open-loop: it tracks the reconstructed signal, never what the compressor did
-(dossier 1.9 item 2). Two instances driven differently must hold different envelopes.
+(dossier 1.9 item 2). Two instances driven differently must hold different envelopes: the driven
+one follows the closed-form step response, to the 3 \* 8 \* 1000 rounded operations of its
+sub-steps, and the idle one stays at exactly 0 because every term of its update is 0.
