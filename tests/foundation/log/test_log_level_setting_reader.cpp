@@ -23,14 +23,12 @@
 
 /**
  * @file test_log_level_setting_reader.cpp
- * @brief Tests the reading of a project's level variable through an EnvironmentReader and its hand-over to SushiLog.
+ * @brief Tests the reading of a project's level variable through an EnvironmentReader.
  * @author Mustafa Garip
  */
 
 #include <gtest/gtest.h>
 
-#include <SushiLog/log/log_calls.hpp>
-#include <SushiLog/log/log_category.hpp>
 #include <SushiLog/log/log_project.hpp>
 
 #include <SushiDSP/foundation/log/in_memory_environment.hpp>
@@ -38,7 +36,7 @@
 
 namespace
 {
-    /// @brief A project of this file's own, so applying a level leaves every product category alone.
+    /// @brief A project of this file's own, so no product's variable is read.
     constexpr SushiLog::LogProject K_READER_TEST_PROJECT{"level_reader_test", "READER_TEST_LOG_LEVEL"};
 } // namespace
 
@@ -71,14 +69,3 @@ TEST(Small_LogLevelSettingReader, FindsNothingWhenTheValueIsNotALevel)
     EXPECT_FALSE(setting.has_value());
 }
 
-TEST(Medium_LogLevelSettingReader, AppliedSettingSetsTheProjectLevelAndEachNamedModule)
-{
-    const SushiDSP::InMemoryEnvironment environment{
-        {"READER_TEST_LOG_LEVEL", "error,named=trace"}};
-
-    SushiDSP::apply_log_level_setting(K_READER_TEST_PROJECT, environment);
-
-    EXPECT_EQ(SushiLog::log_level(K_READER_TEST_PROJECT), SushiLog::LogLevel::Error);
-    EXPECT_EQ(SushiLog::log_level(SushiLog::make_log_category(K_READER_TEST_PROJECT, "named")),
-              SushiLog::LogLevel::Trace);
-}

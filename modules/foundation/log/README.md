@@ -42,10 +42,10 @@ ceiling is `K_SUSHIDSP_LOG_CEILING`: `Error` when `SD_ENABLE_LOGGING` is 0, `Deb
 `ProcessEnvironment` reads the process environment; `InMemoryEnvironment` holds a table, so a
 test reads a level variable without touching the process.
 `read_log_level_setting(project, environment)` reads the project's variable through a reader and
-parses it with SushiLog's `parse_level_setting`; `apply_log_level_setting(project, environment)`
-hands the result to SushiLog as the project's level and one level per named module. SushiLog
-still reads the variable itself at the first log call, so a product that never calls
-`apply_log_level_setting` behaves as before.
+parses it with SushiLog's `parse_level_setting`; SushiLog reads the
+variable itself at the first log call and applies it, so SushiDSP does not hand the setting over a
+second time; the reader exists so a test checks the project's variable without the process
+environment.
 
 ## Plug-ins
 
