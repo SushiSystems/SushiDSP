@@ -48,7 +48,19 @@
 
 namespace
 {
-    /// @brief Holds the rigs the room tests build, on the catalogue of the fixture.
+    /// @brief Holds the rigs the persistence and scene cases build, on the in-memory room: they read
+    /// what the rig keeps, writes and loads of a room, never what the room renders.
+    class Small_RigControllerRoom : public TestSupport::RigProductsInMemoryRoom
+    {
+    };
+
+    /// @brief Holds the rigs the HRTF cases build, on the in-memory room: they read which set the rig
+    /// hands to the rooms it holds, and the set is read from a file.
+    class Medium_RigControllerRoomHrtf : public TestSupport::RigProductsInMemoryRoom
+    {
+    };
+
+    /// @brief Holds the rig of the one case that installs a measured set into the real room.
     class Medium_RigControllerRoom : public TestSupport::RigProducts
     {
     };
@@ -204,7 +216,7 @@ namespace
     ]})";
 } // namespace
 
-TEST_F(Medium_RigControllerRoom, RoundTripsARoomSceneThroughJson)
+TEST_F(Small_RigControllerRoom, RoundTripsARoomSceneThroughJson)
 {
     RigController source = rig({48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
@@ -228,7 +240,7 @@ TEST_F(Medium_RigControllerRoom, RoundTripsARoomSceneThroughJson)
     EXPECT_TRUE(same_scene(target.room_host(order[1])->scene(), scene));
 }
 
-TEST_F(Medium_RigControllerRoom, WritesTheRoomSceneUnderTheRoomNodeAsNamedKeys)
+TEST_F(Small_RigControllerRoom, WritesTheRoomSceneUnderTheRoomNodeAsNamedKeys)
 {
     RigController source = rig({48000.0, 64, 2});
     source.append("sushidsp.tubescreamer");
@@ -248,7 +260,7 @@ TEST_F(Medium_RigControllerRoom, WritesTheRoomSceneUnderTheRoomNodeAsNamedKeys)
     EXPECT_EQ(written.at("microphone").at("pattern").get<std::string>(), "supercardioid");
 }
 
-TEST_F(Medium_RigControllerRoom, LoadsAPresetWithNoRoomAsTheStarterScene)
+TEST_F(Small_RigControllerRoom, LoadsAPresetWithNoRoomAsTheStarterScene)
 {
     const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
@@ -271,7 +283,7 @@ TEST_F(Medium_RigControllerRoom, LoadsAPresetWithNoRoomAsTheStarterScene)
     EXPECT_EQ(controller.room_publishes(order[1]), 0u);
 }
 
-TEST_F(Medium_RigControllerRoom, CoalescesADragToThirtyPublishesPerSecond)
+TEST_F(Small_RigControllerRoom, CoalescesADragToThirtyPublishesPerSecond)
 {
     std::chrono::steady_clock::time_point clock{};
     RigController controller = rig({48000.0, 64, 2}, [&clock] { return clock; });
@@ -292,7 +304,7 @@ TEST_F(Medium_RigControllerRoom, CoalescesADragToThirtyPublishesPerSecond)
     EXPECT_EQ(controller.room_host(room)->scene().source_position.x, 0.5 + 0.01 * (K_EDITS - 1));
 }
 
-TEST_F(Medium_RigControllerRoom, ReclaimPublishesNothingWhenNoSceneIsPending)
+TEST_F(Small_RigControllerRoom, ReclaimPublishesNothingWhenNoSceneIsPending)
 {
     std::chrono::steady_clock::time_point clock{};
     RigController controller = rig({48000.0, 64, 2}, [&clock] { return clock; });
@@ -307,7 +319,7 @@ TEST_F(Medium_RigControllerRoom, ReclaimPublishesNothingWhenNoSceneIsPending)
     EXPECT_EQ(controller.room_publishes(room), published);
 }
 
-TEST_F(Medium_RigControllerRoom, RefusesASceneOutsideTheRoomWithoutPublishing)
+TEST_F(Small_RigControllerRoom, RefusesASceneOutsideTheRoomWithoutPublishing)
 {
     RigController controller = rig({48000.0, 64, 2});
     const RigController::SlotId room = controller.append("sushidsp.room");
@@ -337,7 +349,7 @@ TEST_F(Medium_RigControllerRoom, InstallsAMeasuredHrtfIntoTheRoomsItHolds)
     EXPECT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
 }
 
-TEST_F(Medium_RigControllerRoom, KeepsTheMeasuredHrtfAcrossARebuild)
+TEST_F(Medium_RigControllerRoomHrtf, KeepsTheMeasuredHrtfAcrossARebuild)
 {
     RigController controller = rig({48000.0, 64, 2});
     const RigController::SlotId first = controller.append("sushidsp.room");
@@ -352,7 +364,7 @@ TEST_F(Medium_RigControllerRoom, KeepsTheMeasuredHrtfAcrossARebuild)
     EXPECT_EQ(controller.room_host(second)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
 }
 
-TEST_F(Medium_RigControllerRoom, ReportsAMissingHrtfByItsFileName)
+TEST_F(Medium_RigControllerRoomHrtf, ReportsAMissingHrtfByItsFileName)
 {
     RigController controller = rig({48000.0, 64, 2});
     controller.append("sushidsp.room");
@@ -365,7 +377,7 @@ TEST_F(Medium_RigControllerRoom, ReportsAMissingHrtfByItsFileName)
     EXPECT_EQ(controller.hrtf_path(), "");
 }
 
-TEST_F(Medium_RigControllerRoom, ALoadedHrtfFallsBackWhenTheNextOneIsMissing)
+TEST_F(Medium_RigControllerRoomHrtf, ALoadedHrtfFallsBackWhenTheNextOneIsMissing)
 {
     RigController controller = rig({48000.0, 64, 2});
     const RigController::SlotId room = controller.append("sushidsp.room");
@@ -379,7 +391,7 @@ TEST_F(Medium_RigControllerRoom, ALoadedHrtfFallsBackWhenTheNextOneIsMissing)
     EXPECT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 }
 
-TEST_F(Medium_RigControllerRoom, ARebuildAfterAMissingHrtfLeavesTheFreshNodeOnItsOwnFallback)
+TEST_F(Medium_RigControllerRoomHrtf, ARebuildAfterAMissingHrtfLeavesTheFreshNodeOnItsOwnFallback)
 {
     RigController controller = rig({48000.0, 64, 2});
     const RigController::SlotId room = controller.append("sushidsp.room");
@@ -394,7 +406,7 @@ TEST_F(Medium_RigControllerRoom, ARebuildAfterAMissingHrtfLeavesTheFreshNodeOnIt
     EXPECT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 }
 
-TEST_F(Medium_RigControllerRoom, AFailedHrtfLoadNamesWhatChangedAndTheLiveRoomsItReset)
+TEST_F(Medium_RigControllerRoomHrtf, AFailedHrtfLoadNamesWhatChangedAndTheLiveRoomsItReset)
 {
     RigController controller = rig({48000.0, 64, 2});
     controller.append("sushidsp.room");
@@ -411,7 +423,7 @@ TEST_F(Medium_RigControllerRoom, AFailedHrtfLoadNamesWhatChangedAndTheLiveRoomsI
     EXPECT_NE(lines[1].message.find("1 live room(s)"), std::string::npos) << lines[1].message;
 }
 
-TEST_F(Medium_RigControllerRoom, RoundTripsThreeFurnishingsThroughJson)
+TEST_F(Small_RigControllerRoom, RoundTripsThreeFurnishingsThroughJson)
 {
     using SushiDSP::room::FurnitureId;
     RigController source = rig({48000.0, 64, 2});
@@ -439,7 +451,7 @@ TEST_F(Medium_RigControllerRoom, RoundTripsThreeFurnishingsThroughJson)
     expect_same_furnishings(target.room_scene(target.slot_order()[0]), scene, 3u);
 }
 
-TEST_F(Medium_RigControllerRoom, WritesNoFurnishingsFieldForABareRoom)
+TEST_F(Small_RigControllerRoom, WritesNoFurnishingsFieldForABareRoom)
 {
     RigController source = rig({48000.0, 64, 2});
     const RigController::SlotId room = source.append("sushidsp.room");
@@ -451,7 +463,7 @@ TEST_F(Medium_RigControllerRoom, WritesNoFurnishingsFieldForABareRoom)
     EXPECT_FALSE(parsed.at("nodes").at(0).at("room").contains("furnishings"));
 }
 
-TEST_F(Medium_RigControllerRoom, LoadsARoomWithoutFurnishingsAsAnUnfurnishedScene)
+TEST_F(Small_RigControllerRoom, LoadsARoomWithoutFurnishingsAsAnUnfurnishedScene)
 {
     RigController controller = rig({48000.0, 64, 2});
 
@@ -463,7 +475,7 @@ TEST_F(Medium_RigControllerRoom, LoadsARoomWithoutFurnishingsAsAnUnfurnishedScen
     EXPECT_EQ(loaded.furnishing_count, 0u);
 }
 
-TEST_F(Medium_RigControllerRoom, RefusesAFurnishingNoTableRowNames)
+TEST_F(Small_RigControllerRoom, RefusesAFurnishingNoTableRowNames)
 {
     const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
@@ -474,7 +486,7 @@ TEST_F(Medium_RigControllerRoom, RefusesAFurnishingNoTableRowNames)
     EXPECT_THROW(controller.load_from_json(preset), std::runtime_error);
 }
 
-TEST_F(Medium_RigControllerRoom, RefusesMoreFurnishingRowsThanARoomCarries)
+TEST_F(Small_RigControllerRoom, RefusesMoreFurnishingRowsThanARoomCarries)
 {
     RigController controller = rig({48000.0, 64, 2});
 
@@ -483,7 +495,7 @@ TEST_F(Medium_RigControllerRoom, RefusesMoreFurnishingRowsThanARoomCarries)
                  std::runtime_error);
 }
 
-TEST_F(Medium_RigControllerRoom, RoundTripsTheBuiltRoomLossThroughJson)
+TEST_F(Small_RigControllerRoom, RoundTripsTheBuiltRoomLossThroughJson)
 {
     RigController source = rig({48000.0, 64, 2});
     const RigController::SlotId room = source.append("sushidsp.room");
@@ -506,7 +518,7 @@ TEST_F(Medium_RigControllerRoom, RoundTripsTheBuiltRoomLossThroughJson)
     EXPECT_TRUE(target.room_scene(target.slot_order().at(0)).built_room_loss);
 }
 
-TEST_F(Medium_RigControllerRoom, LoadsARoomWithoutTheBuiltRoomLossFieldWithTheLossOff)
+TEST_F(Small_RigControllerRoom, LoadsARoomWithoutTheBuiltRoomLossFieldWithTheLossOff)
 {
     RigController controller = rig({48000.0, 64, 2});
 
@@ -515,7 +527,7 @@ TEST_F(Medium_RigControllerRoom, LoadsARoomWithoutTheBuiltRoomLossFieldWithTheLo
     EXPECT_FALSE(controller.room_scene(controller.slot_order().at(0)).built_room_loss);
 }
 
-TEST_F(Medium_RigControllerRoom, RefusesABuiltRoomLossThatIsNotABoolean)
+TEST_F(Small_RigControllerRoom, RefusesABuiltRoomLossThatIsNotABoolean)
 {
     const std::string preset = R"({"format":2,"nodes":[
         {"id":0,"type":"sushidsp.room","params":{},"inputs":[],
@@ -526,7 +538,7 @@ TEST_F(Medium_RigControllerRoom, RefusesABuiltRoomLossThatIsNotABoolean)
     EXPECT_THROW(controller.load_from_json(preset), std::runtime_error);
 }
 
-TEST_F(Medium_RigControllerRoom, WritesFormatTwoWithItsEdgesAndTheirPorts)
+TEST_F(Small_RigControllerRoom, WritesFormatTwoWithItsEdgesAndTheirPorts)
 {
     RigController controller = rig({48000.0, 64, 2});
     controller.append("sushidsp.tubescreamer");
@@ -541,7 +553,7 @@ TEST_F(Medium_RigControllerRoom, WritesFormatTwoWithItsEdgesAndTheirPorts)
     EXPECT_EQ(parsed.at("edges").at(1).at("port").get<int>(), 1);
 }
 
-TEST_F(Medium_RigControllerRoom, ALoadedFormatOnePresetLosesItsRoomSlotAndRejoinsTheChain)
+TEST_F(Small_RigControllerRoom, ALoadedFormatOnePresetLosesItsRoomSlotAndRejoinsTheChain)
 {
     RigController controller = rig({48000.0, 64, 2});
 
@@ -556,7 +568,7 @@ TEST_F(Medium_RigControllerRoom, ALoadedFormatOnePresetLosesItsRoomSlotAndRejoin
     EXPECT_FALSE(controller.shape().has_value());
 }
 
-TEST_F(Medium_RigControllerRoom, ALoadedFormatOnePresetKeepsItsRoomAsALegacyRecord)
+TEST_F(Small_RigControllerRoom, ALoadedFormatOnePresetKeepsItsRoomAsALegacyRecord)
 {
     RigController controller = rig({48000.0, 64, 2});
     controller.load_from_json(K_FORMAT_ONE_PRESET_WITH_A_ROOM);
@@ -570,7 +582,7 @@ TEST_F(Medium_RigControllerRoom, ALoadedFormatOnePresetKeepsItsRoomAsALegacyReco
     EXPECT_EQ(legacy->scene.dimensions.x, 4.0);
 }
 
-TEST_F(Medium_RigControllerRoom, TheLegacyRoomIsHandedOverOnce)
+TEST_F(Small_RigControllerRoom, TheLegacyRoomIsHandedOverOnce)
 {
     RigController controller = rig({48000.0, 64, 2});
     controller.load_from_json(K_FORMAT_ONE_PRESET_WITH_A_ROOM);
@@ -579,7 +591,7 @@ TEST_F(Medium_RigControllerRoom, TheLegacyRoomIsHandedOverOnce)
     EXPECT_FALSE(controller.take_legacy_room().has_value());
 }
 
-TEST_F(Medium_RigControllerRoom, RoundTripsARoomsArrangementThroughJson)
+TEST_F(Small_RigControllerRoom, RoundTripsARoomsArrangementThroughJson)
 {
     RigController source = rig({48000.0, 64, 2});
     const RigController::SlotId cabinet = source.append("sushidsp.cabinet");
