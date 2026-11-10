@@ -129,9 +129,9 @@ namespace
 
 TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsMainOutputPort)
 {
+    SushiDSP::InMemoryNodeRecord sink_record;
     SushiDSP::RigGraph graph(256, 4);
     const auto source = graph.add_node(two_port_source_node(0.25f, 0.75f, 0.5f));
-    SushiDSP::InMemoryNodeRecord sink_record;
     const auto sink_handle = graph.add_node(TestSupport::recording_sink_node(sink_record));
     graph.connect(source, sink_handle, 0);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
@@ -147,9 +147,9 @@ TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsMainOutputPort)
 TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsOwnPortAndAdaptsItsWidth)
 {
     // Port 1 is stereo (0.75, 0.5); a mono sink sums it to half, (0.75 + 0.5) / 2 = 0.625.
+    SushiDSP::InMemoryNodeRecord sink_record;
     SushiDSP::RigGraph graph(256, 4);
     const auto source = graph.add_node(two_port_source_node(0.25f, 0.75f, 0.5f));
-    SushiDSP::InMemoryNodeRecord sink_record;
     const auto sink_handle = graph.add_node(TestSupport::recording_sink_node(sink_record));
     graph.connect(source, sink_handle, 1);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
@@ -164,8 +164,8 @@ TEST(Small_RigGraph, RigGraphRoutesAnEdgeFromItsOwnPortAndAdaptsItsWidth)
 
 TEST(Small_RigGraph, RigGraphSetsPortZeroOfTheTableToTheOutputsPointer)
 {
-    SushiDSP::RigGraph graph(256, 4);
     SushiDSP::InMemoryNodeRecord probe_record;
+    SushiDSP::RigGraph graph(256, 4);
     graph.add_node(TestSupport::recording_source_node(0.0f, probe_record));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
 
@@ -224,9 +224,9 @@ TEST(Small_RigGraph, RigGraphDisconnectRemovesEveryPortOfThePair)
 TEST(Small_RigGraph, RigGraphRootReadsTheHostChannelItIsBoundTo)
 {
     // The root copies its live input to its output; the sink then records what the root passed on.
+    SushiDSP::InMemoryNodeRecord sink_record;
     SushiDSP::RigGraph graph(256, 4);
     const auto root = graph.add_node(TestSupport::gain_node(1.0f));
-    SushiDSP::InMemoryNodeRecord sink_record;
     const auto sink_handle = graph.add_node(TestSupport::recording_sink_node(sink_record));
     graph.connect(root, sink_handle);
     graph.bind_input(root, 1);
@@ -254,9 +254,9 @@ TEST(Small_RigGraph, RigGraphCompileRefusesABindingBeyondTheHostChannels)
 TEST(Small_RigGraph, RigGraphRoutesEveryPortOfANodeThatDeclaresTheLimit)
 {
     const std::uint32_t ports = SushiDSP::RigGraph::K_MAX_OUTPUT_PORTS;
+    std::vector<SushiDSP::InMemoryNodeRecord> recorders(ports);
     SushiDSP::RigGraph graph(256, 64);
     const auto source = graph.add_node(every_port_source_node());
-    std::vector<SushiDSP::InMemoryNodeRecord> recorders(ports);
     wire_recorders(graph, source, recorders);
     graph.compile(SushiDSP::PrepareInfo{48000.0, 256, 1});
 

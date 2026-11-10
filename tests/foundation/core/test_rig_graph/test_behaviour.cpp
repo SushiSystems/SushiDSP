@@ -256,8 +256,8 @@ TEST(Small_RigGraph, RigGraphFeedsItsOwnInputToARootNodeWithNoUpstreamEdge)
 TEST(Small_RigGraph, RigGraphRootNodeStillReceivesNullptrWhenGraphHasNoInput)
 {
     // The graph passes nullptr through to a root node. See tests/foundation/core/test_rig_graph/README.md.
-    SushiDSP::RigGraph graph(K_FRAMES, 4);
     SushiDSP::InMemoryNodeRecord record;
+    SushiDSP::RigGraph graph(K_FRAMES, 4);
     graph.add_node(TestSupport::recording_source_node(5.0f, record));
     graph.compile(prepare_info(1));
 
@@ -369,8 +369,8 @@ TEST(Small_RigGraph, RigGraphLatencyIsMaxOverParallelBranchesNotSum)
 
 TEST(Small_RigGraph, RigGraphAppliesQueuedParameterChangesBeforeProcessing)
 {
-    SushiDSP::RigGraph graph(64, 4);
     SushiDSP::InMemoryNodeRecord record;
+    SushiDSP::RigGraph graph(64, 4);
     const auto handle = graph.add_node(TestSupport::recording_source_node(0.0f, record));
     graph.compile(SushiDSP::PrepareInfo{48000.0, 64, 1});
     EXPECT_TRUE(graph.push_parameter_change(
@@ -385,8 +385,8 @@ TEST(Small_RigGraph, RigGraphAppliesQueuedParameterChangesBeforeProcessing)
 
 TEST(Small_RigGraph, RigGraphIgnoresParameterChangeForRemovedNode)
 {
-    SushiDSP::RigGraph graph(64, 4);
     SushiDSP::InMemoryNodeRecord survivor;
+    SushiDSP::RigGraph graph(64, 4);
     const auto removed = graph.add_node(TestSupport::source_node(0.0f));
     graph.add_node(TestSupport::recording_source_node(0.0f, survivor));
     graph.remove_node(removed);
@@ -563,9 +563,9 @@ INSTANTIATE_TEST_SUITE_P(States, Small_RigGraphEmptiness, ::testing::Values<std:
 
 TEST(Small_RigGraph, RigGraphCopiesAMonoProducerIntoAStereoConsumer)
 {
+    SushiDSP::InMemoryNodeRecord stereo_record;
     SushiDSP::RigGraph graph(K_FRAMES, 4);
     const auto source = graph.add_node(TestSupport::source_node(0.5f));
-    SushiDSP::InMemoryNodeRecord stereo_record;
     const auto stereo_handle = graph.add_node(TestSupport::stereo_gain_node(1.0f, stereo_record));
     graph.connect(source, stereo_handle);
     graph.compile(prepare_info(2));
