@@ -33,6 +33,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
@@ -40,14 +41,17 @@
 #include <SushiDSP/nodes/room/early_reflection_renderer.hpp>
 #include <SushiDSP/nodes/room/early_tap_set.hpp>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <support/tolerance.hpp>
 
 namespace
 {
+    using SushiDSP::room::DelayRing;
+    using SushiDSP::room::EarlyReflectionRenderer;
+    using SushiDSP::room::EarlyTap;
+    using SushiDSP::room::EarlyTapSet;
+
     /// @brief Counts the channels the renderer accumulates into.
-    constexpr std::uint32_t K_CHANNELS = SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS;
+    constexpr std::uint32_t K_CHANNELS = EarlyReflectionRenderer::K_OUTPUT_CHANNELS;
 
     /// @brief Holds the block length every test renders in.
     constexpr std::uint32_t K_BLOCK = 256;
@@ -57,6 +61,28 @@ namespace
 
     /// @brief Holds pi.
     constexpr double K_PI = 3.14159265358979323846;
+
+    /// @brief Holds the frequency of the sine the interpolation test delays, in hertz.
+    constexpr double K_SINE_HZ = 1000.0;
+
+    /// @brief Holds the sample rate of the sine, in hertz.
+    constexpr double K_SAMPLE_RATE = 48000.0;
+
+    /// @brief Bounds the error of a cubic Lagrange read of a sine half a frame off the grid. The
+    /// error of a cubic through four points is at most the fourth derivative over 4! times the
+    /// product of the distances to the four nodes: w^4 of a sine of w rad per frame, and
+    /// 1.5 * 0.5 * 0.5 * 1.5 = 0.5625 at a half-frame fraction. Float rounding of the input and the
+    /// four weighted terms adds eight units of u.
+    const double K_HALF_FRAME_BOUND =
+        std::pow(2.0 * K_PI * K_SINE_HZ / K_SAMPLE_RATE, 4.0) * 0.5625 / 24.0 +
+        8.0 * TestSupport::unit_roundoff<float>();
+
+    /// @brief Bounds a weight the half-frame Lagrange kernel gives, 9/16: three roundings of
+    /// the kernel's float terms.
+    constexpr std::size_t K_KERNEL_OPERATIONS = 4;
+
+    /// @brief Holds the pole radius of the resonator that rings for many blocks.
+    constexpr double K_RING_RADIUS = 0.999;
 
     /// @brief Holds sixteen accumulation buffers and the pointer table the renderer takes.
     class OutputBlock
@@ -101,10 +127,32 @@ namespace
             std::array<float*, K_CHANNELS> pointers_;
     };
 
-    /// @brief Returns a tap with a pass-through filter and an encode of 1 on channel 0.
-    SushiDSP::room::EarlyTap unit_tap(float delay_frames, float gain)
+    /// @brief Holds one count of taps rendered together.
+    struct CountRow
     {
-        SushiDSP::room::EarlyTap tap{};
+            const char* name;
+            std::uint32_t count;
+    };
+
+    /// @brief Holds one output channel with whether the impulse is encoded into it.
+    struct ChannelRow
+    {
+            const char* name;
+            std::uint32_t channel;
+            bool carries_impulse;
+    };
+
+    /// @brief Names a row for gtest.
+    template <typename Row>
+    std::string row_name(const ::testing::TestParamInfo<Row>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Returns a tap with a pass-through filter and an encode of 1 on channel 0.
+    EarlyTap unit_tap(float delay_frames, float gain)
+    {
+        EarlyTap tap{};
         tap.delay_frames = delay_frames;
         tap.gain = gain;
         tap.section_a = {1.0, 0.0, 0.0, 0.0, 0.0};
@@ -115,26 +163,35 @@ namespace
     }
 
     /// @brief Returns a set holding one unit tap.
-    SushiDSP::room::EarlyTapSet single_tap_set(float delay_frames)
+    EarlyTapSet single_tap_set(float delay_frames)
     {
-        SushiDSP::room::EarlyTapSet set{};
+        EarlyTapSet set{};
         set.count = 1u;
         set.taps[0] = unit_tap(delay_frames, 1.0f);
         return set;
     }
 
-    /// @brief Returns a prepared renderer.
-    SushiDSP::room::EarlyReflectionRenderer prepared_renderer()
+    /// @brief Returns a tap that rings like a resonator near 1 kHz.
+    EarlyTap ringing_tap(float delay_frames)
     {
-        SushiDSP::room::EarlyReflectionRenderer renderer;
+        const double theta = 2.0 * K_PI * 1000.0 / 48000.0;
+        EarlyTap tap = unit_tap(delay_frames, 1.0f);
+        tap.section_a = {1.0, 0.0, 0.0, -2.0 * K_RING_RADIUS * std::cos(theta), K_RING_RADIUS * K_RING_RADIUS};
+        return tap;
+    }
+
+    /// @brief Returns a prepared renderer.
+    EarlyReflectionRenderer prepared_renderer()
+    {
+        EarlyReflectionRenderer renderer;
         renderer.prepare(K_MAX_DELAY, K_BLOCK);
         return renderer;
     }
 
     /// @brief Returns a prepared ring for a renderer to read.
-    SushiDSP::room::DelayRing prepared_ring()
+    DelayRing prepared_ring()
     {
-        SushiDSP::room::DelayRing ring;
+        DelayRing ring;
         ring.prepare(K_MAX_DELAY, K_BLOCK);
         return ring;
     }
@@ -147,11 +204,38 @@ namespace
         return block;
     }
 
-    /// @brief Renders a 1 kHz sine through one set and returns channel 0 over several blocks.
-    std::vector<float> render_sine(const SushiDSP::room::EarlyTapSet& set, std::uint32_t blocks)
+    /// @brief Returns one block of silence.
+    std::vector<float> silent_block()
     {
-        SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-        SushiDSP::room::DelayRing renderer_ring = prepared_ring();
+        return std::vector<float>(K_BLOCK, 0.0f);
+    }
+
+    /// @brief Returns one block of silence with a value at one frame.
+    std::vector<float> block_with(std::uint32_t frame, float value)
+    {
+        std::vector<float> block = silent_block();
+        block[frame] = value;
+        return block;
+    }
+
+    /// @brief Writes an impulse block to a fresh ring, renders @p set from bank 0 and returns the
+    /// accumulation buffers.
+    OutputBlock render_impulse(const EarlyTapSet& set)
+    {
+        EarlyReflectionRenderer renderer = prepared_renderer();
+        DelayRing ring = prepared_ring();
+        const std::vector<float> input = impulse_block();
+        ring.write(input.data(), K_BLOCK);
+        OutputBlock outputs;
+        renderer.render(ring, set, 0u, outputs.pointers(), K_BLOCK);
+        return outputs;
+    }
+
+    /// @brief Renders a 1 kHz sine through one set and returns channel 0 over several blocks.
+    std::vector<float> render_sine(const EarlyTapSet& set, std::uint32_t blocks)
+    {
+        EarlyReflectionRenderer renderer = prepared_renderer();
+        DelayRing renderer_ring = prepared_ring();
         std::vector<float> input(K_BLOCK);
         std::vector<float> output;
         output.reserve(static_cast<std::size_t>(blocks) * K_BLOCK);
@@ -159,8 +243,8 @@ namespace
         {
             for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
             {
-                const double time = static_cast<double>(block * K_BLOCK + frame) / 48000.0;
-                input[frame] = static_cast<float>(std::sin(2.0 * K_PI * 1000.0 * time));
+                const double time = static_cast<double>(block * K_BLOCK + frame) / K_SAMPLE_RATE;
+                input[frame] = static_cast<float>(std::sin(2.0 * K_PI * K_SINE_HZ * time));
             }
             renderer_ring.write(input.data(), K_BLOCK);
             OutputBlock outputs;
@@ -170,305 +254,91 @@ namespace
         return output;
     }
 
-    /// @brief Returns how many frames late lags early by, from the peak of their
-    /// cross-correlation over integer lags refined by a parabola through its neighbours.
-    double lag_frames(const std::vector<float>& early, const std::vector<float>& late,
-                      std::ptrdiff_t start, std::ptrdiff_t length)
+    /// @brief Returns true when any of the first @p frames of @p samples is not zero.
+    bool has_nonzero(const std::vector<float>& samples, std::uint32_t frames)
     {
-        std::array<double, 5> correlation{};
-        for (std::ptrdiff_t lag = -2; lag <= 2; ++lag)
+        for (std::uint32_t frame = 0; frame < frames; ++frame)
         {
-            double sum = 0.0;
-            for (std::ptrdiff_t frame = start; frame < start + length; ++frame)
+            if (samples[frame] != 0.0f)
             {
-                sum += static_cast<double>(late[static_cast<std::size_t>(frame)]) *
-                       static_cast<double>(early[static_cast<std::size_t>(frame - lag)]);
-            }
-            correlation[static_cast<std::size_t>(lag + 2)] = sum;
-        }
-        std::size_t peak = 1;
-        for (std::size_t index = 2; index + 1 < correlation.size(); ++index)
-        {
-            if (correlation[index] > correlation[peak])
-            {
-                peak = index;
+                return true;
             }
         }
-        const double left = correlation[peak - 1];
-        const double centre = correlation[peak];
-        const double right = correlation[peak + 1];
-        const double offset = 0.5 * (left - right) / (left - 2.0 * centre + right);
-        return static_cast<double>(peak) - 2.0 + offset;
+        return false;
     }
-} // namespace
 
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay)
-{
-    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-    SushiDSP::room::DelayRing renderer_ring = prepared_ring();
-    const SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
-    const std::vector<float> input = impulse_block();
-    renderer_ring.write(input.data(), K_BLOCK);
-    OutputBlock outputs;
-    renderer.render(renderer_ring, set, 0u, outputs.pointers(), K_BLOCK);
-    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
+    /// @brief Expects the frames of @p output from @p first on to follow the sine delayed by
+    /// @p delay_frames within K_HALF_FRAME_BOUND.
+    void expect_delayed_sine(const std::vector<float>& output, double delay_frames, std::size_t first)
     {
-        if (frame == 100u)
+        for (std::size_t frame = first; frame < output.size(); ++frame)
         {
-            EXPECT_EQ(outputs.channel(0)[frame], 1.0f);
-        }
-        else
-        {
-            EXPECT_LT(std::fabs(outputs.channel(0)[frame]), 1e-6f) << "frame " << frame;
+            const double ideal = std::sin(2.0 * K_PI * K_SINE_HZ * (static_cast<double>(frame) - delay_frames) / K_SAMPLE_RATE);
+            EXPECT_TRUE(TestSupport::is_within(
+                TestSupport::measure_error(output[frame], ideal, K_HALF_FRAME_BOUND, 1.0)))
+                << "frame " << frame;
         }
     }
-}
 
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererInterpolatesAFractionalDelay)
-{
-    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-    SushiDSP::room::DelayRing renderer_ring = prepared_ring();
-    const SushiDSP::room::EarlyTapSet half = single_tap_set(100.5f);
-    const std::vector<float> input = impulse_block();
-    renderer_ring.write(input.data(), K_BLOCK);
-    OutputBlock outputs;
-    renderer.render(renderer_ring, half, 0u, outputs.pointers(), K_BLOCK);
-    EXPECT_GT(outputs.channel(0)[100], 0.4f);
-    EXPECT_GT(outputs.channel(0)[101], 0.4f);
-
-    const std::vector<float> whole_sine = render_sine(single_tap_set(100.0f), 16u);
-    const std::vector<float> half_sine = render_sine(half, 16u);
-    // 2016 frames are 42 whole periods of the 1 kHz sine, so the correlation is symmetric.
-    EXPECT_NEAR(lag_frames(whole_sine, half_sine, 512, 2016), 0.5, 0.01);
-}
-
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererSumsOneHundredAndTwentyEightTaps)
-{
-    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-    SushiDSP::room::DelayRing renderer_ring = prepared_ring();
-    SushiDSP::room::EarlyTapSet set{};
-    set.count = static_cast<std::uint32_t>(SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS);
-    for (std::uint32_t tap = 0; tap < set.count; ++tap)
+    /// @brief Holds a renderer whose bank 0 has rung from an impulse for ten blocks, with the ring
+    /// holding the impulse of the next block and the first block bank 0 gave.
+    struct RingingBankZero
     {
-        set.taps[tap] = unit_tap(static_cast<float>(100u + tap), 1.0f / 128.0f);
-    }
-    const std::vector<float> input = impulse_block();
-    renderer_ring.write(input.data(), K_BLOCK);
-    OutputBlock outputs;
-    renderer.render(renderer_ring, set, 0u, outputs.pointers(), K_BLOCK);
-    double sum = 0.0;
-    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
+            /// @brief Stores the renderer, ringing in bank 0.
+            EarlyReflectionRenderer renderer = prepared_renderer();
+
+            /// @brief Stores the ring, holding an impulse as its last block.
+            DelayRing ring = prepared_ring();
+
+            /// @brief Stores the set rendered, one ringing tap.
+            EarlyTapSet set = []
+            {
+                EarlyTapSet ringing{};
+                ringing.count = 1u;
+                ringing.taps[0] = ringing_tap(100.0f);
+                return ringing;
+            }();
+
+            /// @brief Stores channel 0 of the first block bank 0 rendered.
+            std::vector<float> first_block;
+
+            /// @brief Rings bank 0 for ten blocks and writes an impulse block last.
+            RingingBankZero()
+            {
+                const std::vector<float> impulse = impulse_block();
+                const std::vector<float> silence = silent_block();
+                ring.write(impulse.data(), K_BLOCK);
+                OutputBlock first;
+                renderer.render(ring, set, 0u, first.pointers(), K_BLOCK);
+                first_block = first.channel(0);
+                OutputBlock scratch;
+                for (int block = 1; block < 10; ++block)
+                {
+                    ring.write(silence.data(), K_BLOCK);
+                    scratch.clear();
+                    renderer.render(ring, set, 0u, scratch.pointers(), K_BLOCK);
+                }
+                ring.write(impulse.data(), K_BLOCK);
+            }
+    };
+
+    /// @brief Expects an alone-rendered tap of a group to match the group's channel for it, for a
+    /// group of @p count taps that each encode to a channel of their own.
+    void expect_group_matches_each_tap_alone(std::uint32_t count)
     {
-        const float value = outputs.channel(0)[frame];
-        sum += static_cast<double>(value);
-        if (frame >= 100u && frame < 228u)
-        {
-            EXPECT_NEAR(value, 1.0f / 128.0f, 1e-7f) << "frame " << frame;
-        }
-        else
-        {
-            EXPECT_LT(std::fabs(value), 1e-9f) << "frame " << frame;
-        }
-    }
-    EXPECT_NEAR(sum, 1.0, 1e-5);
-}
-
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererEncodesIntoSixteenChannels)
-{
-    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-    SushiDSP::room::DelayRing renderer_ring = prepared_ring();
-    SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
-    set.taps[0].encode[3] = 1.0f;
-    const std::vector<float> input = impulse_block();
-    renderer_ring.write(input.data(), K_BLOCK);
-    OutputBlock outputs;
-    renderer.render(renderer_ring, set, 0u, outputs.pointers(), K_BLOCK);
-    for (std::uint32_t channel = 0; channel < K_CHANNELS; ++channel)
-    {
-        if (channel == 0u || channel == 3u)
-        {
-            EXPECT_EQ(outputs.channel(channel)[100], 1.0f) << "channel " << channel;
-            continue;
-        }
-        for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
-        {
-            EXPECT_LT(std::fabs(outputs.channel(channel)[frame]), 1e-9f)
-                << "channel " << channel << " frame " << frame;
-        }
-    }
-}
-
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererKeepsTwoIndependentStateBanks)
-{
-    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-    SushiDSP::room::DelayRing renderer_ring = prepared_ring();
-    SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
-    // A resonator near 1 kHz with a pole radius of 0.999 rings for many blocks.
-    const double radius = 0.999;
-    const double theta = 2.0 * K_PI * 1000.0 / 48000.0;
-    set.taps[0].section_a = {1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius};
-
-    const std::vector<float> impulse = impulse_block();
-    const std::vector<float> silence(K_BLOCK, 0.0f);
-    renderer_ring.write(impulse.data(), K_BLOCK);
-    OutputBlock first_from_bank_zero;
-    renderer.render(renderer_ring, set, 0u, first_from_bank_zero.pointers(), K_BLOCK);
-    OutputBlock scratch;
-    for (int block = 1; block < 10; ++block)
-    {
-        renderer_ring.write(silence.data(), K_BLOCK);
-        scratch.clear();
-        renderer.render(renderer_ring, set, 0u, scratch.pointers(), K_BLOCK);
-    }
-
-    renderer_ring.write(impulse.data(), K_BLOCK);
-    renderer.clear_bank(1u);
-    OutputBlock first_from_bank_one;
-    renderer.render(renderer_ring, set, 1u, first_from_bank_one.pointers(), K_BLOCK);
-    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
-    {
-        EXPECT_EQ(first_from_bank_one.channel(0)[frame], first_from_bank_zero.channel(0)[frame])
-            << "frame " << frame;
-    }
-
-    // Bank 0 still rings from its own history, so the same block through it is not bank 1's.
-    OutputBlock ringing_bank_zero;
-    renderer.render(renderer_ring, set, 0u, ringing_bank_zero.pointers(), K_BLOCK);
-    bool differs = false;
-    for (std::uint32_t frame = 0; frame < 100u; ++frame)
-    {
-        differs = differs || ringing_bank_zero.channel(0)[frame] != 0.0f;
-    }
-    EXPECT_TRUE(differs);
-}
-
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
-{
-    // Only tap 0's state is carried into bank 1. See tests/nodes/room/README.md.
-    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-    SushiDSP::room::DelayRing renderer_ring = prepared_ring();
-    const double radius = 0.999;
-    const double theta = 2.0 * K_PI * 1000.0 / 48000.0;
-    SushiDSP::room::EarlyTapSet both = single_tap_set(100.0f);
-    both.taps[0].section_a = {1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius};
-    both.count = 2u;
-    both.taps[1] = both.taps[0];
-    both.taps[1].delay_frames = 200.0f;
-    SushiDSP::room::EarlyTapSet first_only = both;
-    first_only.count = 1u;
-
-    const std::vector<float> impulse = impulse_block();
-    const std::vector<float> silence(K_BLOCK, 0.0f);
-    renderer_ring.write(impulse.data(), K_BLOCK);
-    OutputBlock scratch;
-    renderer.render(renderer_ring, both, 0u, scratch.pointers(), K_BLOCK);
-    for (int block = 1; block < 10; ++block)
-    {
-        renderer_ring.write(silence.data(), K_BLOCK);
-        scratch.clear();
-        renderer.render(renderer_ring, both, 0u, scratch.pointers(), K_BLOCK);
-    }
-
-    renderer.carry_tap(0u, 1u, 0u);
-    renderer_ring.write(silence.data(), K_BLOCK);
-    OutputBlock from_bank_zero;
-    renderer.render(renderer_ring, first_only, 0u, from_bank_zero.pointers(), K_BLOCK);
-    OutputBlock from_bank_one;
-    renderer.render(renderer_ring, both, 1u, from_bank_one.pointers(), K_BLOCK);
-    bool rings = false;
-    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
-    {
-        EXPECT_EQ(from_bank_one.channel(0)[frame], from_bank_zero.channel(0)[frame])
-            << "frame " << frame;
-        rings = rings || from_bank_one.channel(0)[frame] != 0.0f;
-    }
-    EXPECT_TRUE(rings);
-}
-
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
-{
-    // A carry onto the same bank is a copy onto itself. See tests/nodes/room/README.md.
-    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-    SushiDSP::room::DelayRing renderer_ring = prepared_ring();
-    const double radius = 0.999;
-    const double theta = 2.0 * K_PI * 1000.0 / 48000.0;
-    SushiDSP::room::EarlyTapSet set = single_tap_set(100.0f);
-    set.taps[0].section_a = {1.0, 0.0, 0.0, -2.0 * radius * std::cos(theta), radius * radius};
-
-    const std::vector<float> impulse = impulse_block();
-    const std::vector<float> silence(K_BLOCK, 0.0f);
-    renderer_ring.write(impulse.data(), K_BLOCK);
-    OutputBlock scratch;
-    renderer.render(renderer_ring, set, 0u, scratch.pointers(), K_BLOCK);
-
-    SushiDSP::room::EarlyReflectionRenderer untouched = renderer;
-
-    SushiDSP::room::DelayRing untouched_ring = renderer_ring;
-    renderer.carry_tap(0u, 0u, 0u);
-    renderer_ring.write(silence.data(), K_BLOCK);
-    untouched_ring.write(silence.data(), K_BLOCK);
-    OutputBlock carried;
-    renderer.render(renderer_ring, set, 0u, carried.pointers(), K_BLOCK);
-    OutputBlock reference;
-    untouched.render(untouched_ring, set, 0u, reference.pointers(), K_BLOCK);
-    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
-    {
-        EXPECT_EQ(carried.channel(0)[frame], reference.channel(0)[frame]) << "frame " << frame;
-    }
-}
-
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
-{
-    SushiDSP::room::EarlyReflectionRenderer renderer = prepared_renderer();
-    SushiDSP::room::DelayRing renderer_ring = prepared_ring();
-    const SushiDSP::room::EarlyTapSet set = single_tap_set(300.0f);
-    const std::vector<float> impulse = impulse_block();
-    const std::vector<float> silence(K_BLOCK, 0.0f);
-
-    renderer_ring.write(impulse.data(), K_BLOCK);
-    OutputBlock first;
-    renderer.render(renderer_ring, set, 0u, first.pointers(), K_BLOCK);
-    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
-    {
-        EXPECT_LT(std::fabs(first.channel(0)[frame]), 1e-9f) << "frame " << frame;
-    }
-
-    renderer_ring.write(silence.data(), K_BLOCK);
-    OutputBlock second;
-    renderer.render(renderer_ring, set, 0u, second.pointers(), K_BLOCK);
-    for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
-    {
-        if (frame == 44u)
-        {
-            EXPECT_EQ(second.channel(0)[frame], 1.0f);
-        }
-        else
-        {
-            EXPECT_LT(std::fabs(second.channel(0)[frame]), 1e-9f) << "frame " << frame;
-        }
-    }
-}
-
-TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererRendersATapTheSameAloneAndInAGroup)
-{
-    // Each tap encodes to a channel of its own, so the group's lanes can be read apart.
-    for (const std::uint32_t count : {1u, 4u, 5u, 7u, 16u})
-    {
-        SushiDSP::room::EarlyTapSet group{};
+        EarlyTapSet group{};
         group.count = count;
         for (std::uint32_t index = 0; index < count; ++index)
         {
-            SushiDSP::room::EarlyTap tap =
-                unit_tap(3.25f + 11.5f * static_cast<float>(index), 0.5f + 0.1f * index);
+            EarlyTap tap = unit_tap(3.25f + 11.5f * static_cast<float>(index), 0.5f + 0.1f * index);
             tap.section_a = {0.6, 0.25, 0.05, -0.3 + 0.03 * index, 0.1};
             tap.section_b = {0.9, -0.2, 0.0, 0.2 - 0.02 * index, 0.0};
             tap.encode.fill(0.0f);
             tap.encode[index] = 1.0f;
             group.taps[index] = tap;
         }
-
-        SushiDSP::room::EarlyReflectionRenderer together = prepared_renderer();
-        SushiDSP::room::DelayRing ring = prepared_ring();
+        EarlyReflectionRenderer together = prepared_renderer();
+        DelayRing ring = prepared_ring();
         const std::vector<float> impulse = impulse_block();
         ring.write(impulse.data(), K_BLOCK);
         OutputBlock grouped;
@@ -476,78 +346,283 @@ TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererRendersATapTheSameAlo
 
         for (std::uint32_t index = 0; index < count; ++index)
         {
-            SushiDSP::room::EarlyTapSet single{};
+            EarlyTapSet single{};
             single.count = 1u;
             single.taps[0] = group.taps[index];
-            SushiDSP::room::EarlyReflectionRenderer alone = prepared_renderer();
+            EarlyReflectionRenderer alone = prepared_renderer();
             OutputBlock lone;
             alone.render(ring, single, 0u, lone.pointers(), K_BLOCK);
-            for (std::uint32_t frame = 0; frame < K_BLOCK; ++frame)
-            {
-                ASSERT_EQ(grouped.channel(index)[frame], lone.channel(index)[frame])
-                    << "count " << count << " tap " << index << " frame " << frame;
-            }
+            EXPECT_EQ(grouped.channel(index), lone.channel(index)) << "count " << count << " tap " << index;
         }
     }
-}
 
-namespace
-{
     /// @brief Fills a block with a 220 Hz tone at 0.3 of full scale.
-    void fill_room_tone(std::vector<float>& block)
+    std::vector<float> room_tone()
     {
+        std::vector<float> block(256);
         for (std::size_t i = 0; i < block.size(); ++i)
         {
-            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f *
-                                       static_cast<float>(i) / 48000.0f);
+            block[i] = 0.3f * std::sin(2.0f * static_cast<float>(K_PI) * 220.0f * static_cast<float>(i) / 48000.0f);
+        }
+        return block;
+    }
+
+    /// @brief Returns the hundred and twenty-eight taps the allocation test renders.
+    EarlyTapSet full_tap_set()
+    {
+        EarlyTapSet set{};
+        set.count = EarlyTapSet::K_MAX_EARLY_TAPS;
+        for (std::uint32_t tap = 0; tap < set.count; ++tap)
+        {
+            set.taps[tap].delay_frames = 1.5f + 60.0f * static_cast<float>(tap);
+            set.taps[tap].gain = 1.0f / (1.0f + static_cast<float>(tap));
+            set.taps[tap].section_a = {0.5, 0.25, 0.0, -0.25, 0.0};
+            set.taps[tap].section_b = {1.0, 0.0, 0.0, 0.0, 0.0};
+            set.taps[tap].encode.fill(0.1f);
+        }
+        return set;
+    }
+
+    /// @brief Runs eight blocks of writing, rendering from both banks, carrying and clearing.
+    void run_blocks_with_bank_changes(EarlyReflectionRenderer& renderer, DelayRing& ring, const EarlyTapSet& set,
+                                      const std::vector<float>& input, OutputBlock& outputs)
+    {
+        for (int block = 0; block < 8; ++block)
+        {
+            ring.write(input.data(), 256);
+            renderer.render(ring, set, 0, outputs.pointers(), 256);
+            renderer.render(ring, set, 1, outputs.pointers(), 256);
+            renderer.carry_tap(0, 1, static_cast<std::uint32_t>(block));
+            renderer.clear_bank(static_cast<std::uint32_t>(block % 2));
         }
     }
+
+    /// @brief Expects every sample of @p samples to be finite.
+    void expect_all_finite(const std::vector<float>& samples)
+    {
+        for (const float sample : samples)
+        {
+            EXPECT_TRUE(std::isfinite(sample));
+        }
+    }
+
+    class Small_EarlyReflectionRendererGroup : public ::testing::TestWithParam<CountRow>
+    {
+    };
+
+    class Small_EarlyReflectionRendererChannel : public ::testing::TestWithParam<ChannelRow>
+    {
+    };
 } // namespace
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererPutsAnImpulseAtTheTapsDelay)
+{
+    // A whole delay reads the ring at the exact Lagrange weights 0, 0, 1, 0 through a pass-through filter.
+    const OutputBlock outputs = render_impulse(single_tap_set(100.0f));
+
+    EXPECT_EQ(outputs.channel(0), block_with(100u, 1.0f));
+}
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererSplitsAnImpulseAtAHalfFrameDelayIntoTwoNineSixteenths)
+{
+    const OutputBlock outputs = render_impulse(single_tap_set(100.5f));
+
+    // The half-frame cubic Lagrange weights are -1/16, 9/16, 9/16 and -1/16.
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_relative_error<float>(outputs.channel(0)[100], 0.5625, K_KERNEL_OPERATIONS)));
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_relative_error<float>(outputs.channel(0)[101], 0.5625, K_KERNEL_OPERATIONS)));
+}
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererDelaysASineByAHalfFrameToTheCubicLagrangeBound)
+{
+    // The first 512 frames are skipped so that the delay line has filled with the sine.
+    expect_delayed_sine(render_sine(single_tap_set(100.5f), 16u), 100.5, 512u);
+}
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererSumsOneHundredAndTwentyEightTaps)
+{
+    // Each tap is a whole delay of gain 1/128, exact in float, so every frame in the run is 1/128.
+    EarlyTapSet set{};
+    set.count = static_cast<std::uint32_t>(EarlyTapSet::K_MAX_EARLY_TAPS);
+    std::vector<float> expected = silent_block();
+    for (std::uint32_t tap = 0; tap < set.count; ++tap)
+    {
+        set.taps[tap] = unit_tap(static_cast<float>(100u + tap), 1.0f / 128.0f);
+        expected[100u + tap] = 1.0f / 128.0f;
+    }
+
+    const OutputBlock outputs = render_impulse(set);
+
+    EXPECT_EQ(outputs.channel(0), expected);
+}
+
+TEST_P(Small_EarlyReflectionRendererChannel, EarlyReflectionRendererEncodesTheImpulseOnlyIntoItsChannels)
+{
+    EarlyTapSet set = single_tap_set(100.0f);
+    set.taps[0].encode[3] = 1.0f;
+    const ChannelRow row = GetParam();
+
+    const OutputBlock outputs = render_impulse(set);
+
+    EXPECT_EQ(outputs.channel(row.channel), row.carries_impulse ? block_with(100u, 1.0f) : silent_block());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Channels, Small_EarlyReflectionRendererChannel,
+    ::testing::Values(ChannelRow{"Channel0", 0u, true}, ChannelRow{"Channel1", 1u, false},
+                      ChannelRow{"Channel2", 2u, false}, ChannelRow{"Channel3", 3u, true},
+                      ChannelRow{"Channel4", 4u, false}, ChannelRow{"Channel5", 5u, false},
+                      ChannelRow{"Channel6", 6u, false}, ChannelRow{"Channel7", 7u, false},
+                      ChannelRow{"Channel8", 8u, false}, ChannelRow{"Channel9", 9u, false},
+                      ChannelRow{"Channel10", 10u, false}, ChannelRow{"Channel11", 11u, false},
+                      ChannelRow{"Channel12", 12u, false}, ChannelRow{"Channel13", 13u, false},
+                      ChannelRow{"Channel14", 14u, false}, ChannelRow{"Channel15", 15u, false}),
+    row_name<ChannelRow>);
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererGivesABankTheSameFirstBlockWhateverAnotherBankHasRung)
+{
+    // Both banks start from zero state and read the same ring block with the same arithmetic.
+    RingingBankZero scene;
+
+    scene.renderer.clear_bank(1u);
+    OutputBlock from_bank_one;
+    scene.renderer.render(scene.ring, scene.set, 1u, from_bank_one.pointers(), K_BLOCK);
+
+    EXPECT_EQ(from_bank_one.channel(0), scene.first_block);
+}
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererLeavesTheOtherBankRingingWhenOneIsCleared)
+{
+    RingingBankZero scene;
+
+    scene.renderer.clear_bank(1u);
+    OutputBlock ringing_bank_zero;
+    scene.renderer.render(scene.ring, scene.set, 0u, ringing_bank_zero.pointers(), K_BLOCK);
+
+    EXPECT_TRUE(has_nonzero(ringing_bank_zero.channel(0), 100u));
+}
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesOneTapsStateBetweenBanks)
+{
+    // Only tap 0's state is carried into bank 1. See tests/nodes/room/README.md.
+    EarlyReflectionRenderer renderer = prepared_renderer();
+    DelayRing ring = prepared_ring();
+    EarlyTapSet both{};
+    both.count = 2u;
+    both.taps[0] = ringing_tap(100.0f);
+    both.taps[1] = ringing_tap(200.0f);
+    EarlyTapSet first_only = both;
+    first_only.count = 1u;
+    const std::vector<float> impulse = impulse_block();
+    const std::vector<float> silence = silent_block();
+    ring.write(impulse.data(), K_BLOCK);
+    OutputBlock scratch;
+    renderer.render(ring, both, 0u, scratch.pointers(), K_BLOCK);
+    for (int block = 1; block < 10; ++block)
+    {
+        ring.write(silence.data(), K_BLOCK);
+        scratch.clear();
+        renderer.render(ring, both, 0u, scratch.pointers(), K_BLOCK);
+    }
+
+    renderer.carry_tap(0u, 1u, 0u);
+    ring.write(silence.data(), K_BLOCK);
+    OutputBlock from_bank_zero;
+    renderer.render(ring, first_only, 0u, from_bank_zero.pointers(), K_BLOCK);
+    OutputBlock from_bank_one;
+    renderer.render(ring, both, 1u, from_bank_one.pointers(), K_BLOCK);
+
+    EXPECT_EQ(from_bank_one.channel(0), from_bank_zero.channel(0));
+    EXPECT_TRUE(has_nonzero(from_bank_one.channel(0), K_BLOCK));
+}
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesATapOntoItselfWithoutAChange)
+{
+    // A carry onto the same bank is a copy onto itself. See tests/nodes/room/README.md.
+    EarlyReflectionRenderer renderer = prepared_renderer();
+    DelayRing ring = prepared_ring();
+    EarlyTapSet set{};
+    set.count = 1u;
+    set.taps[0] = ringing_tap(100.0f);
+    const std::vector<float> impulse = impulse_block();
+    const std::vector<float> silence = silent_block();
+    ring.write(impulse.data(), K_BLOCK);
+    OutputBlock scratch;
+    renderer.render(ring, set, 0u, scratch.pointers(), K_BLOCK);
+    EarlyReflectionRenderer untouched = renderer;
+    DelayRing untouched_ring = ring;
+
+    renderer.carry_tap(0u, 0u, 0u);
+    ring.write(silence.data(), K_BLOCK);
+    untouched_ring.write(silence.data(), K_BLOCK);
+    OutputBlock carried;
+    renderer.render(ring, set, 0u, carried.pointers(), K_BLOCK);
+    OutputBlock reference;
+    untouched.render(untouched_ring, set, 0u, reference.pointers(), K_BLOCK);
+
+    EXPECT_EQ(carried.channel(0), reference.channel(0));
+}
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererRendersNothingInTheBlockBeforeALongDelayArrives)
+{
+    EarlyReflectionRenderer renderer = prepared_renderer();
+    DelayRing ring = prepared_ring();
+    const EarlyTapSet set = single_tap_set(300.0f);
+    const std::vector<float> impulse = impulse_block();
+    ring.write(impulse.data(), K_BLOCK);
+    OutputBlock first;
+
+    renderer.render(ring, set, 0u, first.pointers(), K_BLOCK);
+
+    EXPECT_EQ(first.channel(0), silent_block());
+}
+
+TEST(Small_EarlyReflectionRenderer, EarlyReflectionRendererCarriesATailAcrossBlockBoundaries)
+{
+    EarlyReflectionRenderer renderer = prepared_renderer();
+    DelayRing ring = prepared_ring();
+    const EarlyTapSet set = single_tap_set(300.0f);
+    const std::vector<float> impulse = impulse_block();
+    const std::vector<float> silence = silent_block();
+    ring.write(impulse.data(), K_BLOCK);
+    OutputBlock first;
+    renderer.render(ring, set, 0u, first.pointers(), K_BLOCK);
+    ring.write(silence.data(), K_BLOCK);
+    OutputBlock second;
+
+    renderer.render(ring, set, 0u, second.pointers(), K_BLOCK);
+
+    // The impulse written 256 frames ago arrives 300 - 256 = 44 frames into this block.
+    EXPECT_EQ(second.channel(0), block_with(44u, 1.0f));
+}
+
+TEST_P(Small_EarlyReflectionRendererGroup, EarlyReflectionRendererRendersATapTheSameAloneAndInAGroup)
+{
+    // Each tap encodes to a channel of its own, so the group's lanes can be read apart.
+    expect_group_matches_each_tap_alone(GetParam().count);
+}
+
+INSTANTIATE_TEST_SUITE_P(Counts, Small_EarlyReflectionRendererGroup,
+                         ::testing::Values(CountRow{"One", 1u}, CountRow{"Four", 4u}, CountRow{"Five", 5u},
+                                           CountRow{"Seven", 7u}, CountRow{"Sixteen", 16u}),
+                         row_name<CountRow>);
 
 TEST(Medium_EarlyReflectionRenderer, RenderPerformsNoHeapAllocation)
 {
-    SushiDSP::room::EarlyReflectionRenderer renderer;
+    EarlyReflectionRenderer renderer;
     renderer.prepare(8397, 256);
-    SushiDSP::room::DelayRing renderer_ring;
+    DelayRing renderer_ring;
     renderer_ring.prepare(8397, 256);
-
-    SushiDSP::room::EarlyTapSet set{};
-    set.count = SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS;
-    for (std::uint32_t tap = 0; tap < set.count; ++tap)
-    {
-        set.taps[tap].delay_frames = 1.5f + 60.0f * static_cast<float>(tap);
-        set.taps[tap].gain = 1.0f / (1.0f + static_cast<float>(tap));
-        set.taps[tap].section_a = {0.5, 0.25, 0.0, -0.25, 0.0};
-        set.taps[tap].section_b = {1.0, 0.0, 0.0, 0.0, 0.0};
-        set.taps[tap].encode.fill(0.1f);
-    }
-
-    std::vector<float> input(256);
-    fill_room_tone(input);
-    std::array<std::vector<float>, SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS>
-        buffers;
-    std::array<float*, SushiDSP::room::EarlyReflectionRenderer::K_OUTPUT_CHANNELS> outputs{};
-    for (std::size_t channel = 0; channel < buffers.size(); ++channel)
-    {
-        buffers[channel].assign(256, 0.0f);
-        outputs[channel] = buffers[channel].data();
-    }
+    const EarlyTapSet set = full_tap_set();
+    const std::vector<float> input = room_tone();
+    OutputBlock outputs;
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-    for (int block = 0; block < 8; ++block)
-    {
-        renderer_ring.write(input.data(), 256);
-        renderer.render(renderer_ring, set, 0, outputs.data(), 256);
-        renderer.render(renderer_ring, set, 1, outputs.data(), 256);
-        renderer.carry_tap(0, 1, static_cast<std::uint32_t>(block));
-        renderer.clear_bank(static_cast<std::uint32_t>(block % 2));
-    }
+    run_blocks_with_bank_changes(renderer, renderer_ring, set, input, outputs);
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
-    for (float sample : buffers[0])
-    {
-        EXPECT_TRUE(std::isfinite(sample));
-    }
+    expect_all_finite(outputs.channel(0));
 }
