@@ -23,24 +23,69 @@
 
 /**
  * @file test_source_stage.cpp
- * @brief Tests that a source stage is idle after reset and keeps its two banks.
+ * @brief Tests that a source stage goes live when it adopts a set and is idle again after reset.
  * @author Mustafa Garip
  */
 
 #include <gtest/gtest.h>
 
+#include <SushiDSP/nodes/room/environment_render_set.hpp>
 #include <SushiDSP/nodes/room/source_stage.hpp>
 
 #include <cstdint>
+#include <memory>
 
-TEST(Small_SourceStage, IsNotLiveAfterReset)
+namespace
 {
-    SushiDSP::Room::SourceStage stage;
-    stage.reset();
+    using SushiDSP::Room::EnvironmentRenderSet;
+    using SushiDSP::Room::SourceStage;
+
+    constexpr double K_RATE = 48000.0;
+    constexpr std::uint32_t K_ALIGNMENT_FRAMES = 128;
+    constexpr std::uint32_t K_BLOCK = 64;
+
+    /// @brief Holds a crossover corner inside the band the stage's filter accepts.
+    constexpr float K_CROSSOVER_HZ = 1000.0f;
+
+    /// @brief Returns a set of one cabinet whose pairs are silent, with a usable crossover corner.
+    std::unique_ptr<EnvironmentRenderSet> silent_set()
+    {
+        auto set = std::make_unique<EnvironmentRenderSet>();
+        set->source_count = 1;
+        set->pairs[0][0].crossover_hz = K_CROSSOVER_HZ;
+        return set;
+    }
+
+    /// @brief Prepares a stage at K_RATE and lets it adopt the silent set.
+    void prepare_and_adopt(SourceStage& stage)
+    {
+        stage.prepare(K_RATE, K_ALIGNMENT_FRAMES, K_BLOCK);
+        stage.adopt(*silent_set(), 0);
+    }
+} // namespace
+
+TEST(Small_SourceStage, IsNotLiveBeforeItAdoptsASet)
+{
+    SourceStage stage;
+    stage.prepare(K_RATE, K_ALIGNMENT_FRAMES, K_BLOCK);
+
     EXPECT_FALSE(stage.live());
 }
 
-TEST(Small_SourceStage, HasTwoBanks)
+TEST(Small_SourceStage, IsLiveOnceItHasAdoptedASet)
 {
-    EXPECT_EQ(SushiDSP::Room::SourceStage::K_BANKS, 2u);
+    SourceStage stage;
+    prepare_and_adopt(stage);
+
+    EXPECT_TRUE(stage.live());
+}
+
+TEST(Small_SourceStage, IsNotLiveAfterResetOfAnAdoptedSet)
+{
+    SourceStage stage;
+    prepare_and_adopt(stage);
+
+    stage.reset();
+
+    EXPECT_FALSE(stage.live());
 }
