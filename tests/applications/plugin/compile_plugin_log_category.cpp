@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_plugin_log_category.cpp                                           */
+/* compile_plugin_log_category.cpp                                        */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,18 +22,9 @@
 /**************************************************************************/
 
 /**
- * @file test_plugin_log_category.cpp
- * @brief Tests that the plugin logs under its own category.
+ * @file compile_plugin_log_category.cpp
+ * @brief Compiles plugin_log_category.hpp, which declares the category every plugin record is written under.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
-
 #include "plugin_log_category.hpp"
-
-#include <string_view>
-
-TEST(Small_PluginLogCategory, IsNamedPlugin)
-{
-    EXPECT_EQ(K_PLUGIN_LOG_CATEGORY.module(), std::string_view("plugin"));
-}

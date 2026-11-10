@@ -28,6 +28,7 @@
  */
 
 #include <string>
+#include <thread>
 
 #include <gtest/gtest.h>
 
@@ -41,19 +42,44 @@ namespace
     constexpr SushiLog::LogCategory K_JOIN_TEST_LOG_CATEGORY =
         SushiLog::make_log_category(SushiDSP::K_SUSHIDSP_LOG_PROJECT, "plugin");
 
-    /// @brief Copies the message of a forwarded record into the string the user pointer names.
+    /// @brief What the host function saw of one forwarded record.
+    struct Seen
+    {
+            std::string message;
+            std::thread::id thread;
+    };
+
+    /// @brief Keeps the message of a forwarded record and the thread it was handed over on, in
+    /// the Seen the user pointer names.
     void keep_message(const SushiLogRecord* record, void* user)
     {
-        static_cast<std::string*>(user)->assign(record->message, record->message_size);
+        Seen* seen = static_cast<Seen*>(user);
+        seen->message.assign(record->message, record->message_size);
+        seen->thread = std::this_thread::get_id();
+    }
+
+    /// @brief Joins the logger to keep_message, logs one error and leaves the join.
+    /// @param seen Receives what the host function saw.
+    void log_one_record_through_the_join(Seen& seen)
+    {
+        sushidsp_join_log(&keep_message, &seen);
+        SD_LOG_ERROR(K_JOIN_TEST_LOG_CATEGORY, "joined {}", 1);
+        sl_set_log_sink(nullptr, nullptr);
     }
 } // namespace
 
-TEST(Small_LogJoin, JoinedLoggerHandsEachRecordToTheHostFunctionOnTheCallingThread)
+TEST(Small_LogJoin, JoinedLoggerHandsEachRecordToTheHostFunction)
 {
-    std::string seen;
-    sushidsp_join_log(&keep_message, &seen);
-    SD_LOG_ERROR(K_JOIN_TEST_LOG_CATEGORY, "joined {}", 1);
-    sl_set_log_sink(nullptr, nullptr);
+    Seen seen;
+    log_one_record_through_the_join(seen);
 
-    EXPECT_EQ(seen, "joined 1");
+    EXPECT_EQ(seen.message, "joined 1");
+}
+
+TEST(Small_LogJoin, JoinedLoggerHandsEachRecordOverOnTheCallingThread)
+{
+    Seen seen;
+    log_one_record_through_the_join(seen);
+
+    EXPECT_EQ(seen.thread, std::this_thread::get_id());
 }

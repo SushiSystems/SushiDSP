@@ -440,7 +440,7 @@ if(SUSHIDSP_BUILD_PLUGIN)
     target_sources(sushidsp_tests PRIVATE
         applications/plugin/test_clap_boundary.cpp
         applications/plugin/test_clap_plugin.cpp
-        applications/plugin/test_plugin_log_category.cpp
+        applications/plugin/compile_plugin_log_category.cpp
         applications/plugin/test_startup_rig.cpp
         ${CMAKE_SOURCE_DIR}/applications/plugin/clap_extensions.cpp
         ${CMAKE_SOURCE_DIR}/applications/plugin/clap_plugin.cpp
