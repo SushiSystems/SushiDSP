@@ -23,7 +23,7 @@ path through the 4x12, whose 2 kHz octave the array null pulls down. Measured: 0
 
 ## `test_cabinet_directivity.cpp`
 
-### `CabinetDirectivityBeamsAtTwoKilohertzAndNotAtOneTwentyFive`
+### `CabinetDirectivityBeamsAtTwoKilohertz`
 
 `// The 2 kHz band's energy mean reads -15.29 dB.`
 
@@ -32,6 +32,8 @@ k\*a\*sin60 = 3.0958 so the piston is 0.195099 (-14.19 dB), and the array is |co
 0.30 \* 0.866025 / 2)| = 0.046834 (-26.59 dB), together -40.78 dB. The array factor's null sits
 26 Hz above the centre, so the band's energy mean over 1414 to 2828 Hz reads -15.29 dB by the
 1024-point midpoint rule of the same closed form.
+
+### `CabinetDirectivityDoesNotBeamAtOneTwentyFive`
 
 `// The 125 Hz band's energy mean reads -0.49 dB.`
 
@@ -56,7 +58,7 @@ The model samples sixteen points per octave; the test integrates the same closed
 and the two agree within 0.05 dB in every band at every direction tried, 60 degrees off axis,
 15.64 degrees up, and 52.85 degrees up.
 
-### `CabinetDirectivityIndexIsSmallWhereTheConeIsOmnidirectional`
+### `CabinetDirectivityIndexIsUnderOneAndAHalfDecibelsAtOneTwentyFive`
 
 `// The index stays under 1.5 dB at 125 Hz.`
 
@@ -65,7 +67,7 @@ the closed box's rear shelf reads -1.55 dB over the back hemisphere, which is 10
 0.70)) = 0.71 dB of index on its own. Together the index stays under 1.5 dB, and by 2 kHz the
 beam is over 10 dB.
 
-### `CabinetDirectivityFallsSixDecibelsBehindTheBaffleAboveTheStep`
+### `CabinetDirectivityFallsSixDecibelsBehindTheBaffleAtFourKilohertz`
 
 `// Straight behind, only the rear shelf remains.`
 

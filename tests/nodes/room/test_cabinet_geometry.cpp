@@ -23,17 +23,53 @@
 
 /**
  * @file test_cabinet_geometry.cpp
- * @brief Tests the driver limit of the cabinet geometry.
+ * @brief Tests that every shipped cabinet fits the driver limit the near-field model is sized by.
  * @author Mustafa Garip
  */
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/room/cabinet_geometry.hpp>
+#include <SushiDSP/nodes/room/driver_field.hpp>
 
-#include <cstdint>
+#include <string>
 
-TEST(Small_CabinetGeometry, AtMostFourDriversPerCabinet)
+namespace
 {
-    EXPECT_EQ(SushiDSP::room::CabinetGeometry::K_MAX_DRIVERS, 4u);
+    using SushiDSP::room::CabinetGeometry;
+
+    /// @brief Holds one shipped geometry.
+    struct GeometryRow
+    {
+            const char* name;
+            CabinetGeometry geometry;
+    };
+
+    /// @brief Names a row for gtest.
+    std::string row_name(const ::testing::TestParamInfo<GeometryRow>& info)
+    {
+        return info.param.name;
+    }
+
+    class Small_CabinetGeometry : public ::testing::TestWithParam<GeometryRow>
+    {
+    };
+} // namespace
+
+TEST_P(Small_CabinetGeometry, EveryShippedCabinetFitsTheDriverLimit)
+{
+    EXPECT_LE(GetParam().geometry.driver_count(), CabinetGeometry::K_MAX_DRIVERS);
 }
+
+TEST_P(Small_CabinetGeometry, EveryShippedCabinetsElementsFitAFieldOfArrivals)
+{
+    const SushiDSP::room::DriverField field(GetParam().geometry);
+
+    EXPECT_LE(field.element_count(), SushiDSP::room::DriverField::K_MAX_ELEMENTS);
+}
+
+INSTANTIATE_TEST_SUITE_P(Cabinets, Small_CabinetGeometry,
+                         ::testing::Values(GeometryRow{"OneByTwelve", SushiDSP::room::K_CABINET1X12},
+                                           GeometryRow{"TwoByTwelve", SushiDSP::room::K_CABINET2X12},
+                                           GeometryRow{"FourByTwelve", SushiDSP::room::K_CABINET4X12}),
+                         row_name);
