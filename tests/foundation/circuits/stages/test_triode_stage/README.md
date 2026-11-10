@@ -163,9 +163,9 @@ solver's four-iteration tolerance.
 
 ## `test_output.cpp`
 
-### `TriodeStageAliasFloorAtThreeAndTwelveTimesItsWindow`
+### `TriodeStageAliasFloorAtThreeTimesItsWindowIsUnderMinusSixtyDb` and `TriodeStageAliasFloorAtTwelveTimesItsWindowIsUnderMinusFortyDb`
 
-`// V5A alone folds under -60 dB at 6 V and -40 dB at 24 V.`
+`// V5A alone folds under -60 dB at 6 V.` and `// V5A alone folds under -40 dB at 24 V.`
 
 DA5 spec section 11's first acceptance: the 5150's V5A stage alone in an 8x region, its 2.0 V
 window driven 3x and 12x past, folds under -60 dB and -40 dB. On the Norman grid law it measured

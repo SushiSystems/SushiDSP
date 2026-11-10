@@ -2,7 +2,7 @@
 
 ## `test_behaviour.cpp`
 
-### `PentodeStageSaturatesInsideItsPlateSwing`
+### `PlateReachesItsOwnHeadroomAndNeverPastIt`
 
 `// The plate is bounded by the tube's swing on each side.`
 
@@ -11,14 +11,14 @@ current's drop across the reflected load, toward the bottom by the rest of the d
 full-signal swing. A grid driven far past cutoff or far into conduction reaches the tanh ceiling
 and nothing else.
 
-### `PentodeStageIsNearlyLinearForSmallInput`
+### `PlateIsTheGridDividerTimesTheGainThroughTheBound`
 
 `// The grid sits at 0.867 of the input inside the window.`
 
 Inside the window the grid draws no current, the 220 kOhm leak against the 33.8 kOhm source sets
 the grid at 0.867 of the input, and the plate reads that times the gain.
 
-### `PentodeStageGridConductsAtTheCathodeNotAtTheBiasPoint`
+### `PentodeStageGridStaysCleanAcrossTheWholeBiasWindow` and `PentodeStageGridConductsOnceTheInputCarriesItPastTheCathode`
 
 `// The grid law is referenced to the cathode.`
 
@@ -28,7 +28,7 @@ as the linear plate answer through the tanh, to the float; the same swing on a -
 crossed its window, the 150 kOhm conducting slope loads the 33.8 kOhm source, and the plate is
 held 4.28 V short of that answer (measured 2026-09-07).
 
-### `PentodePairIsOddSymmetricInsideTheWindowAndABiasDifferenceMovesTheHandover`
+### `PentodePairBiasDifferenceMovesTheHandover`
 
 `// The composite is odd while both grids stay in window.`
 
@@ -40,19 +40,11 @@ real handover asymmetry, where the bias-referenced stage of DA4 cancelled it exa
 2026-09-07: an even part of exactly 0 at equal bias, and 3.411 V for -38 V against -25 V at 60 V
 of drive, on an odd reference of 183.5 V.
 
-### `PentodeStageAntialiaserAntiderivativeDifferentiatesBackToTheTransfer`
-
-`// dG/du = bound(-gain u) dg/du on the EL34's table.`
-
-The EL34's knee sits 38.5 V above rest and its plate reaches 280 V toward the bottom, so the
-identity the triode's antialiaser keeps, dG/du = bound(-gain u) dg/du, is checked on the power
-tube's own table.
-
 ## `test_output.cpp`
 
-### `PentodeStageAliasFloorInsideAndAtItsWindow`
+### `PentodeStageAliasFloorInsideItsWindowIsUnderMinusEightyDb` and `PentodeStageAliasFloorAtItsWholeWindowIsUnderMinusFiftyDb`
 
-`// The EL34 folds under -80 dB at 8 V and -50 dB at 38 V.`
+`// The EL34 folds under -80 dB at 8 V.` and `// The EL34 folds under -50 dB at 38 V.`
 
 DA5 spec section 11's third acceptance, in the real volts the stage now takes: the 2203's EL34
 alone in an 8x region, driven to the 8 V that one model volt of the old stage stood for and to
