@@ -49,6 +49,7 @@
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
 #include "rig_shape.hpp"
 #include <SushiDSP/nodes/room/room_scene.hpp>
+#include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 
 #include "ui/geometry.hpp"
 
@@ -91,7 +92,12 @@ class SlotGraph
         /// @brief Builds a graph prepared at @p info.
         /// @param clock Returns the present time for the room publish interval; empty reads the
         /// steady clock.
-        explicit SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock = {});
+        /// @param catalogue Resolves each slot's descriptor id to the descriptor that declares its
+        /// parameters and builds its node; it outlives the graph. The default is the node
+        /// registry.
+        explicit SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock = {},
+                           const SushiDSP::NodeCatalogue& catalogue =
+                               SushiDSP::registry_node_catalogue());
 
         /// @brief Adds a new, unconnected slot and republishes.
         /// @param descriptor_id The NodeDescriptor id to construct.
@@ -478,6 +484,10 @@ class SlotGraph
         bridged_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const;
 
         SushiDSP::PrepareInfo info_;
+
+        /// @brief Resolves descriptor ids; the registry unless a caller injected another.
+        const SushiDSP::NodeCatalogue& catalogue_;
+
         /// @brief Finds the upstream port the stored edge from `from` to `to` reads.
         /// @return The port, or 0 when no stored edge joins the pair.
         std::uint32_t port_of(SlotId from, SlotId to) const;

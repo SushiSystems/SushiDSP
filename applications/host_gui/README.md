@@ -90,6 +90,15 @@ out on a grid when it does not. A product that registers in `node_registry()` th
 something the day it registers, and gains a designed panel later by adding one entry here.
 `DrawStagePanel` reads whichever of the two it is handed; it knows no node types.
 
+## Node catalogue
+
+`SlotGraph`, `RigPersistence` and `RigController` resolve a slot's descriptor id through a
+`SushiDSP::NodeCatalogue`, which each takes as its last constructor argument. The default is
+`registry_node_catalogue()`, so the app behaves as it did when it read `node_registry()` directly;
+a test passes an `InMemoryNodeCatalogue` that lists only the products it names. The catalogue
+supplies the descriptor, whose `make()` builds the node, so no second port is needed. It must
+outlive the rig that reads it.
+
 ## Dropped files
 
 A song dropped on the window is decoded off the GUI thread. `FileDropQueue` carries GLFW's paths

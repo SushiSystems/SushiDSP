@@ -50,21 +50,7 @@ backlog = "RW-82"
 [[finding]]
 checker = "testing/check_test_mirror.py"
 rule = "rule_untested_unit"
-path = "applications/host_gui/session_timeline.hpp"
-count = 1
-backlog = "RW-82"
-
-[[finding]]
-checker = "testing/check_test_mirror.py"
-rule = "rule_untested_unit"
 path = "applications/host_gui/slot_graph.hpp"
-count = 1
-backlog = "RW-82"
-
-[[finding]]
-checker = "testing/check_test_mirror.py"
-rule = "rule_untested_unit"
-path = "applications/host_gui/slot_selection.hpp"
 count = 1
 backlog = "RW-82"
 
