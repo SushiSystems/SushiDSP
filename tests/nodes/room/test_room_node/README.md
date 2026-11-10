@@ -1,22 +1,36 @@
 # tests/nodes/room/test_room_node
 
-## `test_behaviour.cpp`
+## `test_publication.cpp`
 
-### `find_peaks`
+The ports, the refusal of an invalid scene and the old set a node keeps rendering and reclaims.
 
-`// Prominence is measured to the deeper valley.`
+### `RoomNodeKeepsRenderingTheOldSetWhileASetIsBuilt`
 
-The prominence is measured to the deeper of the two valleys before the spectrum climbs back
-above the peak on either side.
+The node publishes eight scenes of four blocks each. The swap slot holds the active set, the one the audio thread read last and the new one, three generations, so eight publishes take it through its cycle more than twice; the 100 publishes of the earlier test took 6 s on the Debug build and added no generation. Every block must be finite and the quietest block RMS must stay over -80 dB.
 
-### `lagrange_impulse`
+### `RoomNodeRendersFiniteAudioAfterEachReclaimOfARetiredSet`
 
-`// Weight k lands an impulse at whole + 2 - k.`
+`// The node never reads a slot pointer past its block.`
 
-Weight k reads the sample k - 2 frames past the integer delay, so an impulse at 0 lands at whole
-+ 2 - k with that weight.
+The node copies a set's taps into its own bank the block it first sees the set, and never reads
+a slot pointer past that block, so a reclaim can free a retired set at any time without a read
+from freed memory. test_rt_swap_slot.cpp proves the slot's own deferral; this case walks the
+node through the same sequence and checks that the block after each reclaim still carries the
+room.
 
-### `RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid`
+`// The direct tap arrives 363 frames in.`
+
+The direct tap arrives 363 frames in, so the room is silent for the first block and the energy
+check starts at the second.
+
+The test asserts what a build can see, finite output and the last published scene. That no block reads a freed set is the property a ThreadSanitizer or AddressSanitizer run checks; the energy checks of the earlier test passed over freed memory as well.
+
+
+## `test_first_order_taps.cpp`
+
+The early taps render where the solver put the first-order paths.
+
+### `RoomNodePlacesTheFirstOrderPeakWhereTheSolverSaid`
 
 `// Nothing but taps reaches the first 1749 frames.`
 
@@ -28,6 +42,55 @@ sqrt(6.5^2 + 0.7^2) = 6.537584; times 48000 / 343 that is 363.310, 423.078, 579.
 frames, so nothing but taps reaches the first 1749 frames of the response. The cabinet is a 1 cm
 piston: the 4x12's directivity fit puts the ceiling image's peak, 53 degrees above the baffle's
 axis, one frame late at 580, which is the filter's group delay and not the tap's placement.
+
+The six path lengths are the geometry of the example scene; the solver's arrival frames are held in `test_image_source_solver.cpp`. The tolerance is half a frame for the integer index of the peak and one frame for the fitted filter's group delay, which puts the ceiling image at 580 for 579.365.
+
+
+## `test_render_set_edits.cpp`
+
+The edits RoomNode makes to a built render set. The sets are built once per process and the tests copy what they change.
+
+### `RoomNodeTakesTheFirstTapOfTheEarsBankAsTheDirectImage`
+
+`// Tap 0 of a solved set is the direct image.`
+
+Tap 0 of a solved set is the (0, 0, 0) image, the shortest path. For the ears the HRIR pair
+renders that path, so the bank the node renders from carries reflections only and the direct tap
+goes to the direct path; the microphone's direct sound is a tap and stays.
+
+The nearest element of the microphone bank stands at most sqrt(2) \* spacing / 2 + cone radius, 0.337 m or 47 frames, nearer than the baffle's centre; the earlier bound was 350 frames, a typed figure. The bank opens with the cabinet's elements: `DriverField::element_count()`, 28 for the 4x12.
+
+### `RoomNodeMovesTheEarsDirectTapByTheRoundedDelay`
+
+`// The ears' render moves earlier by round(d / c * fs).`
+
+The ears' whole render moves earlier by round(d / c \* fs), 363 frames for the example scene's
+363.31: tap 0 lands 0.31 frames past zero, every reflection keeps its spacing to it unless that
+would put it under a frame, and the tail's input delay moves with them, floored at zero, since
+the network's shortest line is latency the design cannot give back. A microphone set is left as
+it was.
+
+The tap delays are held to two rounded operations of a float, the subtraction and the cast.
+
+### `RoomNodeKeepsTheResonatorsWhenTheCabinetMoves`
+
+`// A moved cabinet or listener rebuilds no resonator.`
+
+Spec 9a.2: a moved cabinet changes psi_n at one point, a moved listener at the two ears of an
+ears set, and no resonator changes frequency or damping. A dimension change rebuilds every
+section.
+
+`// 161 of the 187 modes have a non-zero x index.`
+
+Every mode with a non-zero x index feels the cabinet's move along x, 161 of the 187; every mode
+with a non-zero y index feels the listener's move along y, 150 of them.
+
+The counts 187, 161 and 150 are not typed: the modes along an axis are counted from `ModalSolver::enumerate`.
+
+
+## `test_crossfade.cpp`
+
+The crossfade a published scene takes at the microphone.
 
 ### `RoomNodeCrossfadesAPublishWithoutAStep`
 
@@ -42,7 +105,9 @@ what the taps leave of the field, so a move steps its coefficients on the networ
 state, 3 % in the second section here. Spec 5.3 and the README's crossfade section carry the
 figures.
 
-### `RoomNodeCrossfadesASmallMoveFromTheCarriedState`
+The publish is applied before block 64, not 200. The taps read a ring of 8397 frames, 33 blocks, so a swap at 16384 frames has settled their filters; the tail's network runs on through the swap with the coefficients as its only difference, and it is no louder at 64 blocks than at 200. Each render is 72 blocks where it was 400. The residual is read in dBFS, as before; the figures above were measured at block 200.
+
+### `RoomNodeCrossfadesAPublishWithoutAStep`
 
 `// 78 of the 96 taps carry their state over one centimetre.`
 
@@ -58,40 +123,21 @@ half: a step ratio of 1.0000 and a residual of 0.0010, -59.6 dBFS, where the tap
 The same scene refits to the same taps, every tap carries its state, and the arriving bank
 renders the retiring bank's block sample for sample. Measured: a residual of exactly zero.
 
-### `RoomNodeReclaimsARetiredSetOnlyAfterTheAudioThreadMovedOn`
+The residual is held to two roundings of the peak and the step to one plus the roundings over the step of a 1 kHz tone, 0.131 of its peak.
 
-`// The node never reads a slot pointer past its block.`
 
-The node copies a set's taps into its own bank the block it first sees the set, and never reads
-a slot pointer past that block, so a reclaim can free a retired set at any time without a read
-from freed memory. test_rt_swap_slot.cpp proves the slot's own deferral; this case walks the
-node through the same sequence and checks that the block after each reclaim still carries the
-room.
+## `test_standing_waves.cpp`
 
-`// The direct tap arrives 363 frames in.`
+The garage's standing waves and how they cross a publish. The 262144-frame renders are `Large_`; a `Medium_` case keeps each direction at a shorter one.
 
-The direct tap arrives 363 frames in, so the room is silent for the first block and the energy
-check starts at the second.
+### `find_peaks`
 
-### `RoomNodeTakesTheDirectImageOutOfTheEarsBankAndLeavesTheMicrophones`
+`// Prominence is measured to the deeper valley.`
 
-`// Tap 0 of a solved set is the direct image.`
+The prominence is measured to the deeper of the two valleys before the spectrum climbs back
+above the peak on either side.
 
-Tap 0 of a solved set is the (0, 0, 0) image, the shortest path. For the ears the HRIR pair
-renders that path, so the bank the node renders from carries reflections only and the direct tap
-goes to the direct path; the microphone's direct sound is a tap and stays.
-
-### `RoomNodeCompensatesAnEarsSetByItsRoundedPropagationDelay`
-
-`// The ears' render moves earlier by round(d / c * fs).`
-
-The ears' whole render moves earlier by round(d / c \* fs), 363 frames for the example scene's
-363.31: tap 0 lands 0.31 frames past zero, every reflection keeps its spacing to it unless that
-would put it under a frame, and the tail's input delay moves with them, floored at zero, since
-the network's shortest line is latency the design cannot give back. A microphone set is left as
-it was.
-
-### `RoomNodeRingsAtTheGaragesEigenfrequencies`
+### `RoomNodeRingsAtTheGaragesEigenfrequency`
 
 `// The first six modes lie between 28.583 and 71.458 Hz.`
 
@@ -100,7 +146,9 @@ Hz per bin. The first six modes under f_s = 278.18 Hz are (c / 2) sqrt((nx / 6)^
 (nz / 2.5)^2) at c = 343: 28.583, 42.875, 51.529, 57.167, 68.600 and 71.458 Hz. The (0, 1, 1)
 mode at 80.896 Hz bounds the search from above.
 
-### `RoomNodeModeWidthsMatchTheirDamping`
+The expected frequencies come from `ModalSolver::enumerate`, whose closed form `test_modal_solver.cpp` holds. `Medium_RoomNodeFirstMode` renders 65536 frames, bins of 0.73 Hz, and holds the first peak to half a bin; the mode's decay of 1.48 s leaves 10^-5.6 of its energy past the render.
+
+### `RoomNodeModeWidthMatchesItsDamping`
 
 `// A resonator's -3 dB width is 2.199 / T60 Hz.`
 
@@ -121,44 +169,9 @@ and what those pass under 100 Hz through the LR4 pair, two octaves under f_s, mo
 by hundredths of a decibel: 14.06 dB with the geometric receiver held still, 14.02 dB with it in
 the corner too.
 
-### `RoomNodeIsContinuousAcrossTheSchroederFrequency`
+The `Medium_` case renders 65536 frames at both spots. The slowest mode decays over 2.7 s, which leaves 10^-3.1 of its energy past the render, and both spots lose it alike.
 
-`// Both layers carry DiffuseField's level at f_s.`
-
-Spec 9a.4 and 9a.6: the two layers meet at f_s when each carries the level the room's diffuse
-field holds there, DiffuseField, the one reference ModalSolver scales its octave to and
-LateReverbDesign hands the tail the remainder of. The modal octave at one pose is that level
-times the pose's mode-shape factor, which the rays have no counterpart for and which reads under
-the volume average at interior poses, so the modal octave is held against the design's own
-figure at the pose and the geometric octave against the reference through the high half, both
-averaged over six poses as energy and each within 2 dB, in all three reference rooms. The raw
-step between the octaves is recorded; it is the reference's own change across the seam, the
-4x12's directivity index rising 4.6 dB between the 250 and 500 Hz bands, less the interior
-deficit, and no bound of physics. Measured 2026-09-09 before the shared reference: 7.7 dB in the
-garage at one pose.
-
-### `RoomNodeSwitchesTheWaveLayerOffInADeadRoom`
-
-`// f_s under 40 Hz switches the modal layer off.`
-
-f_s under 40 Hz gives a design with count zero and a crossover of zero, so the node's output is
-the geometric bricks alone: the early renderer's channel 0 plus the tail, sample for sample, on
-both outputs, with the crossovers bypassed.
-
-### `RoomNodePublishesNewModalGainsWithoutRebuildingAResonator`
-
-`// A moved cabinet or listener rebuilds no resonator.`
-
-Spec 9a.2: a moved cabinet changes psi_n at one point, a moved listener at the two ears of an
-ears set, and no resonator changes frequency or damping. A dimension change rebuilds every
-section.
-
-`// 161 of the 187 modes have a non-zero x index.`
-
-Every mode with a non-zero x index feels the cabinet's move along x, 161 of the 187; every mode
-with a non-zero y index feels the listener's move along y, 150 of them.
-
-### `RoomNodeCarriesTheStandingWavesAcrossAMovedCabinet`
+### `RoomNodeCarriesTheStandingWavesAcrossAMovedCabinetWithoutAStep`
 
 `// The bank keeps its state; only the source gains ramp.`
 
@@ -192,7 +205,40 @@ A room 0.1 m wider designs every resonator anew, so the spare bank starts from z
 fade and the field takes its decay time to build: the four blocks after the fade hold -16.8 dB
 of the steady energy, bounded here at a quarter.
 
-### `RoomNodeReportsTheCrossoverTheSetSplitsAt`
+The `Medium_` cases apply the publish before block 64. The driven mode builds up with a time constant of at most 0.39 s, so the steady render has reached 0.67 of its level by then; the bank that restarts at the publish is behind it for every swap time, so the bound of -6 dB holds in the same direction. The step of a fade that keeps its bank is independent of the level.
+
+
+## `test_seam.cpp`
+
+The seam between the wave layer and the geometric one, the crossover the node reports and the dead room.
+
+### `RoomNodeCarriesTheDesignedModalLevelInTheOctaveUnderTheCrossover`
+
+`// Both layers carry DiffuseField's level at f_s.`
+
+Spec 9a.4 and 9a.6: the two layers meet at f_s when each carries the level the room's diffuse
+field holds there, DiffuseField, the one reference ModalSolver scales its octave to and
+LateReverbDesign hands the tail the remainder of. The modal octave at one pose is that level
+times the pose's mode-shape factor, which the rays have no counterpart for and which reads under
+the volume average at interior poses, so the modal octave is held against the design's own
+figure at the pose and the geometric octave against the reference through the high half, both
+averaged over six poses as energy and each within 2 dB, in all three reference rooms. The raw
+step between the octaves is recorded; it is the reference's own change across the seam, the
+4x12's directivity index rising 4.6 dB between the 250 and 500 Hz bands, less the interior
+deficit, and no bound of physics. Measured 2026-09-09 before the shared reference: 7.7 dB in the
+garage at one pose.
+
+The `Large_` cases render 32768 frames at six poses of each room: the slowest decay of 1.9 s leaves 10^(-6 \* 0.68 / 1.9) = 0.7 % of the energy past the render, 0.03 dB, where the earlier render was 65536 frames. A band's mean power is the band's energy by Parseval, so the coarser bins do not move it. The `Medium_` cases average two poses of the garage over 16384 frames, 0.36 dB of truncation; the bound of 2 dB is the specified one, and two poses average less of the mode-shape factor than six.
+
+### `RoomNodeSwitchesTheModalLayerOffUnderTheLayerLimit`
+
+`// f_s under 40 Hz switches the modal layer off.`
+
+f_s under 40 Hz gives a design with count zero and a crossover of zero, so the node's output is
+the geometric bricks alone: the early renderer's channel 0 plus the tail, sample for sample, on
+both outputs, with the crossovers bypassed.
+
+### `RoomNodeReportsTheLoweredCrossoverWhenTheModesDoNotFit`
 
 `// The node reports the crossover its seam sits at.`
 
@@ -202,6 +248,11 @@ lowers the crossover to the 513th mode and the node reports that lowered figure,
 seam sits at. The dead room reports Eyring's 22 Hz with the layer off, so a panel still shows
 the room's own figure.
 
+
+## `test_microphone.cpp`
+
+The microphone port.
+
 ### `RoomNodeMicrophoneIgnoresAListenerMovedMidRender`
 
 `// A moved listener changes nothing the microphone hears.`
@@ -209,6 +260,8 @@ the room's own figure.
 The microphone is one point, its own port of one channel, and the listener stands elsewhere. Two
 nodes render the same input; one moves the listener at block 6. The microphone port of both must
 hold the same samples bit for bit, since nothing the microphone hears depends on the listener.
+
+The render is six blocks and the move comes before block 2.
 
 ### `RoomNodeMicrophoneAtFiveCentimetresLiftsTheBottomEnd`
 
@@ -228,6 +281,8 @@ dB. The plan's 15.5 dB at 100 Hz is the model's own figure and does not reach th
 six-band fit is anchored at 125 Hz and its low shelf holds level below it, so the rendered 100
 Hz third octave reads 13.79 dB, recorded here and not bounded.
 
+The model figures 13.68 and 15.39 dB are checked in `Small_RoomNodeMicrophoneModel` to half a unit of their last quoted digit; the rendered figure is held to 1 dB of the model.
+
 ### `RoomNodeMicrophoneHearsLessRoomThanTheEars`
 
 `// The two ratios differ by at least 11.5 dB.`
@@ -243,6 +298,8 @@ cones 21 cm away and not from a point 5 cm away.
 
 12.20 dB with the cones in place. A single point at the baffle's centre would read 19.95 dB.
 
+The render is 128 blocks, 0.68 s: the garage's slowest decay of 1.9 s leaves 0.7 % of the reverberant energy past it, 0.03 dB on each ratio.
+
 ### `RoomNodeCarriesOneOverROnTheCabinetsAxis`
 
 `// An omni capsule on a point source's axis reads 1 / r.`
@@ -257,7 +314,21 @@ the shortfall is the air's, 1.3 dB over 4 m at 4 kHz. A test that scales both la
 reference cannot see that reference move, so this is the case that holds the module's absolute
 level down.
 
-### `RoomNodeMovingAroundTheCabinetChangesTheTone`
+The render is six blocks, 1536 frames, which hold the 1500-frame window.
+
+
+## `test_ears.cpp`
+
+The ears port.
+
+### `lagrange_impulse`
+
+`// Weight k lands an impulse at whole + 2 - k.`
+
+Weight k reads the sample k - 2 frames past the integer delay, so an impulse at 0 lands at whole
++ 2 - k with that weight.
+
+### `RoomNodeBeamsTheHighBandAwayFromTheCabinetsAxis`
 
 `// The listener faces the cabinet at both spots.`
 
@@ -268,7 +339,7 @@ within 1 dB of the piston model's own band value. The listener faces the cabinet
 so the head's response is its front response both times and the difference between the two
 renders is the cabinet's alone.
 
-### `RoomNodeEarsHearTheDirectSoundThroughTheHrirPair`
+### `RoomNodeLeftEarHearsTheDirectSoundThroughTheHrirPair`
 
 `// The floor image follows at frame 1551.`
 
@@ -288,7 +359,7 @@ the dead room places; the default scene's listener stands 2.596 m away, 363.31 f
 fresh node reports 363 more when physical. The microphone renders at physical timing with no
 partition in its path and reports 0 either way.
 
-### `RoomNodeDirectOnsetMovesWithTheDirectDelayChoice`
+### `RoomNodePhysicalTimingMovesTheDirectOnsetByTheRoundedDelay`
 
 `// The choice shifts the whole render by 280 frames.`
 
@@ -312,7 +383,9 @@ faces the listener, so the direct tap's filter is the on-axis response: 60 degre
 its 2 kHz notch weighted the correlation toward the low frequencies, where a rigid sphere's
 delay runs half again Woodworth's (Kuhn, JASA 62(1), 1977), and the lag read 0.58 ms.
 
-### `RoomNodeReportsSphericalHeadWithNoAssetAndMeasuredWithOne`
+The render is four blocks, which hold the 900-frame window, and the lag is held to one sample. The delay formula itself is held by `test_spherical_head_hrtf.cpp`.
+
+### `RoomNodeReportsAnInstalledSetAsMeasured`
 
 `// An empty HRTF set restores the spherical head.`
 
@@ -320,7 +393,7 @@ hrtf_source() is SphericalHead after prepare(); the six-direction fixture instal
 set_hrtf makes it Measured, the node keeps rendering finite audio through the fixture's pair and
 decoder, and an empty set restores the fallback.
 
-### `RoomNodeTailIsCoherentLowAndIncoherentHigh`
+### `RoomNodeTailIsCoherentInTheLowOctave`
 
 `// A window 1024 frames after t_c holds the tail alone.`
 
@@ -330,6 +403,13 @@ layer off and its taps end at t_c = 8397 frames, compensated by 280 and delayed 
 partition, so a window opening 1024 frames after that holds the tail alone; the room's 0.21 s
 RT60 has decayed 97 dB by the window's end and the correlation weights the loud start.
 
+The render ends with the window, at 101 blocks.
+
+
+## `test_measured_hrtf.cpp`
+
+The decoder and the rear notch against the measured set; both skip in `SetUp` when the set is absent.
+
 ### `RoomNodeDecoderMagnitudeMatchesTheMeasuredSet`
 
 `// The case runs only with the SADIE II set present.`
@@ -337,12 +417,15 @@ RT60 has decayed 97 dB by the window's end and the correlation weights the loud 
 Spec 9.5 as measured, only with the SADIE II set present, 24 directions at -30, 0, +30 degrees:
 near ear 3 dB below 5 kHz and 6 dB above, far ear 10 (assets/hrtf/README.md).
 
+One test for each of the 24 directions.
+
 ### `RoomNodeCarriesTheRearNotchWithAMeasuredSet`
 
 `// The rear notch is within 1 dB of the set's own.`
 
 Spec 9.5 as measured: the ears facing away from the cabinet, the source at 180 degrees, hear the
 left ear's rear notch within 1 dB of the set's own (assets/hrtf/README.md).
+
 
 ## `test_rt_safety.cpp`
 

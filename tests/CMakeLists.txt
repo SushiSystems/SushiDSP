@@ -369,7 +369,15 @@ add_executable(sushidsp_tests
     nodes/room/test_late_reverb_design.cpp
     nodes/room/test_modal_solver.cpp
     nodes/room/test_room_render_set.cpp
-    nodes/room/test_room_node/test_behaviour.cpp
+    nodes/room/test_room_node/test_publication.cpp
+    nodes/room/test_room_node/test_first_order_taps.cpp
+    nodes/room/test_room_node/test_render_set_edits.cpp
+    nodes/room/test_room_node/test_crossfade.cpp
+    nodes/room/test_room_node/test_standing_waves.cpp
+    nodes/room/test_room_node/test_seam.cpp
+    nodes/room/test_room_node/test_microphone.cpp
+    nodes/room/test_room_node/test_ears.cpp
+    nodes/room/test_room_node/test_measured_hrtf.cpp
     nodes/room/test_environment_render_set.cpp
     nodes/room/test_room_arrangement.cpp
     nodes/room/test_driver_field.cpp
@@ -485,7 +493,7 @@ set_source_files_properties(applications/host_gui/test_rig_controller/test_room.
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
 set_source_files_properties(nodes/room/test_hrtf_set_loader.cpp PROPERTIES COMPILE_DEFINITIONS
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
-set_source_files_properties(nodes/room/test_room_node/test_behaviour.cpp PROPERTIES COMPILE_DEFINITIONS
+set_source_files_properties(nodes/room/test_room_node/test_ears.cpp PROPERTIES COMPILE_DEFINITIONS
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
 set_source_files_properties(nodes/room/test_room_node/test_logging.cpp PROPERTIES COMPILE_DEFINITIONS
     "SUSHIDSP_FIXTURE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/nodes/room/fixtures/hrtf_set_loader\"")
