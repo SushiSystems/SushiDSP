@@ -45,12 +45,13 @@ namespace SushiDSP::measure
     /// @param sample_rate The rate the node runs at.
     /// @param tone_hz The tone to render; it is moved to the nearest bin-exact frequency.
     /// @param amplitude Peak stimulus in full-scale units; -12 dBFS by default.
+    /// @param settle_seconds Seconds rendered before the analysis frame; one second by default, zero for a memoryless node.
     /// @return Worst alias level in dB relative to the fundamental (more negative is better).
     /// @see modules/foundation/signal_measure/README.md, "alias_floor.hpp", for the masking rule and the level caveat.
     inline double alias_floor_at_tone(AudioNode& node, double sample_rate, double tone_hz,
-                                      float amplitude = 0.251189f)
+                                      float amplitude = 0.251189f, double settle_seconds = 1.0)
     {
-        const std::size_t settle = static_cast<std::size_t>(sample_rate);
+        const std::size_t settle = static_cast<std::size_t>(std::max(0.0, settle_seconds) * sample_rate);
         const std::uint32_t low_bin = bin_of(20.0, sample_rate);
         const std::uint32_t high_bin =
             bin_of(std::min(20000.0, sample_rate / 2.0 - 1.0), sample_rate);
@@ -88,14 +89,16 @@ namespace SushiDSP::measure
     /// @brief Returns the worst non-harmonic spectral line a node produces across 1..20 kHz tones.
     /// @param node The node under test, knobs already set.
     /// @param amplitude Peak stimulus in full-scale units; -12 dBFS by default.
+    /// @param settle_seconds Seconds rendered before each analysis frame; one second by default, zero for a memoryless node.
     /// @return Worst alias level in dB relative to the fundamental (more negative is better).
     /// @see modules/foundation/signal_measure/README.md, "alias_floor.hpp", for the masking rule and the level caveat.
-    inline double alias_floor(AudioNode& node, double sample_rate, float amplitude = 0.251189f)
+    inline double alias_floor(AudioNode& node, double sample_rate, float amplitude = 0.251189f,
+                              double settle_seconds = 1.0)
     {
         double worst = -300.0;
         for (double tone = 1000.0; tone <= 20000.0 + 1e-9; tone += 1000.0)
         {
-            worst = std::max(worst, alias_floor_at_tone(node, sample_rate, tone, amplitude));
+            worst = std::max(worst, alias_floor_at_tone(node, sample_rate, tone, amplitude, settle_seconds));
         }
         return worst;
     }

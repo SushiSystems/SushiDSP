@@ -22,7 +22,9 @@ in `cmake/SushiDSPLayers.cmake`.
 ## alias_floor.hpp
 
 `alias_floor` renders one bin-exact tone per kilohertz from 1 kHz to 20 kHz. Each tone runs for
-one second of settling plus one analysis frame. Lines within four bins of DC, of the
+a settle length plus one analysis frame. The settle length is the last parameter,
+`settle_seconds`, and defaults to 1.0, so a caller that does not pass it renders one second of
+settling as before. A memoryless node has no state to settle and may pass 0.0. Lines within four bins of DC, of the
 fundamental, or of any harmonic below Nyquist are excluded. A harmonic that would fall above
 Nyquist has folded back and is counted as an alias, which is what the number is for.
 

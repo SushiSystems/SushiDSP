@@ -146,11 +146,11 @@ TEST(Small_AliasFloor, IdentityIsAtTheAnalysisFloor)
     EXPECT_LE(SushiDSP::measure::alias_floor(node, 48000.0), -110.0);
 }
 
-TEST(Medium_AliasFloor, UnoversampledTanhIsPoor)
+TEST(Small_AliasFloor, UnoversampledTanhIsPoor)
 {
     // Folded harmonics count as aliases. See tests/foundation/signal_measure/README.md.
     TanhNode node(4.0f);
-    EXPECT_GT(SushiDSP::measure::alias_floor(node, 48000.0), -40.0);
+    EXPECT_GT(SushiDSP::measure::alias_floor(node, 48000.0, 0.251189f, 0.0), -40.0);
 }
 
 TEST(Small_AliasFloor, OneToneOfAnUnoversampledTanhIsPoorAtFifteenKilohertz)

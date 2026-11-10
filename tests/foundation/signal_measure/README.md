@@ -11,7 +11,11 @@ case drives is defined in the one file that uses it.
 
 A 20 kHz tone through tanh at 48 kHz folds its harmonics straight back into band; the folded
 third harmonic (60 kHz -> 12 kHz) is tens of dB up. This pins that the sweep counts folded
-harmonics as aliases rather than masking them.
+harmonics as aliases rather than masking them. The case passes a settle of 0.0 s: tanh has no
+state, so every output sample is tanh of its own input and no transient precedes the first
+analysis frame. The frame is bin-exact, so the lines' magnitudes do not depend on the tone's phase at
+the frame start, and the -40 dB bound reads the same claim as with one second of settling; it is
+not widened. The folded lines sit about -23 dB (see the next case), 17 dB above it.
 
 ### `OneToneOfAnUnoversampledTanhIsPoorAtFifteenKilohertz`
 
@@ -71,6 +75,6 @@ at 0.5 s. `K_SWEEP_ERROR_DB` is a characterised constant. Each case records the 
 property; the Debug run of 2026-11-10 read 0.043106 dB at worst, and the bound is that figure plus
 half of its last decimal.
 
-`UnoversampledTanhIsPoor` took 0.115 s (20 tones of one second and a frame) and is
-`Medium_AliasFloor`. It was not shrunk: `alias_floor()` has no sweep and does not call
-`frequency_response()`, and a shorter settle there is a new parameter on another function.
+`UnoversampledTanhIsPoor` took 0.115 s (20 tones of one second and a frame). It now passes
+`settle_seconds = 0.0` to `alias_floor()`, which renders the analysis frame alone per tone, and is
+`Small_AliasFloor`. The new time is not yet measured; the orchestrator's next Debug run reads it.
