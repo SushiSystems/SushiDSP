@@ -33,7 +33,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M13 | the tests of `foundation/log` (2 files): 1 rewrite, 1 resize, 1 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M14 | the tests of `foundation/log_capture` (2 files): 3 resize | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M15 | the tests of `foundation/math` (23 files): 92 rewrite, 2 split, 14 delete | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decisions 200 to 203, 206, 208); the benchmarks are keeps |
-| M16 | the tests of `foundation/profile` (7 files): 6 rewrite, 6 resize, 6 split, 2 merge | T1, T2, T3, T4, T5, T6, T7 | todo |
+| M16 | the tests of `foundation/profile` (7 files): 6 rewrite, 6 resize, 6 split, 2 merge | T1, T2, T3, T4, T5, T6, T7 | todo (lane B, 2026-11-10: not started; first the seams the records name: a session port with an in-memory adapter for `ProfileSession` and `mark_block`, an environment reader for `start_from_environment`, a name table for `intern_name`, and a `ProfileRecord` built from a subject list; then the seven files in table order) |
 | M17 | the tests of `foundation/regression_test` (1 file): 1 rewrite | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decisions 205, 207) |
 | M18 | the tests of `foundation/signal_measure` (7 files): 18 rewrite, 1 split, 4 merge | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 212) |
 | M19 | the tests of `foundation/spice_reference` (2 files): 3 rewrite, 2 resize | T1, T2, T3, T4, T5, T6, T7 | done (lane B, syntax-checked only; decision 204) |
