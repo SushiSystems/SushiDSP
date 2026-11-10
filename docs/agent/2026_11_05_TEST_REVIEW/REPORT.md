@@ -245,6 +245,8 @@ The owner delegated these decisions on 2026-11-05. Each ruling below is final fo
 
 1200. M1, lane slow (2026-11-10), the room of the applier cases. `Small_TopologyApplier` ran 43 cases, 28 of them between 4 and 20 s in the sharded Debug run of 2026-11-10 against a limit of 0.1 s, because every apply built a real room node and solved its pairs. The fixture now lists `TestSupport::InMemoryRoom`, an in-memory adapter of the `RoomHost` port (`tests/support/in_memory_room.hpp`), under the room's id, through the new base `RigProductsInMemoryRoom` in `tests/support/rig_products.hpp`. The default `RigProducts` still lists the real room. The adapter holds the arrangement behind the same `Arrangement::is_valid` the real room calls, so the refusal cases (the ninth microphone, a removed microphone) keep their message. The cases stay `Small_`: no case reads a rendered sample. Expected new time: the cost of the cabinet and amp nodes alone, which the run cannot separate from the 2.1 s floor every case shows, so a case may still sit above 0.1 s on that floor; the next measured run settles it. Recorded in `tests/applications/host_gui/README.md`.
 
+1201. M1, lane slow (2026-11-10), `APreparedNodeWithASetCountsNothing` moves from `Small_RoomNodeCounters` to `Medium_RoomNodeCounters` (2.2 s in the Debug run against 0.1 s). It builds a prepared room node, whose `prepare` solves the pairs; no in-memory adapter can stand in for the node under test. Its sibling, the unprepared node, stays `Small_`. Expected new size: Medium, under 5 s. Recorded in `tests/nodes/room/test_room_node/README.md`.
+
 ## Dispatches
 
 dispatch: J15 review, 15 chunks — haiku high, 1 round each, passed, rung 1

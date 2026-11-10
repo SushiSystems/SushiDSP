@@ -372,3 +372,11 @@ The ears render every binaural path: the direct pair, the decoder, the diffuse p
 alignment delays. set_scene, the direct_delay switch and the fallback's re-install each publish
 on the control thread outside the trap; the blocks that adopt each set, fade it in and decode it
 run inside, and the index path stores the delay choice alone.
+
+### `APreparedNodeWithASetCountsNothing`
+
+The claim is that a block counts no missing render set once the node holds one, so the case needs the
+set that `prepare` builds: it solves the room's pairs, which took 2.2 s in the Debug run of
+2026-11-10 against the 0.1 s of a `Small_` case. No smaller node holds a set, and no port stands
+between `prepare` and the solver, so the case is `Medium_RoomNodeCounters`. The sibling case, an
+unprepared node, builds nothing and stays `Small_RoomNodeCounters`.
