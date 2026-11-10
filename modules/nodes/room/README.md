@@ -314,6 +314,7 @@ and `tests/nodes/room/test_room_node/test_rt_safety.cpp` traps it around `RoomNo
 while publishes land that move a microphone, move the listener, widen the room, take cabinets
 and microphones away and bring them back, and switch `direct_delay`, so each path the node can
 take runs under the trap (`ProcessPerformsNoHeapAllocationAtTheLimits`).
+A node given a `RoomProfileSink` reports its stage zones there, not to SD_ZONE.
 
 Everything else runs on the control thread. `RoomNode::set_arrangement` validates the
 arrangement and, for each pair that changed, calls `build_render_set` for that pair's receiver,

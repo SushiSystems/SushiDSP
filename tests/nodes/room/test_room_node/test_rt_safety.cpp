@@ -40,10 +40,9 @@
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
-#include <SushiDSP/foundation/profile/profile_runtime.hpp>
-#include <SushiDSP/foundation/profile/profile_session.hpp>
 #include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
 #include <SushiDSP/nodes/room/room_node.hpp>
+#include <SushiDSP/nodes/room/room_profile_sink.hpp>
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
@@ -257,17 +256,6 @@ namespace
     {
         return info.param.name;
     }
-
-    /// @brief Runs a window of periods, marking the timeline and processing one block in each.
-    void process_periods(SushiDSP::profile::ProfileSession& session, RoomNode& node, SushiDSP::ProcessContext& context,
-                         std::uint32_t periods)
-    {
-        for (std::uint32_t period = 0; period < periods; ++period)
-        {
-            session.mark(SushiDSP::profile::names::K_BENCH_TIMELINE, 0U);
-            node.process(context);
-        }
-    }
 } // namespace
 
 class Medium_RoomNodePublish : public ::testing::TestWithParam<PublishState>
@@ -280,18 +268,6 @@ class Medium_RoomNodeSpread : public ::testing::TestWithParam<SpreadChange>
 
 class Medium_RoomNodeBinaural : public ::testing::TestWithParam<BinauralChange>
 {
-};
-
-class Medium_RoomNodeProfile : public ::testing::Test
-{
-    protected:
-        void SetUp() override
-        {
-            if (!SushiDSP::profile::K_PROFILER_BUILT)
-            {
-                GTEST_SKIP() << "this build records nothing";
-            }
-        }
 };
 
 TEST(Medium_RoomNode, ProcessPerformsNoHeapAllocation)
@@ -427,26 +403,37 @@ TEST(Medium_RoomNodeCounters, APreparedNodeWithASetCountsNothing)
     EXPECT_EQ(counts.no_render_set.value(), 0U);
 }
 
-TEST_F(Medium_RoomNodeProfile, ProcessWritesTheRegionZonesUnderTheRoomGroup)
+TEST(Medium_RoomNodeProfile, ProcessReportsTheRegionZonesToItsSink)
 {
-    constexpr std::uint32_t K_WARMUP = 2;
-    constexpr std::uint32_t K_ACTIVE = 4;
-    RoomNode node;
+    constexpr std::uint32_t K_BLOCKS = 4;
+    SushiDSP::room::RoomNode::Counters counts;
+    SushiDSP::room::InMemoryRoomProfileSink sink;
+    RoomNode node(counts, sink);
     ASSERT_NO_FATAL_FAILURE(prepare_with_trap_scene(node));
     MonoRig rig;
 
-    SushiDSP::profile::ProfileSession session;
-    ASSERT_TRUE(session
-                    .start_window(SushiDSP::profile::names::K_BENCH_TIMELINE, K_WARMUP, K_ACTIVE)
-                    .started());
-    process_periods(session, node, rig.context, K_WARMUP + K_ACTIVE);
-    session.mark(SushiDSP::profile::names::K_BENCH_TIMELINE, 0U);
-    const SushiDSP::profile::ProfileFinish finished = session.finish();
+    run_blocks(node, rig.context, K_BLOCKS);
 
-    EXPECT_EQ(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_EARS_ZONE), K_ACTIVE);
-    EXPECT_EQ(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_MICROPHONES_ZONE),
-              K_ACTIVE);
-    EXPECT_GE(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_TAIL_ZONE), K_ACTIVE);
-    EXPECT_GE(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_MODAL_ZONE), K_ACTIVE);
-    EXPECT_GE(finished.record.zone_calls(SushiDSP::profile::names::K_ROOM_PAIR_ZONE), K_ACTIVE);
+    EXPECT_EQ(sink.entered(SushiDSP::profile::names::K_ROOM_EARS_ZONE), K_BLOCKS);
+    EXPECT_EQ(sink.entered(SushiDSP::profile::names::K_ROOM_MICROPHONES_ZONE), K_BLOCKS);
+    EXPECT_GE(sink.entered(SushiDSP::profile::names::K_ROOM_TAIL_ZONE), K_BLOCKS);
+    EXPECT_GE(sink.entered(SushiDSP::profile::names::K_ROOM_MODAL_ZONE), K_BLOCKS);
+    EXPECT_GE(sink.entered(SushiDSP::profile::names::K_ROOM_PAIR_ZONE), K_BLOCKS);
+}
+
+TEST(Medium_RoomNodeProfile, ProcessLeavesEveryZoneItEnters)
+{
+    constexpr std::uint32_t K_BLOCKS = 4;
+    SushiDSP::room::RoomNode::Counters counts;
+    SushiDSP::room::InMemoryRoomProfileSink sink;
+    RoomNode node(counts, sink);
+    ASSERT_NO_FATAL_FAILURE(prepare_with_trap_scene(node));
+    MonoRig rig;
+
+    run_blocks(node, rig.context, K_BLOCKS);
+
+    EXPECT_EQ(sink.left(SushiDSP::profile::names::K_ROOM_EARS_ZONE),
+              sink.entered(SushiDSP::profile::names::K_ROOM_EARS_ZONE));
+    EXPECT_EQ(sink.left(SushiDSP::profile::names::K_ROOM_TAIL_ZONE),
+              sink.entered(SushiDSP::profile::names::K_ROOM_TAIL_ZONE));
 }

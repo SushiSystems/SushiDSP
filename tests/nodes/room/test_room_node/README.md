@@ -48,7 +48,7 @@ The six path lengths are the geometry of the example scene; the solver's arrival
 
 ## `test_render_set_edits.cpp`
 
-The edits RoomNode makes to a built render set. The sets are built once per process and the tests copy what they change.
+The edits RoomNode makes to a built render set. Each suite builds its sets once in `SetUpTestSuite`, over the six-axis head of `axis_hrtf.hpp` in place of the spherical head, whose build takes 2.1 s in a debug build: the cases read the geometry of the set, never the head's response. The tests copy what they change.
 
 ### `RoomNodeTakesTheFirstTapOfTheEarsBankAsTheDirectImage`
 
@@ -459,6 +459,15 @@ The ears render every binaural path: the direct pair, the decoder, the diffuse p
 alignment delays. set_scene, the direct_delay switch and the fallback's re-install each publish
 on the control thread outside the trap; the blocks that adopt each set, fade it in and decode it
 run inside, and the index path stores the delay choice alone.
+
+### `ProcessReportsTheRegionZonesToItsSink`
+
+`// A node given a sink reports its zones to it alone.`
+
+The node is built with an `InMemoryRoomProfileSink`, so the zones are counted without a profile session
+and the case needs no skip for a build that records nothing. Per block the ears and the microphones
+zones are entered once; the tail, modal and pair zones are entered once per cabinet, at least once.
+The case is `Medium_RoomNodeProfile` because `prepare` builds the set, as the next entry says.
 
 ### `APreparedNodeWithASetCountsNothing`
 

@@ -55,6 +55,15 @@ namespace SushiDSP::room
         /// @brief Counts the receivers behind one cabinet at the limits.
         constexpr std::uint32_t K_RECEIVERS =
             static_cast<std::uint32_t>(Room::Arrangement::K_MAX_RECEIVERS);
+
+        /// @brief Runs a body between the enter and the leave of a zone on a sink.
+        template <typename Body>
+        void run_in_sink_zone(RoomProfileSink& sink, const char* zone, Body&& body) noexcept
+        {
+            sink.enter(zone);
+            body();
+            sink.leave(zone);
+        }
     } // namespace
 
     struct RoomNode::Stages
@@ -82,6 +91,11 @@ namespace SushiDSP::room
     RoomNode::RoomNode(Counters& counts) : RoomNode()
     {
         counts_ = &counts;
+    }
+
+    RoomNode::RoomNode(Counters& counts, RoomProfileSink& sink) : RoomNode(counts)
+    {
+        profile_sink_ = &sink;
     }
 
     RoomNode::~RoomNode() = default;
@@ -174,6 +188,7 @@ namespace SushiDSP::room
 
         // Every stage fades under one window read at the output, so the seam sees one weight.
         Stages& stages = *stages_;
+        RoomProfileSink* const sink = profile_sink_;
         const FadeWindow window{fade_total_ - fade_remaining_, std::min(frames, fade_remaining_),
                                 fade_lag_};
         for (std::uint32_t source = 0; source < source_count_; ++source)
@@ -183,13 +198,25 @@ namespace SushiDSP::room
                 context.inputs != nullptr ? context.inputs[K_SLOT_CHANNELS * source] : nullptr;
             stage.apply_pending_when_due(window);
             stage.write_input(input, frames);
+            const auto render_tail = [&stage, frames] { stage.render_tail(frames); };
+            if (sink != nullptr)
+            {
+                run_in_sink_zone(*sink, profile::names::K_ROOM_TAIL_ZONE, render_tail);
+            }
+            else
             {
                 SD_ZONE_GROUP(profile::names::K_ROOM_TAIL_ZONE, profile::names::K_ROOM_GROUP);
-                stage.render_tail(frames);
+                render_tail();
             }
+            const auto render_modal = [&stage, frames, &window] { stage.render_modal(frames, window); };
+            if (sink != nullptr)
+            {
+                run_in_sink_zone(*sink, profile::names::K_ROOM_MODAL_ZONE, render_modal);
+            }
+            else
             {
                 SD_ZONE_GROUP(profile::names::K_ROOM_MODAL_ZONE, profile::names::K_ROOM_GROUP);
-                stage.render_modal(frames, window);
+                render_modal();
             }
         }
 
@@ -204,19 +231,33 @@ namespace SushiDSP::room
         {
             Room::SourceStage& stage = stages.sources[source];
             Room::PairStage& pair = stages.pairs[source][0];
+            const auto render_pair = [&stage, &pair, frames, &window]
+            { pair.render(stage.ring(), stage.tail_ring(0), stage.tail_ring(1), frames, window); };
+            if (sink != nullptr)
+            {
+                run_in_sink_zone(*sink, profile::names::K_ROOM_PAIR_ZONE, render_pair);
+            }
+            else
             {
                 SD_ZONE_GROUP(profile::names::K_ROOM_PAIR_ZONE, profile::names::K_ROOM_GROUP);
-                pair.render(stage.ring(), stage.tail_ring(0), stage.tail_ring(1), frames, window);
+                render_pair();
             }
             stages.ears.add(pair, stage.modal(0), stage.modal(1), frames);
         }
+        const auto finish_ears = [&stages, decoder, left, right, frames]
+        { stages.ears.finish(decoder, left, right, frames); };
+        if (sink != nullptr)
+        {
+            run_in_sink_zone(*sink, profile::names::K_ROOM_EARS_ZONE, finish_ears);
+        }
+        else
         {
             SD_ZONE_GROUP(profile::names::K_ROOM_EARS_ZONE, profile::names::K_ROOM_GROUP);
-            stages.ears.finish(decoder, left, right, frames);
+            finish_ears();
         }
 
+        const auto render_microphones = [&]
         {
-            SD_ZONE_GROUP(profile::names::K_ROOM_MICROPHONES_ZONE, profile::names::K_ROOM_GROUP);
             for (std::uint32_t microphone = 0; microphone < K_MAX_MICROPHONES; ++microphone)
             {
                 // With no port table a microphone still renders, so its state stays current.
@@ -240,6 +281,15 @@ namespace SushiDSP::room
                 }
                 sum.finish(output, frames);
             }
+        };
+        if (sink != nullptr)
+        {
+            run_in_sink_zone(*sink, profile::names::K_ROOM_MICROPHONES_ZONE, render_microphones);
+        }
+        else
+        {
+            SD_ZONE_GROUP(profile::names::K_ROOM_MICROPHONES_ZONE, profile::names::K_ROOM_GROUP);
+            render_microphones();
         }
 
         fade_remaining_ -= window.fading;

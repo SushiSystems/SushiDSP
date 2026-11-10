@@ -50,6 +50,7 @@
 #include <SushiDSP/nodes/room/receiver_output.hpp>
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
+#include <SushiDSP/nodes/room/room_profile_sink.hpp>
 #include <SushiDSP/nodes/room/room_render_set.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
 #include <SushiDSP/nodes/room/source_stage.hpp>
@@ -193,6 +194,12 @@ namespace SushiDSP::room
             /// @param counts The counters process() raises; they outlive the node.
             explicit RoomNode(Counters& counts);
 
+            /// @brief Constructs a room node that counts into @p counts and reports its stage zones to
+            /// @p sink alone, never to the process-wide profiler.
+            /// @param counts The counters process() raises; they outlive the node.
+            /// @param sink The sink process() reports each zone to; it outlives the node.
+            RoomNode(Counters& counts, RoomProfileSink& sink);
+
             /// @brief Copies a set's taps into a bank, as a pair stage does it. Audio thread.
             /// @pre The taps are sorted by arrival, so tap 0 is the direct image whenever count > 0.
             /// @return True when direct was written.
@@ -215,6 +222,9 @@ namespace SushiDSP::room
 
             /// @brief Holds the counters this node raises: counters_, or the ones its constructor was given.
             Counters* counts_ = &counters_;
+
+            /// @brief Holds the sink the zones go to; null reports them through the SD_ZONE macros.
+            RoomProfileSink* profile_sink_ = nullptr;
 
             /// @brief Holds every stage; allocated once, so the node itself stays small.
             struct Stages;
