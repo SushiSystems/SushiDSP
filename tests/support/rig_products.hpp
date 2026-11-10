@@ -51,6 +51,7 @@
 #include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 
 #include "rig_controller.hpp"
+#include "support/in_memory_room.hpp"
 
 namespace TestSupport
 {
@@ -59,7 +60,14 @@ namespace TestSupport
     class RigProducts : public ::testing::Test
     {
         public:
-            RigProducts()
+            RigProducts() : RigProducts(SushiDSP::room::room_descriptor())
+            {
+            }
+
+        protected:
+            /// @param room The descriptor listed under the room's id: the real room, or its in-memory
+            /// adapter for a test that wires a rig and asks nothing of the acoustics.
+            explicit RigProducts(const SushiDSP::NodeDescriptor& room)
             {
                 catalogue_.add(SushiDSP::tube_screamer_descriptor());
                 catalogue_.add(SushiDSP::jcm800_descriptor());
@@ -72,10 +80,9 @@ namespace TestSupport
                 catalogue_.add(SushiDSP::bus_descriptor());
                 catalogue_.add(SushiDSP::cabinet_descriptor());
                 catalogue_.add(SushiDSP::microphone_descriptor());
-                catalogue_.add(SushiDSP::room::room_descriptor());
+                catalogue_.add(room);
             }
 
-        protected:
             /// @brief Returns the catalogue of the products above.
             const SushiDSP::NodeCatalogue& catalogue() const noexcept
             {
@@ -116,5 +123,16 @@ namespace TestSupport
 
         private:
             SushiDSP::InMemoryNodeCatalogue catalogue_;
+    };
+
+    /// @brief RigProducts with the room swapped for its in-memory adapter of the RoomHost port: the
+    /// room keeps the arrangement a host installs and builds no render set. For a test of how a rig is
+    /// wired, not of what the room renders.
+    class RigProductsInMemoryRoom : public RigProducts
+    {
+        public:
+            RigProductsInMemoryRoom() : RigProducts(in_memory_room_descriptor())
+            {
+            }
     };
 } // namespace TestSupport

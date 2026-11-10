@@ -132,6 +132,19 @@ the caller's work.
 
 ## `test_topology_applier.cpp`
 
+### The room is its in-memory adapter
+
+The cases read how the applier wires the room strips and fills the arrangement, and none reads a
+rendered sample. The fixture is `RigProductsInMemoryRoom`, whose catalogue lists
+`TestSupport::InMemoryRoom` (`tests/support/in_memory_room.hpp`) under the room's id. It is an
+adapter of the `RoomHost` port that declares the real room's nine output ports, keeps the
+arrangement it is given after `Arrangement::is_valid`, and writes silence. The real room solves every
+source and microphone pair on each publish, and a case that adds a microphone publishes once more.
+In the run of 2026-11-10 the cases that added eight or nine microphones took 20 s, and the ones that
+built a cabinet rig took 4 to 9 s against 2 s for a rig of two pedals. The acoustics of the real room
+are checked in `tests/nodes/room/`, and the rig's own use of the real room in
+`test_rig_controller/test_room.cpp`, so no promise leaves the suite.
+
 ### `TopologyApplierOpeningAPathCopiesTheMainPathWithItsParameters`
 
 `// The opened path carries a copy of the main path.`
