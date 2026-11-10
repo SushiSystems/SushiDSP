@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 
 import pytest
 from sushicore.provision.sushi_packages import PackageError
 
 from sushidsp.config import Config
+from sushidsp.package_resolver_memory import MemoryPackages
 from sushidsp.services import library_packages
 from sushidsp.services import project as project_svc
 from sushidsp.services.project import BuildType
@@ -58,12 +60,17 @@ def test_the_windows_run_dirs_lead_path():
 
 @pytest.mark.medium
 def test_a_package_that_cannot_be_chosen_ends_the_build_in_one_error_line(project):
-    def refuse(*arguments, **options):
-        raise PackageError("SushiLog has no cli and no stored package.")
+    """A resolver that refuses stops the build before any command and prints its message once."""
+    class RefusingPackages(MemoryPackages):
+        """Fails the way a library without a CLI and without a stored package fails."""
 
-    project.workspace.config.sushi_packages = refuse
+        def resolve(self, *arguments, **options):
+            """Raises the error of a package that cannot be chosen."""
+            raise PackageError("SushiLog has no cli and no stored package.")
 
-    assert project_svc.build(BuildType.debug, workspace=project.workspace) == 1
+    workspace = replace(project.workspace, packages=RefusingPackages())
+
+    assert project_svc.build(BuildType.debug, workspace=workspace) == 1
 
     assert project.console.texts("error") == ["SushiLog has no cli and no stored package."]
     assert project.commands == []

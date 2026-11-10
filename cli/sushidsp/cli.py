@@ -12,7 +12,8 @@ commands and the entry point come from sushicore.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from collections.abc import Sequence
+from typing import Any, NoReturn, Optional, Protocol
 
 import typer
 from sushicore.diag_commands import register_diagnostic_commands
@@ -21,6 +22,7 @@ from sushicore.docs_bundle import ApiSource, register_docs_commands
 from sushicore.design import register_design_commands
 from sushicore.entry import run as run_app
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
+from sushicore.provision.steps import MachineActions
 from sushicore.root_options import register_root_options
 from sushicore.testing import (TestLabel, all_option, filter_option, jobs_option, label_option,
                                repeat_option)
@@ -310,23 +312,41 @@ ALIASES.command(app, "doxygen", _docs_alias, "sd doxygen")
 
 register_root_options(app, distribution=K_DISTRIBUTION)
 
-register_provision_commands(app, ModuleProvision(
-    profile=PROFILE,
-    project_root=find_project_root,
-    load_config=load_config,
-    console=lambda: console,
-    panel=K_ENVIRONMENT,
-))
+def module_provision(actions: MachineActions | None = None) -> ModuleProvision:
+    """Returns what `sd` hands the shared provision commands.
+
+    Args:
+        actions: The calls the setup steps make that reach the machine; none makes the real ones.
+    """
+    return ModuleProvision(
+        profile=PROFILE,
+        project_root=find_project_root,
+        load_config=load_config,
+        console=lambda: console,
+        panel=K_ENVIRONMENT,
+        actions=actions,
+    )
 
 
-def _report_error(message: str) -> None:
-    """Prints one error line through the console, which is built only at this call."""
-    console.error(message)
+register_provision_commands(app, module_provision())
 
 
-def main() -> None:
-    """Runs `sd` and exits; a failure sushicore reports becomes one line and exit code 1."""
-    run_app(app, _report_error)
+class ErrorConsole(Protocol):
+    """What `main` prints a failure through."""
+
+    def error(self, text: str) -> None:
+        """Prints an error line."""
+
+
+def main(argv: Sequence[str] | None = None, error_console: ErrorConsole | None = None) -> NoReturn:
+    """Runs `sd` and exits; a failure sushicore reports becomes one line and exit code 1.
+
+    Args:
+        argv: The arguments to parse; the process's own when None.
+        error_console: Where the failure line is printed; the module console, looked up when
+            the failure happens, when None.
+    """
+    run_app(app, lambda message: (error_console or console).error(message), argv=argv)
 
 
 if __name__ == "__main__":

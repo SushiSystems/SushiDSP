@@ -16,13 +16,14 @@ from sushicore.provision.sushi_packages import PackageSet, RunDirs
 from sushicore.provision.sushi_packages import configure_arguments  # noqa: F401  (callers take it from here)
 
 from ..config import Config
+from ..package_resolver import PackageResolver
 
 #: The file of a build tree that names the run-time folders of the packages it linked.
 K_RUN_DIRS_FILE = ".sushidsp_package_dirs.json"
 
 
 def resolve(cfg: Config, root: Path, build_type: str, report: Callable[[str], None],
-            warn: Callable[[str], None]) -> PackageSet:
+            warn: Callable[[str], None], resolver: PackageResolver | None = None) -> PackageSet:
     """Return a built package of every library the project links, building a missing one.
 
     SushiDSP passes no option to a library, and the packages are built with the compiler
@@ -34,12 +35,15 @@ def resolve(cfg: Config, root: Path, build_type: str, report: Callable[[str], No
         build_type: The build type of this configure, such as ``release``.
         report: Receives one ``reused`` or ``built`` line per library.
         warn: Receives the warnings of the resolver.
+        resolver: Chooses the packages; none uses the one *cfg* holds.
 
     Raises:
         sushicore.provision.sushi_packages.PackageError: A package cannot be chosen.
     """
-    return cfg.sushi_packages(root, build_type, {}, report=report, warn=warn,
-                              compiler=cfg.resolved_compiler(root))
+    compiler = cfg.resolved_compiler(root)
+    if resolver is not None:
+        return resolver.resolve(root, build_type, {}, report, warn, compiler)
+    return cfg.sushi_packages(root, build_type, {}, report=report, warn=warn, compiler=compiler)
 
 
 #: The run-time folders of the packages a tree linked, kept in the tree for the commands that run it.

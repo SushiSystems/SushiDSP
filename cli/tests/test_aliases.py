@@ -110,3 +110,9 @@ def test_only_a_bare_run_announces_host_once_to_a_terminal(terminal, project, ta
 def test_a_row_expires_the_day_after_its_last_day(today, expired):
     """No row is expired on its last day, and every row is the day after."""
     assert [row.old for row in aliases.ALIASES.expired(today)] == expired
+
+
+@pytest.mark.medium
+def test_no_row_has_expired_today():
+    """A row is removed by its last day, so none has outlived it on the real clock."""
+    assert [row.old for row in aliases.ALIASES.expired(date.today())] == []

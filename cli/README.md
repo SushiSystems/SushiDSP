@@ -95,6 +95,18 @@ fields, for tests. `Config.resolved_compiler`, `bundled_clang`, `compiler_source
 `resolved_generator` and `is_multi_config` take a `host`; none means the system one, built by
 `config.system_host()`.
 
+### files.py, processes.py and package_resolver.py
+
+Three ports the project service acts through, each with a system or default adapter and an
+in-memory one for tests. `Files.rmtree` removes a build tree (`files_system.py`, `files_memory.py`,
+whose `locked` folders fail as a file held open fails). `Processes.capture` runs a checker for
+its `--list-rules` output (`processes_system.py`, `processes_memory.py`). `PackageResolver.resolve`
+chooses the library packages (`package_resolver_memory.py`; none means the one `Config` holds).
+`Workspace` carries them as `files`, `processes` and `packages`, plus `threads`, the hardware
+thread count a compile uses without `--jobs`, and `tree_path(build_type, sanitizer)`, the public
+build tree of a pair. `cli.main(argv, error_console)` takes its arguments and the console that
+prints a failure; `cli.module_provision(actions)` builds what the provision commands receive.
+
 ### console.py
 
 `console.py` is a thin wrapper around sushicore. The theme, icon and renderer logic and its

@@ -9,10 +9,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import typer
 from typer.testing import CliRunner
 
+from sushicore.provision.commands import register_provision_commands
 from sushicore.provision.config import ProvisionSettings
-from sushidsp.cli import app
+from sushicore.provision.steps import MachineActions
+from sushidsp.cli import app, module_provision
 from sushidsp.config import Config
 from sushidsp.host_memory import MemoryHost
 
@@ -86,8 +89,7 @@ def test_a_clang_of_the_workspace_is_found_through_the_provision_roots():
 
 @pytest.mark.medium
 def test_setup_dry_run_in_a_workspace_never_calls_hub(tmp_path, monkeypatch):
-    import subprocess
-
+    """A dry run in a workspace lists its steps and hands the machine no `hub` command."""
     workspace = tmp_path / "ws"
     (workspace / ".sushistack").mkdir(parents=True)
     module = workspace / "sushidsp"
@@ -96,21 +98,15 @@ def test_setup_dry_run_in_a_workspace_never_calls_hub(tmp_path, monkeypatch):
     monkeypatch.setenv("SUSHISTACK_HOME", str(workspace))
     monkeypatch.setenv("SUSHISYSTEMS_HOME", str(tmp_path / "home"))
     monkeypatch.chdir(module)
+    started: list[list[str]] = []
+    commands = typer.Typer()
+    register_provision_commands(commands, module_provision(
+        MachineActions(run_command=lambda command: started.append(list(command)))))
 
-    def _is_hub(argv):
-        first = argv if isinstance(argv, str) else (list(argv) or [""])[0]
-        return str(first).replace("\\", "/").rsplit("/", 1)[-1].split(".")[0] == "hub"
+    result = CliRunner().invoke(commands, ["setup", "--dry-run"])
 
-    real_popen = subprocess.Popen
-
-    class _GuardedPopen(real_popen):
-        def __init__(self, args, *rest, **kwargs):
-            assert not _is_hub(args), f"hub was invoked: {args}"
-            super().__init__(args, *rest, **kwargs)
-
-    monkeypatch.setattr(subprocess, "Popen", _GuardedPopen)
-    result = CliRunner().invoke(app, ["setup", "--dry-run"])
     assert result.exception is None or isinstance(result.exception, SystemExit), result.output
     for step in ("setup: detect", "setup: install-deps", "setup: configure"):
         assert step in result.output
     assert "hub install" not in result.output
+    assert [command for command in started if Path(command[0]).stem == "hub"] == []

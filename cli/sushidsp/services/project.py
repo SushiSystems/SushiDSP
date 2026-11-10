@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import enum
 import os
-import shutil
 import stat
-import subprocess
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
@@ -37,6 +35,11 @@ from .. import console
 from ..aliases import ALIASES
 from ..config import Config, PROFILE, find_project_root, load_config
 from ..env import load_build_env
+from ..files import Files
+from ..files_system import SystemFiles
+from ..package_resolver import PackageResolver
+from ..processes import Processes
+from ..processes_system import SystemProcesses
 from . import discovery, library_packages
 
 
@@ -126,6 +129,11 @@ class Workspace:
             tree through ``sushidsp.env.load_build_env``.
         aliases: The old spellings and the record of which of them were announced; a test hands
             in its own table.
+        files: What removes a build tree.
+        processes: What runs a checker to read the rules it lists.
+        packages: What chooses the library packages; none uses the one the configuration holds.
+        threads: Returns the hardware threads a compile uses without ``--jobs``; none reads the
+            machine through the memory gate.
     """
 
     root: Path
@@ -135,6 +143,18 @@ class Workspace:
     app_runner: CommandRunner
     environment: Mapping[str, str] | None = None
     aliases: AliasTable = ALIASES
+    files: Files = SystemFiles()
+    processes: Processes = SystemProcesses()
+    packages: PackageResolver | None = None
+    threads: Callable[[], int] | None = None
+
+    def tree_path(self, build_type: "BuildType", sanitizer: "Sanitizer | None" = None) -> Path:
+        """Returns the build tree the type and the sanitizer own, build/<name>-<type>."""
+        return _build_dir(self.root, build_type, sanitizer)
+
+    def hardware_threads(self) -> int:
+        """Returns the threads a compile uses when the user gave no job count."""
+        return (self.threads or build_admission.hardware_threads)()
 
     @cached_property
     def driver(self) -> CMakeDriver:
@@ -177,7 +197,7 @@ def _link_packages(space: Workspace, build_dir: Path,
     cfg = space.config
     try:
         packages = library_packages.resolve(cfg, space.root, build_type.value, space.console.info,
-                                            space.console.warn)
+                                            space.console.warn, space.packages)
     except PackageError as error:
         space.console.error(str(error))
         return None
@@ -202,7 +222,7 @@ def _generator_changed(cfg: Config, build_dir: Path) -> bool:
     return cached != wanted
 
 
-def _remove_tree(console: ServiceConsole, build_dir: Path) -> bool:
+def _remove_tree(space: "Workspace", build_dir: Path) -> bool:
     """Removes the build tree, read-only files included, and reports a failure in one line.
 
     Returns:
@@ -213,9 +233,10 @@ def _remove_tree(console: ServiceConsole, build_dir: Path) -> bool:
         os.chmod(target, stat.S_IWRITE)
         func(target)
 
+    console = space.console
     console.info(f"Removing {build_dir} ...")
     try:
-        shutil.rmtree(build_dir, onerror=make_writable_and_retry)
+        space.files.rmtree(build_dir, make_writable_and_retry)
     except OSError as error:
         console.error(
             f"Could not remove {error.filename or build_dir} ({error.strerror}); {build_dir} "
@@ -336,7 +357,7 @@ def build(build_type: BuildType | None, clean: bool = False,
         if not clean:
             console.warn(
                 "Build tree was configured with a different generator; rebuilding from scratch.")
-        if not _remove_tree(console, build_dir):
+        if not _remove_tree(space, build_dir):
             return 1
 
     # The packages are chosen on every build, so a changed library reaches the link and the path.
@@ -352,7 +373,7 @@ def build(build_type: BuildType | None, clean: bool = False,
     offset = build_report.ninja_log_offset(build_dir)
     rc = space.driver.compile(cfg, build_dir, cwd=root, env=space.build_env(build_dir),
                               config=_CMAKE_BUILD_TYPE[build_type],
-                              jobs=jobs or build_admission.hardware_threads())
+                              jobs=jobs or space.hardware_threads())
     if report:
         _print_report(console, build_dir, offset)
     return rc
@@ -440,7 +461,7 @@ def clean(build_type: BuildType | None = None, sanitizer: Sanitizer | None = Non
     if not build_dir.exists():
         console.info(f"{build_dir} does not exist, nothing to clean.")
         return 0
-    if not _remove_tree(console, build_dir):
+    if not _remove_tree(space, build_dir):
         return 1
     console.success(f"{build_dir} removed.")
     return 0
@@ -476,7 +497,7 @@ def check(report: bool = False, rule: str | None = None,
     space = workspace or current_workspace()
     root = space.root
     checkers = [checker for checker in _CHECKERS
-                if rule is None or rule in _rules_of(root / checker)]
+                if rule is None or rule in _rules_of(space.processes, root / checker)]
     if not checkers:
         space.console.error(f"no checker under tools/ has the rule {rule}")
         return 1
@@ -485,11 +506,11 @@ def check(report: bool = False, rule: str | None = None,
                for checker in checkers)
 
 
-def _rules_of(checker: Path) -> frozenset[str]:
+def _rules_of(processes: Processes, checker: Path) -> frozenset[str]:
     """Returns the rule names the checker at *checker* prints for --list-rules."""
-    listed = subprocess.run([sys.executable, str(checker), "--list-rules"],
-                            capture_output=True, text=True, check=False)
-    return frozenset(listed.stdout.split()) if listed.returncode == 0 else frozenset()
+    code, output = processes.capture([sys.executable, str(checker), "--list-rules"])
+    return frozenset(output.split()) if code == 0 else frozenset()
+
 
 def _locate_host_gui(cfg: Config, build_dir: Path, config: str) -> Path | None:
     """Returns the host GUI binary the tree holds for *config*, or None.

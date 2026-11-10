@@ -12,13 +12,16 @@ from __future__ import annotations
 import os
 import stat
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from sushidsp.services import project as project_svc
 from sushicore.testing import TestLabel
-from sushidsp.services.project import BuildType, Sanitizer
+from sushidsp.files_memory import MemoryFiles
+from sushidsp.processes_memory import MemoryProcesses
+from sushidsp.services.project import BuildType, Sanitizer, Workspace
 
 
 pytestmark = pytest.mark.medium
@@ -162,32 +165,23 @@ def test_clean_succeeds_when_there_is_no_build_tree(project):
     assert project.console.texts("error") == []
 
 
-def _refuse_removal(monkeypatch) -> None:
-    """Makes every tree removal fail the way a file held open on Windows fails it."""
-    def refuse(path, onerror=None):
-        """Raises the error a locked file raises."""
-        raise PermissionError(13, "The process cannot access the file", str(path))
-
-    monkeypatch.setattr(project_svc.shutil, "rmtree", refuse)
-
-
-def test_clean_reports_a_locked_tree_as_one_error(project, monkeypatch):
-    """A file held open ends clean with one error line and exit code 1."""
+def _with_a_locked_tree(project) -> Workspace:
+    """Returns the workspace of *project* whose files refuse to remove the default tree."""
     project.configure_tree()
-    _refuse_removal(monkeypatch)
+    return replace(project.workspace, files=MemoryFiles(locked=frozenset({project.build_dir})))
 
-    assert project_svc.clean(workspace=project.workspace) == 1
+
+def test_clean_reports_a_locked_tree_as_one_error(project):
+    """A file held open ends clean with one error line and exit code 1."""
+    assert project_svc.clean(workspace=_with_a_locked_tree(project)) == 1
 
     (line,) = project.console.texts("error")
     assert str(project.build_dir) in line
 
 
-def test_build_clean_stops_on_a_locked_tree(project, monkeypatch):
+def test_build_clean_stops_on_a_locked_tree(project):
     """build --clean on a locked tree returns 1 and runs neither configure nor compile."""
-    project.configure_tree()
-    _refuse_removal(monkeypatch)
-
-    assert project_svc.build(None, clean=True, workspace=project.workspace) == 1
+    assert project_svc.build(None, clean=True, workspace=_with_a_locked_tree(project)) == 1
 
     assert project.commands == []
     assert len(project.console.texts("error")) == 1
@@ -368,11 +362,14 @@ def test_check_fails_a_rule_no_checker_lists_and_runs_nothing(project):
     assert project.console.texts("error") == ["no checker under tools/ has the rule rule_nowhere"]
 
 
-def test_rules_of_reads_the_rule_table_of_a_real_checker():
-    """_rules_of reads the rules a checker of this checkout lists."""
-    root = Path(__file__).resolve().parents[2]
-    rules = project_svc._rules_of(root / "tools" / "testing" / "check_test_mirror.py")
-    assert "rule_untested_unit" in rules
+def test_rules_of_reads_the_rules_a_checker_lists():
+    """_rules_of splits the output of `--list-rules` into names, and reads none from a failure."""
+    checker = Path("tools") / "check_x.py"
+    listing = [sys.executable, str(checker), "--list-rules"]
+    processes = MemoryProcesses({tuple(listing): (0, "rule_a rule_b")})
+
+    assert project_svc._rules_of(processes, checker) == {"rule_a", "rule_b"}
+    assert project_svc._rules_of(MemoryProcesses(), checker) == frozenset()
 
 
 def test_check_outside_a_checkout_fails_like_every_other_command(tmp_path, monkeypatch):

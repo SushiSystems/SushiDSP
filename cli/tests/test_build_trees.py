@@ -6,15 +6,21 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from sushicore import build_admission
 from sushicore.build_admission import BuildStoppedError
+from sushicore.console_memory import RecordingConsole
 from sushicore.errors import ConfigError
+from sushicore.proc_memory import RecordingRunner
 
+from sushidsp.config import Config
 from sushidsp.services import project as project_svc
-from sushidsp.services.project import BuildType, Sanitizer
+from sushidsp.services.project import BuildType, Sanitizer, Workspace
+
+K_ROOT = Path("checkout")
 
 
 def _configure_of(project) -> list[str]:
@@ -42,7 +48,7 @@ def test_a_command_builds_the_type_it_is_given_else_its_default(requested, defau
         assert project_svc.resolve_build_type(requested, default) is resolved
 
 
-@pytest.mark.medium
+@pytest.mark.small
 @pytest.mark.parametrize(("build_type", "sanitizer", "name"), [
     (BuildType.debug, None, "default-debug"),
     (BuildType.release, None, "default-release"),
@@ -50,13 +56,13 @@ def test_a_command_builds_the_type_it_is_given_else_its_default(requested, defau
     (BuildType.debug, Sanitizer.address, "asan-debug"),
     (BuildType.relwithdebinfo, Sanitizer.thread, "tsan-relwithdebinfo"),
 ])
-def test_each_type_and_sanitizer_owns_one_tree(project, build_type, sanitizer, name):
-    """A configure of the type and the sanitizer builds into build/<name>-<type>."""
-    assert project_svc.configure(build_type, sanitizer=sanitizer,
-                                 workspace=project.workspace) == 0
+def test_each_type_and_sanitizer_owns_one_tree(build_type, sanitizer, name):
+    """The workspace gives the type and the sanitizer the tree build/<name>-<type>."""
+    console = RecordingConsole()
+    runner = RecordingRunner(console)
+    workspace = Workspace(K_ROOT, Config(), console, runner, runner)
 
-    configure = next(command for command in project.commands if "-S" in command)
-    assert configure[configure.index("-B") + 1] == str(project.root / "build" / name)
+    assert workspace.tree_path(build_type, sanitizer) == K_ROOT / "build" / name
 
 
 @pytest.mark.medium
@@ -114,12 +120,12 @@ def test_a_define_of_the_user_comes_after_the_gate_entries(project):
 @pytest.mark.medium
 @pytest.mark.parametrize(("jobs", "parallel"), [(None, "13"), (2, "2")])
 def test_the_compile_takes_the_jobs_the_user_gave_else_the_hardware_threads(
-        project, monkeypatch, jobs, parallel):
+        project, jobs, parallel):
     """The compile gets --parallel from -j, or from the hardware threads without it."""
-    monkeypatch.setattr(build_admission, "hardware_threads", lambda: 13)
     project.configure_tree()
+    workspace = replace(project.workspace, threads=lambda: 13)
 
-    assert project_svc.build(None, jobs=jobs, workspace=project.workspace) == 0
+    assert project_svc.build(None, jobs=jobs, workspace=workspace) == 0
 
     compile_ = project.commands[-1]
     assert compile_[compile_.index("--parallel") + 1] == parallel

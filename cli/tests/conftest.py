@@ -55,6 +55,7 @@ from sushicore.console_memory import RecordingConsole  # noqa: E402
 from sushicore.proc_memory import RecordingRunner  # noqa: E402
 
 from sushidsp.config import Config  # noqa: E402
+from sushidsp.package_resolver_memory import MemoryPackages  # noqa: E402
 from sushidsp.services.project import Workspace  # noqa: E402
 
 
@@ -76,39 +77,6 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         item.add_marker(pytest.mark.timeout(K_SIZE_TIMEOUTS[_sizes_of(item)[0]]))
 
 
-class FakePackages:
-    """Stands in for the resolver: records each request and returns the SushiLog and SushiProfiler packages."""
-
-    config_dir = "/store/sushilog/abc/prefix/lib/cmake/SushiLog"
-    profiler_config_dir = "/store/sushiprofiler/def/prefix/lib/cmake/SushiProfiler"
-    run_dir = "/store/sushilog/abc/prefix/lib"
-    left_out: frozenset[str] = frozenset()
-
-    def __init__(self) -> None:
-        """Starts with no request recorded."""
-        self.asked: list[dict] = []
-
-    def names(self) -> list[str]:
-        """Returns the library names."""
-        return ["sushilog", "sushiprofiler"]
-
-    def definitions(self) -> list[str]:
-        """Returns the config folder definition."""
-        return [f"-DSushiLog_DIR={self.config_dir}",
-                f"-DSushiProfiler_DIR={self.profiler_config_dir}"]
-
-    def run_dirs(self, platform: str) -> list[str]:
-        """Returns the run-time folder."""
-        return [self.run_dir]
-
-    def sushi_packages(self, root, build_type, options=None, report=print, warn=print,
-                       compiler=""):
-        """Records the request and returns this object as the package set."""
-        self.asked.append({"root": root, "build_type": build_type,
-                           "options": dict(options or {}), "compiler": compiler})
-        return self
-
-
 @dataclass
 class Project:
     """Holds a scratch checkout and what the project service did to it."""
@@ -116,7 +84,7 @@ class Project:
     root: Path
     runner: RecordingRunner
     console: RecordingConsole
-    packages: FakePackages
+    packages: MemoryPackages
     workspace: Workspace
     build_dir: Path = field(init=False)
 
@@ -166,7 +134,7 @@ def project(tmp_path) -> Project:
     runner = RecordingRunner(console)
     cfg = Config(cxx="clang++", generator="Ninja", ninja_exe="ninja",
                  ccache_exe=str(tmp_path / "no_ccache"))
-    packages = FakePackages()
-    cfg.sushi_packages = packages.sushi_packages
-    workspace = Workspace(tmp_path, cfg, console, runner, runner, environment={})
+    packages = MemoryPackages()
+    workspace = Workspace(tmp_path, cfg, console, runner, runner, environment={},
+                          packages=packages)
     return Project(tmp_path, runner, console, packages, workspace)

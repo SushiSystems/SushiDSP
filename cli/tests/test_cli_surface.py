@@ -7,16 +7,15 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 import typer.main
 from typer.testing import CliRunner
 
+from sushicore.console_memory import RecordingConsole
 from sushicore.root_options import version_line
 from sushidsp import cli
 from sushidsp.cli import app
@@ -48,20 +47,20 @@ def _visible_commands() -> list[str]:
 
 
 @pytest.mark.medium
-def test_main_reports_a_malformed_config_as_one_line_and_exit_one(tmp_path):
-    """A cli/config.toml that is not TOML ends in one line on stderr and exit code 1."""
+def test_main_reports_a_malformed_config_as_one_line_and_exit_one(tmp_path, monkeypatch):
+    """A cli/config.toml that is not TOML ends in one error line and exit code 1."""
     (tmp_path / "CMakeLists.txt").write_text("project(x)\n", encoding="utf-8")
     (tmp_path / "cli").mkdir()
     (tmp_path / "cli" / "config.toml").write_text("[tool\ncxx = ", encoding="utf-8")
-    script = "import sys; sys.argv = ['sd', 'config']; from sushidsp import cli; cli.main()"
-    environment = {**os.environ, "PYTHONPATH": str(Path(cli.__file__).resolve().parents[1])}
+    monkeypatch.chdir(tmp_path)
+    console = RecordingConsole()
 
-    finished = subprocess.run([sys.executable, "-c", script], cwd=tmp_path, env=environment,
-                              capture_output=True, text=True, check=False)
+    with pytest.raises(SystemExit) as caught:
+        cli.main(["config"], error_console=console)
 
-    assert finished.returncode == 1
-    (line,) = finished.stderr.splitlines()
-    assert line.startswith("sd: ") and "config.toml" in line
+    assert caught.value.code == 1
+    (line,) = console.texts("error")
+    assert "config.toml" in line
 
 
 @pytest.mark.medium
