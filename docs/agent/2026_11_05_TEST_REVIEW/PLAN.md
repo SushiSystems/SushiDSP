@@ -32,7 +32,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M12 | the tests of `foundation/io` (5 files): 13 rewrite, 5 resize, 1 merge, 4 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M13 | the tests of `foundation/log` (2 files): 1 rewrite, 1 resize, 1 split, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M14 | the tests of `foundation/log_capture` (2 files): 3 resize | T1, T2, T3, T4, T5, T6, T7 | todo |
-| M15 | the tests of `foundation/math` (23 files): 92 rewrite, 2 split, 14 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
+| M15 | the tests of `foundation/math` (23 files): 92 rewrite, 2 split, 14 delete | T1, T2, T3, T4, T5, T6, T7 | partial (lane B, syntax-checked only): all of `tests/foundation/math/dk/` done (`test_dense_lu`, `test_damped_newton_solver`, `test_dk_circuit/*`, `test_dk_netlist` and `test_linear_port` replaced by `compile_dk_netlist` and `compile_linear_port`); resume at `tests/foundation/math/test_biquad.cpp`, then `test_fft`, `test_halfband_coefficients`, `test_newton_raphson_solver`, `test_oversampler`, `test_partitioned_convolution`, `test_resampler`, `test_resampler_design`, `test_sinc_resampler`, `test_smoothed_parameter`, `test_streaming_convolution`, `test_wdf`; the benchmarks are keeps; M16 to M19, M26, M29, M32 and M33 not started |
 | M16 | the tests of `foundation/profile` (7 files): 6 rewrite, 6 resize, 6 split, 2 merge | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M17 | the tests of `foundation/regression_test` (1 file): 1 rewrite | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M18 | the tests of `foundation/signal_measure` (7 files): 18 rewrite, 1 split, 4 merge | T1, T2, T3, T4, T5, T6, T7 | todo |

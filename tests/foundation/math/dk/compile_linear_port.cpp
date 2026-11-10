@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_dk_netlist.cpp                                                    */
+/* compile_linear_port.cpp                                              */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,33 +22,18 @@
 /**************************************************************************/
 
 /**
- * @file test_dk_netlist.cpp
- * @brief Tests the size limits and the empty state of a DK netlist.
+ * @file compile_linear_port.cpp
+ * @brief Compiles linear_port.hpp and checks that the port has the glue call of a block with no nonlinear branch.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <array>
+#include <type_traits>
 
-#include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
+#include <SushiDSP/foundation/math/dk/linear_port.hpp>
 
-TEST(Small_DkNetlist, SizeLimitsAreTheDocumentedCeilings)
-{
-    EXPECT_EQ(SushiDSP::dk::K_MAXIMUM_NODES, 16u);
-    EXPECT_EQ(SushiDSP::dk::K_MAXIMUM_RESISTORS, 32u);
-    EXPECT_EQ(SushiDSP::dk::K_MAXIMUM_POTENTIOMETERS, 4u);
-    EXPECT_EQ(SushiDSP::dk::K_MAXIMUM_NULLORS, 4u);
-}
-
-TEST(Small_DkNetlist, StartsWithNoNodesAboveGround)
-{
-    const SushiDSP::dk::DkNetlist<0, 1, 1, 1> netlist;
-    EXPECT_EQ(netlist.node_count, 0u);
-}
-
-TEST(Small_DkNetlist, BranchDefaultsToGroundWithNoValue)
-{
-    const SushiDSP::dk::Branch branch;
-    EXPECT_EQ(branch.positive_node, 0u);
-    EXPECT_EQ(branch.negative_node, 0u);
-    EXPECT_EQ(branch.value, 0.0);
-}
+static_assert(std::is_empty_v<SushiDSP::dk::LinearPort>, "a linear port holds no state");
+static_assert(std::is_invocable_v<decltype(&SushiDSP::dk::LinearPort::currents_and_jacobian), const SushiDSP::dk::LinearPort&,
+                                  const std::array<double, 0>&, std::array<double, 0>&,
+                                  std::array<std::array<double, 0>, 0>&>,
+              "the port answers the glue call DkCircuit makes with zero branches");

@@ -27,28 +27,86 @@
  * @author Mustafa Garip
  */
 
+#include <cmath>
+#include <cstddef>
+#include <string>
+
 #include <gtest/gtest.h>
+
+#include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/math/dk/dense_lu.hpp>
 
 #include <array>
 
-TEST(Small_DenseLu, SolvesAKnownThreeByThreeSystem)
+namespace
 {
-    const std::array<std::array<double, 3>, 3> matrix{{{4.0, 1.0, 0.0}, {1.0, 3.0, 1.0}, {0.0, 1.0, 2.0}}};
-    const std::array<double, 3> expected{{1.0, 2.0, 3.0}};
-    const std::array<double, 3> right_hand_side{{6.0, 10.0, 8.0}};
-
-    SushiDSP::dk::DenseLu<3> lu;
-    ASSERT_TRUE(lu.factorise(matrix));
-    std::array<double, 3> solution{};
-    lu.solve(right_hand_side, solution);
-    for (std::size_t i = 0; i < 3; ++i)
+    /// @brief Holds a square system A x = b of order three for the residual check.
+    struct System3
     {
-        EXPECT_NEAR(solution[i], expected[i], 1e-9);
+            const char* name;
+            std::array<std::array<double, 3>, 3> matrix;
+            std::array<double, 3> right_hand_side;
+    };
+
+    /// @brief Holds a tridiagonal system with the solution [1, 2, 3], and the hand-solved system
+    /// A = [[2, 1, -1], [-3, -1, 2], [-2, 1, 2]], b = [8, -11, -3] with the solution [2, 3, -1] (det A = -1).
+    const System3 kSystems[] = {
+        {"Tridiagonal", {{{4.0, 1.0, 0.0}, {1.0, 3.0, 1.0}, {0.0, 1.0, 2.0}}}, {6.0, 10.0, 8.0}},
+        {"HandChecked", {{{2.0, 1.0, -1.0}, {-3.0, -1.0, 2.0}, {-2.0, 1.0, 2.0}}}, {8.0, -11.0, -3.0}},
+    };
+
+    /// @brief Checks that A x reproduces b in the first @p order rows within the LU backward-error bound.
+    ///
+    /// Partial pivoting on a matrix this small gives (A + dA) x = b with |dA| <= n u |A| up to a growth factor
+    /// the threshold of 16 absorbs (Higham, Accuracy and Stability, section 9.3), so each row of A x differs from
+    /// b by at most n u sum |a x|.
+    template <std::size_t N>
+    ::testing::AssertionResult reproduces(const std::array<std::array<double, N>, N>& matrix,
+                                          const std::array<double, N>& right_hand_side,
+                                          const std::array<double, N>& solution, std::size_t order)
+    {
+        for (std::size_t row = 0; row < order; ++row)
+        {
+            double product = 0.0;
+            double magnitude = 0.0;
+            for (std::size_t column = 0; column < order; ++column)
+            {
+                product += matrix[row][column] * solution[column];
+                magnitude += std::fabs(matrix[row][column] * solution[column]);
+            }
+            const TestSupport::ErrorRatio measured =
+                TestSupport::measure_sum_error<double>(product, right_hand_side[row], magnitude, order);
+            if (!measured.is_within())
+            {
+                return ::testing::AssertionFailure() << "row " << row << ": " << measured.describe();
+            }
+        }
+        return ::testing::AssertionSuccess();
     }
+
+    std::string system_name(const ::testing::TestParamInfo<System3>& info)
+    {
+        return std::string(info.param.name);
+    }
+} // namespace
+
+class Small_DenseLuSolve : public ::testing::TestWithParam<System3>
+{
+};
+
+TEST_P(Small_DenseLuSolve, ReproducesTheRightHandSideWithinTheBackwardErrorBound)
+{
+    SushiDSP::dk::DenseLu<3> lu;
+    ASSERT_TRUE(lu.factorise(GetParam().matrix));
+    std::array<double, 3> solution{};
+    lu.solve(GetParam().right_hand_side, solution);
+    EXPECT_TRUE(reproduces(GetParam().matrix, GetParam().right_hand_side, solution, 3));
 }
 
+INSTANTIATE_TEST_SUITE_P(Systems, Small_DenseLuSolve, ::testing::ValuesIn(kSystems), system_name);
+
+// Without partial pivoting the first step divides by zero. See tests/foundation/math/dk/README.md.
 TEST(Small_DenseLu, PivotsWhenTheLeadingEntryIsZero)
 {
     const std::array<std::array<double, 2>, 2> matrix{{{0.0, 1.0}, {1.0, 0.0}}};
@@ -56,8 +114,8 @@ TEST(Small_DenseLu, PivotsWhenTheLeadingEntryIsZero)
     ASSERT_TRUE(lu.factorise(matrix));
     std::array<double, 2> solution{};
     lu.solve(std::array<double, 2>{{3.0, 5.0}}, solution);
-    EXPECT_NEAR(solution[0], 5.0, 1e-12);
-    EXPECT_NEAR(solution[1], 3.0, 1e-12);
+    EXPECT_EQ(solution[0], 5.0);
+    EXPECT_EQ(solution[1], 3.0);
 }
 
 TEST(Small_DenseLu, RejectsASingularMatrix)
@@ -67,91 +125,58 @@ TEST(Small_DenseLu, RejectsASingularMatrix)
     EXPECT_FALSE(lu.factorise(singular));
 }
 
-namespace
+TEST(Small_DenseLu, OneByOneSolvesByDivision)
 {
-    /// @brief The 3x3 system used for the LU golden vectors, and its hand-solved answer.
-    ///
-    /// A = [[2, 1, -1], [-3, -1, 2], [-2, 1, 2]], b = [8, -11, -3].
-    /// Gaussian elimination by hand gives x = [2, 3, -1] exactly:
-    ///   2*2 + 1*3 - 1*(-1)  =  4 + 3 + 1 =  8
-    ///  -3*2 - 1*3 + 2*(-1)  = -6 - 3 - 2 = -11
-    ///  -2*2 + 1*3 + 2*(-1)  = -4 + 3 - 2 = -3
-    /// det(A) = 2(-1*2 - 2*1) - 1(-3*2 - 2*(-2)) + (-1)(-3*1 - (-1)(-2)) = -8 + 2 + 5 = -1.
-    constexpr double K_MATRIX[3][3] = {{2.0, 1.0, -1.0}, {-3.0, -1.0, 2.0}, {-2.0, 1.0, 2.0}};
-} // namespace
-
-TEST(Small_DenseLu, DenseLuSolvesAHandCheckedThreeByThreeSystem)
-{
-    std::array<std::array<double, 3>, 3> matrix{};
-    for (std::size_t row = 0; row < 3; ++row)
-    {
-        for (std::size_t column = 0; column < 3; ++column)
-        {
-            matrix[row][column] = K_MATRIX[row][column];
-        }
-    }
-    SushiDSP::dk::DenseLu<3> lu;
-    ASSERT_TRUE(lu.factorise(matrix));
-    std::array<double, 3> solution{};
-    lu.solve({8.0, -11.0, -3.0}, solution);
-    EXPECT_NEAR(solution[0], 2.0, 1e-12);
-    EXPECT_NEAR(solution[1], 3.0, 1e-12);
-    EXPECT_NEAR(solution[2], -1.0, 1e-12);
-}
-
-TEST(Small_DenseLu, DenseLuPivotsWhenTheLeadingEntryIsZero)
-{
-    // Without partial pivoting the first step divides by zero. See tests/foundation/math/dk/README.md.
-    std::array<std::array<double, 2>, 2> matrix{{{0.0, 1.0}, {1.0, 0.0}}};
-    SushiDSP::dk::DenseLu<2> lu;
-    ASSERT_TRUE(lu.factorise(matrix));
-    std::array<double, 2> solution{};
-    lu.solve({3.0, 5.0}, solution);
-    EXPECT_NEAR(solution[0], 5.0, 1e-12);
-    EXPECT_NEAR(solution[1], 3.0, 1e-12);
-}
-
-TEST(Small_DenseLu, DenseLuReportsASingularMatrix)
-{
-    std::array<std::array<double, 2>, 2> matrix{{{1.0, 2.0}, {2.0, 4.0}}};
-    SushiDSP::dk::DenseLu<2> lu;
-    EXPECT_FALSE(lu.factorise(matrix));
-}
-
-TEST(Small_DenseLu, DenseLuOneByOneSolvesByDivision)
-{
-    std::array<std::array<double, 1>, 1> matrix{{{4.0}}};
+    const std::array<std::array<double, 1>, 1> matrix{{{4.0}}};
     SushiDSP::dk::DenseLu<1> lu;
     ASSERT_TRUE(lu.factorise(matrix));
     std::array<double, 1> solution{};
-    lu.solve({6.0}, solution);
-    EXPECT_NEAR(solution[0], 1.5, 1e-12);
-    matrix[0][0] = 0.0;
+    lu.solve(std::array<double, 1>{{6.0}}, solution);
+    EXPECT_EQ(solution[0], 1.5);
+}
+
+TEST(Small_DenseLu, OneByOneRefusesAZeroEntry)
+{
+    const std::array<std::array<double, 1>, 1> matrix{{{0.0}}};
+    SushiDSP::dk::DenseLu<1> lu;
     EXPECT_FALSE(lu.factorise(matrix));
 }
 
-TEST(Small_DenseLu, DenseLuSolvesTheLeadingBlockOfAnOversizedArray)
+// Only the leading 3x3 block may be touched. See tests/foundation/math/dk/README.md.
+TEST(Small_DenseLu, SolvesTheLeadingBlockOfAnOversizedArray)
 {
-    // Only the leading 3x3 block may be touched. See tests/foundation/math/dk/README.md.
     std::array<std::array<double, 5>, 5> matrix{};
+    std::array<double, 5> right_hand_side{};
     for (std::size_t row = 0; row < 3; ++row)
     {
         for (std::size_t column = 0; column < 3; ++column)
         {
-            matrix[row][column] = K_MATRIX[row][column];
+            matrix[row][column] = kSystems[1].matrix[row][column];
         }
+        right_hand_side[row] = kSystems[1].right_hand_side[row];
     }
     SushiDSP::dk::DenseLu<5> lu;
     ASSERT_TRUE(lu.factorise(matrix, 3));
-    const std::array<double, 5> right_hand_side{8.0, -11.0, -3.0, 0.0, 0.0};
     std::array<double, 5> solution{};
     lu.solve(right_hand_side, solution, 3);
-    EXPECT_NEAR(solution[0], 2.0, 1e-12);
-    EXPECT_NEAR(solution[1], 3.0, 1e-12);
-    EXPECT_NEAR(solution[2], -1.0, 1e-12);
+    EXPECT_TRUE(reproduces(matrix, right_hand_side, solution, 3));
 }
 
-TEST(Small_DenseLu, DenseLuReportsASingularLeadingBlock)
+TEST(Small_DenseLu, LeavesTheEntriesBeyondTheLeadingBlockUntouched)
+{
+    std::array<std::array<double, 5>, 5> matrix{};
+    matrix[0][0] = 2.0;
+    matrix[1][1] = 4.0;
+    matrix[2][2] = 8.0;
+    SushiDSP::dk::DenseLu<5> lu;
+    ASSERT_TRUE(lu.factorise(matrix, 3));
+    std::array<double, 5> solution{0.0, 0.0, 0.0, 11.0, 13.0};
+    lu.solve(std::array<double, 5>{{2.0, 4.0, 8.0, 99.0, 99.0}}, solution, 3);
+    EXPECT_EQ(solution[3], 11.0);
+    EXPECT_EQ(solution[4], 13.0);
+}
+
+TEST(Small_DenseLu, RefusesASingularLeadingBlock)
 {
     std::array<std::array<double, 4>, 4> matrix{};
     matrix[0][0] = 1.0;
@@ -162,43 +187,50 @@ TEST(Small_DenseLu, DenseLuReportsASingularLeadingBlock)
     matrix[3][3] = 1.0;
     SushiDSP::dk::DenseLu<4> lu;
     EXPECT_FALSE(lu.factorise(matrix, 2));
+}
+
+TEST(Small_DenseLu, AcceptsTheNonSingularLeadingBlockOfASingularMatrix)
+{
+    std::array<std::array<double, 4>, 4> matrix{};
+    matrix[0][0] = 1.0;
+    matrix[0][1] = 2.0;
+    matrix[1][0] = 2.0;
+    matrix[1][1] = 4.0;
+    matrix[2][2] = 1.0;
+    matrix[3][3] = 1.0;
+    SushiDSP::dk::DenseLu<4> lu;
     EXPECT_TRUE(lu.factorise(matrix, 1));
 }
 
-TEST(Small_DenseLu, DenseLuTreatsAnEmptyLeadingBlockAsANoOperation)
+TEST(Small_DenseLu, TreatsAnEmptyLeadingBlockAsANoOperation)
 {
     const std::array<std::array<double, 2>, 2> matrix{{{1.0, 0.0}, {0.0, 1.0}}};
     SushiDSP::dk::DenseLu<2> lu;
     EXPECT_TRUE(lu.factorise(matrix, 0));
     std::array<double, 2> solution{7.0, 9.0};
-    lu.solve({1.0, 1.0}, solution, 0);
-    EXPECT_NEAR(solution[0], 7.0, 1e-12);
-    EXPECT_NEAR(solution[1], 9.0, 1e-12);
+    lu.solve(std::array<double, 2>{{1.0, 1.0}}, solution, 0);
+    EXPECT_EQ(solution[0], 7.0);
+    EXPECT_EQ(solution[1], 9.0);
 }
 
-TEST(Small_DenseLu, DenseLuTwoByTwoSolvesTheSameSystemsAsTheGeneralTemplate)
+// [[4, 3], [6, 3]] x = [10, 12] has the answer x = [1, 2]. See tests/foundation/math/dk/README.md.
+TEST(Small_DenseLu, SolvesATwoByTwoSystemThatNeedsARowSwap)
 {
-    // [[4, 3], [6, 3]] x = [10, 12] has the answer x = [1, 2]. See tests/foundation/math/dk/README.md.
-    std::array<std::array<double, 2>, 2> matrix{{{4.0, 3.0}, {6.0, 3.0}}};
+    const std::array<std::array<double, 2>, 2> matrix{{{4.0, 3.0}, {6.0, 3.0}}};
+    const std::array<double, 2> right_hand_side{{10.0, 12.0}};
     SushiDSP::dk::DenseLu<2> lu;
     ASSERT_TRUE(lu.factorise(matrix));
     std::array<double, 2> solution{};
-    lu.solve({10.0, 12.0}, solution);
-    EXPECT_NEAR(solution[0], 1.0, 1e-14);
-    EXPECT_NEAR(solution[1], 2.0, 1e-14);
+    lu.solve(right_hand_side, solution);
+    EXPECT_TRUE(reproduces(matrix, right_hand_side, solution, 2));
+}
 
-    // The pivoting case the general template is tested on: [[0, 1], [1, 0]] x = [3, 5] -> [5, 3].
-    std::array<std::array<double, 2>, 2> pivoting{{{0.0, 1.0}, {1.0, 0.0}}};
-    ASSERT_TRUE(lu.factorise(pivoting));
-    lu.solve({3.0, 5.0}, solution);
-    EXPECT_NEAR(solution[0], 5.0, 1e-14);
-    EXPECT_NEAR(solution[1], 3.0, 1e-14);
-
-    // Singular, and the order-aware overload restricted to the leading 1x1 block.
-    std::array<std::array<double, 2>, 2> singular{{{1.0, 2.0}, {2.0, 4.0}}};
-    EXPECT_FALSE(lu.factorise(singular));
-    std::array<std::array<double, 2>, 2> leading{{{5.0, 99.0}, {99.0, 99.0}}};
-    ASSERT_TRUE(lu.factorise(leading, 1));
-    lu.solve({10.0, 0.0}, solution, 1);
-    EXPECT_NEAR(solution[0], 2.0, 1e-14);
+TEST(Small_DenseLu, SolvesTheLeadingOneByOneBlockOfATwoByTwoArray)
+{
+    const std::array<std::array<double, 2>, 2> matrix{{{5.0, 99.0}, {99.0, 99.0}}};
+    SushiDSP::dk::DenseLu<2> lu;
+    ASSERT_TRUE(lu.factorise(matrix, 1));
+    std::array<double, 2> solution{};
+    lu.solve(std::array<double, 2>{{10.0, 0.0}}, solution, 1);
+    EXPECT_EQ(solution[0], 2.0);
 }

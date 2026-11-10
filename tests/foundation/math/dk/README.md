@@ -2,14 +2,14 @@
 
 ## `test_dense_lu.cpp`
 
-### `DenseLuPivotsWhenTheLeadingEntryIsZero`
+### `PivotsWhenTheLeadingEntryIsZero`
 
 `// Without partial pivoting the first step divides by zero.`
 
 [[0, 1], [1, 0]] x = [3, 5] has the exact answer x = [5, 3]; without partial pivoting the first
 elimination step divides by zero.
 
-### `DenseLuSolvesTheLeadingBlockOfAnOversizedArray`
+### `SolvesTheLeadingBlockOfAnOversizedArray`
 
 `// Only the leading 3x3 block may be touched.`
 
@@ -17,7 +17,7 @@ The same hand-checked 3x3 system, stored in the top-left corner of a 5x5 array w
 rows are the zeros a circuit leaves behind when it uses fewer ports than the compile-time
 maximum. Only the leading 3x3 block may be touched.
 
-### `DenseLuTwoByTwoSolvesTheSameSystemsAsTheGeneralTemplate`
+### `SolvesATwoByTwoSystemThatNeedsARowSwap`
 
 `// [[4, 3], [6, 3]] x = [10, 12] has the answer x = [1, 2].`
 
@@ -40,7 +40,7 @@ set_maximum_halvings() to observable behaviour, and it also pins the stall guard
 next to |v|, and a step-size-only convergence test would report that runaway point as a solution
 while the residual is still atan -> pi/2.
 
-### `DampedNewtonWarmStartConvergesInOneIterationOnASmoothTrack`
+### `ConvergesWithinThreeIterationsOnASmoothTrack`
 
 `// A warm start needs at most a couple of iterations.`
 
@@ -56,7 +56,7 @@ full Newton step, which lands at |atan| larger than where it started. The step i
 that is how the iteration escapes a flat region - but solve() returning false must hand back the
 lowest-residual iterate it saw, as its @param v contract says.
 
-### `DampedNewtonLeavesItsLastEvaluationAtTheIterateItReturns`
+### `IsAtTheIterateTheSolverReturns`
 
 `// The default budget of 8 iterations is too tight here.`
 

@@ -51,6 +51,60 @@ namespace
 
     using DkStageCircuit = SushiDSP::dk::DkCircuit<6, 2, 2, 1>;
     using DkStageNetlist = SushiDSP::dk::DkNetlist<6, 2, 2, 1>;
+
+    constexpr double K_SAMPLE_RATE = 48000.0;
+    constexpr int K_WARM_UP_SAMPLES = 4800;
+    constexpr int K_TRACED_SAMPLES = 256;
+    constexpr int K_POT_BLOCKS = 16;
+    constexpr int K_POT_BLOCK_SAMPLES = 64;
+
+    /// @brief Steps a prepared circuit with silence until its states have settled.
+    void settle(DkStageCircuit& circuit, TriodeStagePort& port)
+    {
+        const std::array<double, 2> silence{0.0, K_SUPPLY_VOLTS};
+        std::array<double, 1> outputs{};
+        for (int sample = 0; sample < K_WARM_UP_SAMPLES; ++sample)
+        {
+            circuit.process_sample(port, silence, outputs);
+        }
+    }
+
+    /// @brief Steps the circuit with a 220 Hz sine of 0.2 V, the traced span of the first test.
+    void step_with_sine(DkStageCircuit& circuit, TriodeStagePort& port)
+    {
+        std::array<double, 1> outputs{};
+        for (int sample = 0; sample < K_TRACED_SAMPLES; ++sample)
+        {
+            const double drive = 0.2 * std::sin(2.0 * M_PI * 220.0 * static_cast<double>(sample) / K_SAMPLE_RATE);
+            const std::array<double, 2> inputs{drive, K_SUPPLY_VOLTS};
+            circuit.process_sample(port, inputs, outputs);
+        }
+    }
+
+    /// @brief Moves the pot in blocks, arming the trap around each move and its samples; returns the matrix rebuilds.
+    int move_pot_in_blocks(DkStageCircuit& circuit, TriodeStagePort& port, std::size_t pot_index,
+                           SushiDSP::test::AllocationTrap& trap)
+    {
+        const std::array<double, 2> silence{0.0, K_SUPPLY_VOLTS};
+        std::array<double, 1> outputs{};
+        int rebuilt_blocks = 0;
+        for (int block = 0; block < K_POT_BLOCKS; ++block)
+        {
+            const double position = 0.1 + 0.05 * static_cast<double>(block);
+
+            trap.arm();
+
+            circuit.set_potentiometer(pot_index, position);
+            rebuilt_blocks += circuit.update_matrices_if_dirty() ? 1 : 0;
+            for (int sample = 0; sample < K_POT_BLOCK_SAMPLES; ++sample)
+            {
+                circuit.process_sample(port, silence, outputs);
+            }
+
+            trap.disarm();
+        }
+        return rebuilt_blocks;
+    }
 } // namespace
 
 TEST(Medium_DkCircuit, ProcessPerformsNoHeapAllocation)
@@ -60,29 +114,28 @@ TEST(Medium_DkCircuit, ProcessPerformsNoHeapAllocation)
 
     DkStageCircuit circuit;
     TriodeStagePort port;
-    ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
-
-    const std::array<double, 2> silence{0.0, K_SUPPLY_VOLTS};
-    std::array<double, 1> outputs{};
-    for (int sample = 0; sample < 4800; ++sample)
-    {
-        circuit.process_sample(port, silence, outputs);
-    }
+    ASSERT_TRUE(circuit.prepare(netlist, K_SAMPLE_RATE));
+    settle(circuit, port);
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-
-    for (int sample = 0; sample < 256; ++sample)
-    {
-        const double drive =
-            0.2 * std::sin(2.0 * M_PI * 220.0 * static_cast<double>(sample) / 48000.0);
-        const std::array<double, 2> inputs{drive, K_SUPPLY_VOLTS};
-        circuit.process_sample(port, inputs, outputs);
-    }
-
+    step_with_sine(circuit, port);
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
+}
+
+TEST(Small_DkCircuit, ProcessKeepsTheJcmStageOnItsConvergedPath)
+{
+    DkStageNetlist netlist;
+    build_jcm_v1a(netlist);
+
+    DkStageCircuit circuit;
+    TriodeStagePort port;
+    ASSERT_TRUE(circuit.prepare(netlist, K_SAMPLE_RATE));
+    settle(circuit, port);
+    step_with_sine(circuit, port);
+
     EXPECT_EQ(circuit.nan_fallback_samples(), 0u);
 }
 
@@ -94,30 +147,11 @@ TEST(Medium_DkCircuit, PotentiometerUpdatePerformsNoHeapAllocation)
 
     DkStageCircuit circuit;
     TriodeStagePort port;
-    ASSERT_TRUE(circuit.prepare(netlist, 48000.0));
-
-    const std::array<double, 2> silence{0.0, K_SUPPLY_VOLTS};
-    std::array<double, 1> outputs{};
+    ASSERT_TRUE(circuit.prepare(netlist, K_SAMPLE_RATE));
 
     SushiDSP::test::AllocationTrap trap;
+    const int rebuilt_blocks = move_pot_in_blocks(circuit, port, pot_index, trap);
 
-    int rebuilt_blocks = 0;
-    for (int block = 0; block < 16; ++block)
-    {
-        const double position = 0.1 + 0.05 * static_cast<double>(block);
-
-        trap.arm();
-
-        circuit.set_potentiometer(pot_index, position);
-        rebuilt_blocks += circuit.update_matrices_if_dirty() ? 1 : 0;
-        for (int sample = 0; sample < 64; ++sample)
-        {
-            circuit.process_sample(port, silence, outputs);
-        }
-
-        trap.disarm();
-    }
-
-    EXPECT_EQ(rebuilt_blocks, 16);
+    EXPECT_EQ(rebuilt_blocks, K_POT_BLOCKS);
     EXPECT_EQ(trap.count(), 0);
 }

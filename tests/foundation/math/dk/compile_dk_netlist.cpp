@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_linear_port.cpp                                                   */
+/* compile_dk_netlist.cpp                                               */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,24 +22,16 @@
 /**************************************************************************/
 
 /**
- * @file test_linear_port.cpp
- * @brief Tests that a linear port declares no nonlinear branch and needs no currents.
+ * @file compile_dk_netlist.cpp
+ * @brief Compiles dk_netlist.hpp and checks that a netlist is a plain value type.
  * @author Mustafa Garip
  */
 
-#include <gtest/gtest.h>
+#include <type_traits>
 
-#include <SushiDSP/foundation/math/dk/linear_port.hpp>
+#include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
-#include <array>
+using Netlist = SushiDSP::dk::DkNetlist<1, 0, 1, 1>;
 
-TEST(Small_LinearPort, CurrentsAndJacobianAcceptNoBranches)
-{
-    const SushiDSP::dk::LinearPort port;
-    const std::array<double, 0> voltages{};
-    std::array<double, 0> currents{};
-    std::array<std::array<double, 0>, 0> jacobian{};
-    port.currents_and_jacobian(voltages, currents, jacobian);
-    EXPECT_EQ(currents.size(), 0u);
-    EXPECT_EQ(jacobian.size(), 0u);
-}
+static_assert(std::is_default_constructible_v<Netlist>, "a netlist is built empty and filled by its builder calls");
+static_assert(std::is_trivially_copyable_v<Netlist>, "a netlist is a value that is copied into a circuit");

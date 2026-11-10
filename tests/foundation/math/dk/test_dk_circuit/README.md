@@ -12,7 +12,7 @@ Magnitude of the DTFT of a real impulse response at one frequency.
 test needs magnitudes on an arbitrarily fine frequency grid, at full double precision, and the
 impulse response is short.
 
-### `DkCircuitInstantiatesEveryShapeD6cAndD6dNeed`
+### `WidestShapeStepsToAFiniteOutputWithoutFallbacks`
 
 `/// @brief Tests that every DkCircuit shape D6c and D6d need compiles, prepares and steps.`
 
@@ -25,7 +25,7 @@ every shape compiles, prepares and steps.
 The widest D6d-style shape: four states, a two-branch nonlinear port, two sources (signal plus
 supply rail), one probe, and a potentiometer to drive re-derivation.
 
-### `DkCircuitRcLowpassMatchesTheBilinearTransformExactly`
+### `MatchesItsDifferenceEquationSampleForSample`
 
 `// Trapezoidal DK reproduces the bilinear transform.`
 
@@ -48,7 +48,7 @@ Note the sign: a lowpass pole must approach +1 as fs -> infinity, so the pole is
 1)/(R\*Gc + 1) and NOT (1 - R\*Gc)/(1 + R\*Gc); the latter is a Nyquist pole. The -3 dB point of
 the analogue prototype is 1/(2\*pi\*R\*C) = 1591.549431 Hz.
 
-### `DkCircuitSeriesRlcResonatesWhereTheAnalogueCircuitDoes`
+### `SeriesRlcHasUnityGainAtDc`
 
 `// The magnitude peak sits at w0*sqrt(1 - 2*zeta^2).`
 
@@ -85,7 +85,7 @@ measuring the sweep rather than the circuit.
 The envelope decays as exp(-zeta\*w0\*t), one time constant every 76.8 samples at 384 kHz, so
 4096 samples is 53 time constants: the truncated tail is below 1e-23 of the peak.
 
-### `DkCircuitDiodeClipperReachesTheTrueRootOfTheDiodeEquation`
+### `DiodeClipperReachesTheTrueRootOfTheDiodeEquation`
 
 `// The oracle is the bisected root of the diode equation.`
 
@@ -111,7 +111,7 @@ a first-order bound on the distance from a candidate voltage to the equation's t
 is the oracle: it compares the DK solution against the equation itself rather than against
 another approximation of it.
 
-### `DkCircuitPotentiometerChangesTheResponseAndCostsNothingWhenUnchanged`
+### `SettlesToTheDividerRatioOfItsPosition`
 
 `// The DC gain from source to wiper is the position.`
 
@@ -132,7 +132,7 @@ section at 1 Ohm rather than 0, so the divider reads 1/10001 and 10000/10001 ins
 0 and 1; that 0.01 % is the floor, and it is what keeps the augmented nodal matrix non-singular
 at the stops.
 
-### `DkCircuitNeverEmitsANonFiniteSampleAndCountsItsFallbacks`
+### `ANonFiniteModelSampleNeverReachesTheOutput`
 
 `// One inf sample must not poison the capacitor's state.`
 
@@ -151,7 +151,7 @@ the circuit's own pole, 0.811 per sample here, so 190 samples later the deviatio
 6e-18 of that step, i.e. gone. A state that had actually been poisoned would have stayed
 non-finite, or diverged, instead.
 
-### `DkCircuitClampsItsStateUnderAnAbsurdInputAndStaysFinite`
+### `KeepsTheOutputFiniteUnderAnAbsurdInput`
 
 `// The output stays finite and the state stops at a limit.`
 
@@ -161,7 +161,7 @@ rather than running away.
 
 ## `test_op_amp.cpp`
 
-### `DkCircuitIdealOpAmpInvertingAmplifierHasGainMinusRfOverRin`
+### `HasGainMinusRfOverRin`
 
 `// V(3) = -(Rf/Rin) V(1) = -10 V(1) at every frequency.`
 
@@ -169,14 +169,14 @@ Node 1 = source, 2 = the summing junction, 3 = the output. The nullator senses g
 node 2, so V(2) = 0; the norator drives node 3. KCL at node 2 is then -V(1)/Rin - V(3)/Rf = 0,
 so V(3) = -(Rf/Rin) V(1) = -10 V(1) at every frequency.
 
-### `DkCircuitIdealOpAmpNonInvertingAmplifierHasGainOnePlusRfOverRg`
+### `IdealOpAmpNonInvertingAmplifierHasGainOnePlusRfOverRg`
 
 `// 1 + 51000/4700 = 11.851063829787234 exactly.`
 
 The Tube Screamer clip stage with its capacitors removed and the drive pot at zero: 1 +
 51000/4700 = 11.851063829787234 exactly.
 
-### `DkCircuitIdealOpAmpLowPassMatchesTheBilinearTransformExactly`
+### `kBilinearRows`
 
 `// The pole is 95/97 and the DC gain is -10 exactly.`
 
@@ -191,7 +191,7 @@ H(z) = -(Rf/Rin) (1 + z^-1) / ((1 + a) + (1 - a) z^-1)
 with pole (a - 1)/(a + 1) = 95/97 = 0.979381443298969 and DC gain -10 exactly. The analogue
 corner is 1/(2 pi Rf Cf) = 159.154943 Hz.
 
-### `DkCircuitRejectsAnOpAmpWithNoFeedbackPath`
+### `RejectsAnOpAmpWithNoFeedbackPath`
 
 `// Without a feedback path the system is rank deficient.`
 

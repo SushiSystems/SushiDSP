@@ -81,7 +81,7 @@ add_executable(sushidsp_tests
     nodes/room/test_cascade_filter.cpp
     nodes/room/test_receiver_output.cpp
     # --- Unit tests written for the units that had none ---
-    nodes/capture/test_capture_log_category.cpp
+    nodes/capture/compile_capture_log_category.cpp
     nodes/capture/test_recording_bus.cpp
     nodes/capture/test_take.cpp
     nodes/dd3/test_wet_fifo.cpp
@@ -105,13 +105,12 @@ add_executable(sushidsp_tests
     # --- Unit tests written for the units that had none ---
     foundation/circuits/models/test_soft_transition.cpp
     foundation/circuits/stages/test_plate_swing.cpp
-    foundation/circuits/stages/test_grid_conduction_law.cpp
     foundation/circuits/stages/test_antiderivative_antialiaser.cpp
     foundation/circuits/stages/test_power_tube_presets.cpp
     # --- Unit tests written for the units that had none ---
     foundation/math/dk/test_dense_lu.cpp
-    foundation/math/dk/test_dk_netlist.cpp
-    foundation/math/dk/test_linear_port.cpp
+    foundation/math/dk/compile_dk_netlist.cpp
+    foundation/math/dk/compile_linear_port.cpp
     foundation/math/dk/test_conductance_port.cpp
     foundation/math/dk/test_poisonable_port.cpp
     foundation/math/dk/test_in_memory_dk_counters.cpp
@@ -191,6 +190,7 @@ add_executable(sushidsp_tests
     foundation/circuits/stages/test_resonance_control.cpp
     foundation/circuits/test_graphic_equalizer.cpp
     foundation/circuits/test_fmv_tone_stack.cpp
+    foundation/circuits/stages/compile_grid_conduction_law.cpp
     foundation/circuits/stages/test_long_tailed_pair.cpp
     foundation/circuits/test_power_amp_feedback.cpp
     foundation/circuits/stages/test_miller_input_capacitance.cpp
