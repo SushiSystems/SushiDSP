@@ -18,11 +18,13 @@ listed in `cmake/SushiDSPLayers.cmake`.
 `split_csv_line` strips carriage returns so that `std::stod` never sees one. They appear when a
 file authored on Windows is read in text mode elsewhere.
 
-`load_ac_csv` and `load_transient_csv` skip the single header line, blank lines and any line
-with fewer than four fields. A missing or unreadable file is not an error. It yields an empty
-result, which lets a test that needs the corpus skip cleanly instead of aborting.
+`parse_ac_csv` and `parse_transient_csv` read any `std::istream`, so a test parses text held in
+memory. `load_ac_csv` and `load_transient_csv` open the file and hand the stream to them. All four
+skip the single header line, blank lines and any line with fewer than four fields. A missing or
+unreadable file is not an error. It yields an empty result, which lets a test that needs the
+corpus skip cleanly instead of aborting.
 
-`load_transient_csv` derives the sample rate as `1 / (t[1] - t[0])` and leaves it at 0 when
+`parse_transient_csv` derives the sample rate as `1 / (t[1] - t[0])` and leaves it at 0 when
 fewer than two rows are present or the first two time stamps coincide.
 
 ## spice_block_compare.hpp

@@ -23,20 +23,61 @@
 
 /**
  * @file test_spice_csv.cpp
- * @brief Tests the loading of LTspice CSV exports in SpiceCsv.
+ * @brief Tests the parsing and loading of LTspice CSV exports in SpiceCsv.
  * @author Mustafa Garip
  */
 
+#include <gtest/gtest.h>
+
+#include <sstream>
 #include <string>
 
-#include <gtest/gtest.h>
+#include "support/tolerance.hpp"
 
 #include <SushiDSP/foundation/spice_reference/spice_csv.hpp>
 
-TEST(Medium_SpiceCsv, SpiceCsvLoadsAcSweepColumns)
+namespace
 {
-    const auto sweep =
-        SushiDSP::measure::load_ac_csv(std::string(SUSHIDSP_FIXTURE_DIR) + "/example_ac.csv");
+    /// The rows of example_ac.csv, whose fifth row the assertions read.
+    const char* const kAcText =
+        "frequency_hz,setting,magnitude_db,phase_degrees\n"
+        "10,0,0.0,0.0\n"
+        "100,0,-0.1,-5.0\n"
+        "1000,0,-1.0,-20.0\n"
+        "10000,0,-2.5,-40.0\n"
+        "20000,0,-3.5,-45.0\n";
+
+    /// The rows of example_tran.csv: a 5.20833333333e-06 s grid, input rising 0.1 per row.
+    const char* const kTransientText =
+        "time_s,setting,input_v,output_v\n"
+        "0,0,0.000000,0.000000000\n"
+        "5.20833333333e-06,0,0.100000,0.017857143\n"
+        "1.04166666667e-05,0,0.200000,0.035714286\n"
+        "1.5625e-05,0,0.300000,0.053571429\n"
+        "2.08333333333e-05,0,0.400000,0.071428571\n"
+        "2.60416666667e-05,0,0.500000,0.089285714\n"
+        "3.125e-05,0,0.600000,0.107142857\n"
+        "3.64583333333e-05,0,0.700000,0.125000000\n";
+
+    /// @brief Parses the text as an AC sweep through an in-memory stream.
+    SushiDSP::measure::AcSweep parse_ac(const std::string& text)
+    {
+        std::istringstream source(text);
+        return SushiDSP::measure::parse_ac_csv(source);
+    }
+
+    /// @brief Parses the text as a transient through an in-memory stream.
+    SushiDSP::measure::Transient parse_transient(const std::string& text)
+    {
+        std::istringstream source(text);
+        return SushiDSP::measure::parse_transient_csv(source);
+    }
+} // namespace
+
+TEST(Small_SpiceCsv, SpiceCsvParsesAcSweepColumns)
+{
+    const auto sweep = parse_ac(kAcText);
+
     ASSERT_EQ(sweep.frequency_hz.size(), 5u);
     EXPECT_DOUBLE_EQ(sweep.frequency_hz[0], 10.0);
     EXPECT_EQ(sweep.setting[4], 0);
@@ -44,13 +85,23 @@ TEST(Medium_SpiceCsv, SpiceCsvLoadsAcSweepColumns)
     EXPECT_DOUBLE_EQ(sweep.phase_degrees[4], -45.0);
 }
 
-TEST(Medium_SpiceCsv, SpiceCsvLoadsTransientAtItsRate)
+// The grid step is printed with 12 significant digits, so the rate it gives is good to 5e-12 relative.
+TEST(Small_SpiceCsv, SpiceCsvParsesTransientAtItsRate)
 {
-    const auto transient = SushiDSP::measure::load_transient_csv(std::string(SUSHIDSP_FIXTURE_DIR) +
-                                                                 "/example_tran.csv");
+    const auto transient = parse_transient(kTransientText);
+
     ASSERT_EQ(transient.input.size(), 8u);
-    EXPECT_NEAR(transient.sample_rate, 192000.0, 1.0);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(transient.sample_rate, 192000.0, 192000.0 * 5e-12, 1.0)));
     EXPECT_FLOAT_EQ(transient.output[7], 0.125f);
+}
+
+TEST(Medium_SpiceCsv, SpiceCsvLoadsAnAcSweepFromAFile)
+{
+    const auto sweep =
+        SushiDSP::measure::load_ac_csv(std::string(SUSHIDSP_FIXTURE_DIR) + "/example_ac.csv");
+
+    ASSERT_EQ(sweep.frequency_hz.size(), 5u);
+    EXPECT_DOUBLE_EQ(sweep.frequency_hz[4], 20000.0);
 }
 
 TEST(Medium_SpiceCsv, SpiceCsvMissingFileYieldsEmptySweep)

@@ -33,5 +33,9 @@
 
 SUSHIDSP_REGRESSION_TEST(Small_RegressionTest, DeclaresAGoogleTestCase)
 {
-    EXPECT_TRUE(true);
+    const ::testing::TestInfo* const info = ::testing::UnitTest::GetInstance()->current_test_info();
+
+    ASSERT_NE(info, nullptr);
+    EXPECT_STREQ(info->test_suite_name(), "Small_RegressionTest");
+    EXPECT_STREQ(info->name(), "DeclaresAGoogleTestCase");
 }

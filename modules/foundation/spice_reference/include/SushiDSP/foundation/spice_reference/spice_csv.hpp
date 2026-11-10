@@ -31,6 +31,7 @@
 
 #include <cstddef>
 #include <fstream>
+#include <istream>
 #include <string>
 #include <vector>
 
@@ -102,24 +103,18 @@ namespace SushiDSP
         } // namespace detail
 
         /**
- * @brief Loads an AC sweep CSV produced by `tools/spice/export.py`.
- * @param path Path to a `<block>_ac.csv` file.
- * @return The parsed sweep, empty when the file is absent or contains no data rows.
- * @see modules/foundation/signal_measure/README.md, "spice_csv.hpp", for the rows the loader skips.
+ * @brief Parses an AC sweep CSV produced by `tools/spice/export.py` from any text stream.
+ * @param source The stream, header line first.
+ * @return The parsed sweep, empty when the stream holds no data rows.
+ * @see modules/foundation/signal_measure/README.md, "spice_csv.hpp", for the rows the parser skips.
  */
-        inline AcSweep load_ac_csv(const std::string& path)
+        inline AcSweep parse_ac_csv(std::istream& source)
         {
             AcSweep sweep;
 
-            std::ifstream file(path);
-            if (!file.is_open())
-            {
-                return sweep;
-            }
-
             std::string line;
             bool header_skipped = false;
-            while (std::getline(file, line))
+            while (std::getline(source, line))
             {
                 if (!header_skipped)
                 {
@@ -143,25 +138,31 @@ namespace SushiDSP
         }
 
         /**
- * @brief Loads a transient CSV produced by `tools/spice/export.py`.
- * @param path Path to a `<block>_tran.csv` file.
- * @return The parsed transient, empty with a 0 sample rate when the file is absent.
+ * @brief Loads an AC sweep CSV produced by `tools/spice/export.py`.
+ * @param path Path to a `<block>_ac.csv` file.
+ * @return The parsed sweep, empty when the file is absent or contains no data rows.
+ * @see modules/foundation/signal_measure/README.md, "spice_csv.hpp", for the rows the loader skips.
+ */
+        inline AcSweep load_ac_csv(const std::string& path)
+        {
+            std::ifstream file(path);
+            return file.is_open() ? parse_ac_csv(file) : AcSweep{};
+        }
+
+        /**
+ * @brief Parses a transient CSV produced by `tools/spice/export.py` from any text stream.
+ * @param source The stream, header line first.
+ * @return The parsed transient, empty with a 0 sample rate when the stream holds no data rows.
  * @see modules/foundation/signal_measure/README.md, "spice_csv.hpp", for how the sample rate is derived.
  */
-        inline Transient load_transient_csv(const std::string& path)
+        inline Transient parse_transient_csv(std::istream& source)
         {
             Transient transient;
-
-            std::ifstream file(path);
-            if (!file.is_open())
-            {
-                return transient;
-            }
 
             std::vector<double> time_s;
             std::string line;
             bool header_skipped = false;
-            while (std::getline(file, line))
+            while (std::getline(source, line))
             {
                 if (!header_skipped)
                 {
@@ -191,6 +192,18 @@ namespace SushiDSP
             }
 
             return transient;
+        }
+
+        /**
+ * @brief Loads a transient CSV produced by `tools/spice/export.py`.
+ * @param path Path to a `<block>_tran.csv` file.
+ * @return The parsed transient, empty with a 0 sample rate when the file is absent.
+ * @see modules/foundation/signal_measure/README.md, "spice_csv.hpp", for how the sample rate is derived.
+ */
+        inline Transient load_transient_csv(const std::string& path)
+        {
+            std::ifstream file(path);
+            return file.is_open() ? parse_transient_csv(file) : Transient{};
         }
 
     } // namespace measure
