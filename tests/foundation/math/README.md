@@ -166,22 +166,22 @@ each direction.
 Every polyphase branch has unity DC gain and the decimating scale factor restores it, so a
 constant comes back as the same constant whichever way the rate moves.
 
-### `ResamplerRoundTripNullsAtTheDd3SlowClock`
+### `ResamplerRoundTripNulls`
 
-`// The 7 kHz content sits inside the 8000 Hz passband.`
+`// The round trip is limited by the kernel's own error.`
 
-48 kHz -> 20 kHz -> 48 kHz. The content stops at 7 kHz, which is the pedal's own delay-path
-limit and is inside the prototype's passband (0.400 \* 20000 = 8000 Hz, N1), so the round trip
-is limited by the kernel's own error: -100 dB stopband, -108 dB interpolation floor. -80 dB is
-asserted with margin for the float buffers.
-
-### `ResamplerRoundTripNullsAtTheDd3FastClockAndTheSpx90Ratio`
+`// The 7 kHz content sits inside the 8000 Hz passband of the 20 kHz stage.`
 
 `// 12 kHz content survives at the SPX90 ratio.`
 
-48 kHz -> 82.5 kHz -> 48 kHz, and 48 kHz -> 31.25 kHz -> 48 kHz (the SPX90's 1.536). At the
-SPX90 ratio the passband reaches 0.400 \* 31250 = 12500 Hz, which is exactly the unit's
-published 20 Hz - 12 kHz band, so 12 kHz content must survive.
+One row per clock. Dd3SlowClock is 48 kHz -> 20 kHz -> 48 kHz. The content stops at 7 kHz, which
+is the pedal's own delay-path limit and is inside the prototype's passband (0.400 \* 20000 =
+8000 Hz, N1), so the round trip is limited by the kernel's own error: -100 dB stopband, -108 dB
+interpolation floor, about -97 dB for the two stages in power. -80 dB is asserted with 17 dB of
+margin for the float buffers. Dd3FastClock is 48 kHz -> 82.5 kHz -> 48 kHz. Spx90Ratio is
+48 kHz -> 31.25 kHz -> 48 kHz (the SPX90's 1.536); its passband reaches 0.400 \* 31250 =
+12500 Hz, which is exactly the unit's published 20 Hz - 12 kHz band, so 12 kHz content must
+survive.
 
 ### `ResamplerSizesTheHistoryForAnUpsampleOnlyInstance`
 
@@ -197,8 +197,9 @@ shows up as a round trip that does not null.
 `// 15 kHz into 20 kHz would fold to 5000 Hz.`
 
 15 kHz into a 20 kHz output rate would fold to |15000 - 20000| = 5000 Hz. Normalised to the
-lower rate, 15 kHz is 0.75 cycles/sample, deep in the prototype's stopband, so the image must
-land below -90 dB relative to the input tone.
+lower rate, 15 kHz is 0.75 cycles/sample, deep in the prototype's stopband (-100.477 dB), so the
+image must land below -90 dB relative to the input tone, 10 dB above the stopband. The input is
+one transform window plus the start-up long, since only the last window is analysed.
 
 `// The 0 dB reference is the input at its own rate.`
 
@@ -221,15 +222,17 @@ own rate. The frequency sits on a bin of both rates' transforms, so neither read
 Upsampling 48 kHz to 96 kHz leaves an image of every input tone mirrored about 24 kHz, which
 only the kernel's stopband removes. 14.4 kHz images to 33.6 kHz, 0.7 cycles per input sample,
 deep in the stopband. The kernel's stopband measures K_RESAMPLER_STOPBAND_DECIBELS = -100.5 dB
-and linear interpolation between its entries adds an error near -108 dB, so the image must sit
-95 dB under the tone.
+and linear interpolation between its entries adds an error near -108.4 dB (20 log10 of 3.8127e-6);
+the two add in power to -99.8 dB, so the image must sit 95 dB under the tone, 4.8 dB above that.
 
 ### `ResamplerOutputCountFollowsTheRatioWithoutDrift`
 
-`// The output count stays within two samples of the ratio.`
+`// The output count stays within the start-up deficit of the ratio.`
 
-Over a million frames the accumulated output count must stay within a sample or two of
-input_frames \* ratio; a phase accumulator that rebases badly drifts here and nowhere else.
+Over a million frames the accumulated output count must stay within 35 of input_frames \* ratio:
+the start-up deficit is at most the latency in output frames (34) and the floor of the phase
+adds one. A phase accumulator that rebases badly drifts here and nowhere else. The case is
+`Medium_`: a million frames at the widest kernel are 70 million multiply-adds.
 
 ### `ResamplerResumesAfterAnUnderSizedOutputBuffer`
 
@@ -238,6 +241,13 @@ input_frames \* ratio; a phase accumulator that rebases badly drifts here and no
 A short output buffer defers the outputs it had no room for. While the ring still holds their
 history the next call emits them, so the stream is the one an always-fed instance produces,
 sample for sample. Every position here is an integer, so equality is exact.
+
+### `ResamplerNeverProducesMoreThanTheCapacityItWasGiven`
+
+`// process() never writes more than it has room for.`
+
+A buffer of 100 for 256 frames due, block after block: no call may report more outputs than the
+capacity it was handed, and every call still produces some.
 
 ### `ResamplerBoundsThePhaseWhenTheOutputBufferStaysTooSmall`
 
@@ -257,14 +267,33 @@ then decimate 16:1. The half span grows from 34 to 544 input samples, which lift
 samples above where the phase sits, and only a clamp on entry keeps the outermost taps out of
 slots the ring has overwritten. The check is the identity every uniformly sampled sinusoid
 obeys, y[n-1] + y[n+1] = 2\*cos(w)\*y[n]: it needs neither the phase nor the amplitude of the
-output grid, and one overwritten tap breaks it.
+output grid, and one overwritten tap breaks it. At 16:1 every output reads the table at the same
+phase, so the output is a sinusoid up to float rounding and the bound is (2 + |2 cos w|) \* 3 u:
+three float terms, each off by u in its own rounding and by u more in the input sine that a
+kernel of absolute sum two passes through.
 
 ### `ResamplerLatencyIsThirtyFourSamplesOfTheLowerRate`
 
-`// The delay is 34 / min(source, target) seconds.`
+`// The delay is 34 samples of the lower rate, counted in source samples and rounded.`
 
 DR1+DR2 plan N1, as the Task 1.1 ruling widened it: the delay is
 K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS = 34 divided by min(source, target) seconds at every ratio.
+One row per pair of rates; the seconds are held to four rounded operations in double.
+
+### `ResamplerKeepsAToneAtItsFrequency`
+
+`// A bin-exact tone lands on its own bin.`
+
+A 1 kHz tone chosen to sit on a bin of the 20 kHz transform comes out of the 48 kHz to 20 kHz
+stage with its strongest bin on that bin exactly: the main lobe of a bin-exact tone peaks on its
+own bin, and the resampler is linear.
+
+### `ResamplerResetReturnsItToSilence`
+
+`// Reset leaves no tail of the loud signal.`
+
+The resampler is fed a loud constant, reset, then fed silence. Every output after the reset is
+exactly zero, which a retained tail would break.
 
 ### `ResamplerRateChangeMidStreamIsContinuous`
 
@@ -272,8 +301,10 @@ K_RESAMPLER_HALF_WIDTH_ZERO_CROSSINGS = 34 divided by min(source, target) second
 
 The DD-3 usage: set_rates() every 8 frames while the target sweeps 82.5 kHz -> 20 kHz. A phase
 reset or a bank rebuild shows up here as a step; a correct accumulator does not. Reference: a
-100 Hz unit sine sampled at 20 kHz moves at most 2\*pi\*100/20000 = 0.0314 per sample, so 0.05
-leaves room for the sweep's own rate change and none for a click.
+100 Hz unit sine sampled at 20 kHz moves at most 2\*pi\*100/20000 = 0.0314 per sample. The bound
+is that step grown by the 0.1 dB passband gain bound and two float roundings, 0.0318. The first
+64 outputs, the kernel half span in output frames at the 82.5 kHz start, are not counted: the
+zero history is not a sine's past.
 
 ### `ProcessPerformsNoHeapAllocation`
 
