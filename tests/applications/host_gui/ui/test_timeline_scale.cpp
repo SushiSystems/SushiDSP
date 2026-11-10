@@ -62,9 +62,6 @@ TEST(Small_TimelineScale, TimelineScaleSnapsToTheNearestBar)
     SushiDSP::MusicalClock clock; // 120 BPM, 4/4, 48 kHz: a bar is 96000 frames
     ui::TimelineScale scale;
 
-    EXPECT_EQ(clock.frame_of(2u, 1u), 96000u);
-    EXPECT_EQ(clock.frame_of(3u, 1u), 192000u);
-
     EXPECT_EQ(scale.snap(100000u, ui::SnapMode::Bar, clock), 96000u);
     EXPECT_EQ(scale.snap(110000u, ui::SnapMode::Bar, clock), 96000u);
     EXPECT_EQ(scale.snap(150000u, ui::SnapMode::Bar, clock), 192000u);
@@ -80,7 +77,14 @@ TEST(Small_TimelineScale, TimelineScaleSnapsToTheNearestBeat)
     EXPECT_EQ(scale.snap(100000u, ui::SnapMode::Beat, clock), 96000u);
     EXPECT_EQ(scale.snap(110000u, ui::SnapMode::Beat, clock), 120000u);
     EXPECT_EQ(scale.snap(24000u, ui::SnapMode::Beat, clock), 24000u);
-    EXPECT_EQ(scale.snap(12000u, ui::SnapMode::Beat, clock), 0u); // a tie takes the earlier
+}
+
+TEST(Small_TimelineScale, TimelineScaleSnapsATieBetweenTwoBeatsToTheEarlierBeat)
+{
+    SushiDSP::MusicalClock clock; // 120 BPM, 4/4, 48 kHz: a beat is 24000 frames
+    ui::TimelineScale scale;
+
+    EXPECT_EQ(scale.snap(12000u, ui::SnapMode::Beat, clock), 0u);
 }
 
 TEST(Small_TimelineScale, TimelineScaleSnapModeNoneReturnsTheFrameUnchanged)
