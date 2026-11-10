@@ -29,46 +29,36 @@
 
 #include <SushiDSP/nodes/room/spherical_head_cache.hpp>
 
-#include <map>
-#include <mutex>
+#include <utility>
 
 #include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
 namespace SushiDSP::room
 {
-    namespace
-    {
-        /// @brief Guards the table of built sets.
-        std::mutex& table_mutex()
-        {
-            static std::mutex instance;
-            return instance;
-        }
+    HrtfRateCache::HrtfRateCache(Builder builder) : builder_(std::move(builder)) {}
 
-        /// @brief Holds the built sets by sample rate.
-        std::map<double, std::shared_ptr<const HrtfSet>>& table()
-        {
-            static std::map<double, std::shared_ptr<const HrtfSet>> instance;
-            return instance;
-        }
-    } // namespace
-
-    std::shared_ptr<const HrtfSet> SphericalHeadCache::shared(double sample_rate)
+    std::shared_ptr<const HrtfSet> HrtfRateCache::shared(double sample_rate)
     {
-        const std::lock_guard<std::mutex> lock(table_mutex());
-        std::shared_ptr<const HrtfSet>& slot = table()[sample_rate];
+        const std::lock_guard<std::mutex> lock(mutex_);
+        std::shared_ptr<const HrtfSet>& slot = table_[sample_rate];
         if (!slot)
         {
             try
             {
-                slot = std::make_shared<const HrtfSet>(SphericalHeadHrtf::build(sample_rate));
+                slot = std::make_shared<const HrtfSet>(builder_(sample_rate));
             }
             catch (...)
             {
-                table().erase(sample_rate);
+                table_.erase(sample_rate);
                 throw;
             }
         }
         return slot;
+    }
+
+    std::shared_ptr<const HrtfSet> SphericalHeadCache::shared(double sample_rate)
+    {
+        static HrtfRateCache cache(&SphericalHeadHrtf::build);
+        return cache.shared(sample_rate);
     }
 } // namespace SushiDSP::room

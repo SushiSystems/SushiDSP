@@ -39,7 +39,7 @@
 
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 
-namespace SushiDSP::test::room_node_rig
+namespace SushiDSP::test
 {
     /// @brief Returns a set of the six axis directions, +x, +y, +z, -x, -y, -z, each with a unit
     /// impulse at tap 0 in both ears and no interaural delay. It stands in for the spherical head,
@@ -62,4 +62,4 @@ namespace SushiDSP::test::room_node_rig
         std::vector<float> right = left;
         return room::HrtfSet(sample_rate, std::move(directions), std::move(left), std::move(right));
     }
-} // namespace SushiDSP::test::room_node_rig
+} // namespace SushiDSP::test

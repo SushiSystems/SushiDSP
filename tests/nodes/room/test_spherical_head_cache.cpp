@@ -36,6 +36,8 @@
 #include <SushiDSP/nodes/room/spherical_head_cache.hpp>
 #include <SushiDSP/nodes/room/spherical_head_hrtf.hpp>
 
+#include "support/axis_hrtf.hpp"
+
 namespace
 {
     /// @brief Holds the rate the sets are requested at.
@@ -51,15 +53,25 @@ namespace
     }
 } // namespace
 
-TEST(Small_SphericalHeadCache, TwoRequestsAtOneRateReturnTheSameSetAndAnotherRateAnotherSet)
+TEST(Small_HrtfRateCache, TwoRequestsAtOneRateReturnTheSameSetAndAnotherRateAnotherSet)
 {
-    const auto first = SushiDSP::room::SphericalHeadCache::shared(K_RATE);
-    const auto second = SushiDSP::room::SphericalHeadCache::shared(K_RATE);
-    const auto other = SushiDSP::room::SphericalHeadCache::shared(K_OTHER_RATE);
+    // The six-axis set stands in for the 2.1 s spherical head: the promise is the identity by rate.
+    std::size_t builds = 0;
+    SushiDSP::room::HrtfRateCache cache(
+        [&builds](double sample_rate)
+        {
+            ++builds;
+            return SushiDSP::test::axis_hrtf(sample_rate);
+        });
+
+    const auto first = cache.shared(K_RATE);
+    const auto second = cache.shared(K_RATE);
+    const auto other = cache.shared(K_OTHER_RATE);
 
     EXPECT_EQ(first.get(), second.get());
     EXPECT_NE(first.get(), other.get());
     EXPECT_DOUBLE_EQ(other->sample_rate(), K_OTHER_RATE);
+    EXPECT_EQ(builds, 2u);
 }
 
 TEST(Medium_SphericalHeadCache, TheCachedSetEqualsAFreshBuildBitForBit)

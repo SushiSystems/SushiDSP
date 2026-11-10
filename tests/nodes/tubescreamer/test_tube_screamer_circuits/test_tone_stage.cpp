@@ -36,6 +36,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -46,6 +47,8 @@
 #include <SushiDSP/foundation/spice_reference/spice_block_compare.hpp>
 #include <SushiDSP/foundation/signal_measure/frequency_response.hpp>
 #include <SushiDSP/foundation/signal_measure/null_test.hpp>
+#include <SushiDSP/foundation/signal_measure/render.hpp>
+#include <SushiDSP/foundation/signal_measure/spectrum.hpp>
 #include <SushiDSP/foundation/spice_reference/spice_csv.hpp>
 
 namespace
@@ -137,6 +140,57 @@ namespace
         return frequencies;
     }
 
+    /// @brief Builds the tone block's netlist into a node and sets the tone pot and the level pot.
+    /// @param node The node to fill.
+    /// @param tone The tone pot's position.
+    void place_pots(ToneNode& node, double tone)
+    {
+        const TonePotentiometers pots = build_tone_block(node.netlist);
+        node.pot_positions[pots.tone] = tone;
+        node.pot_positions[pots.level] = K_LEVEL_POT_POSITION;
+    }
+
+    /// @brief Counts the frames a tone is rendered before the analysis frame opens, at one rate:
+    /// ten time constants of the slowest section the frame can see, the wiper leg through the
+    /// whole 20 kOhm pot, 220 nF x (220 Ohm + 20 kOhm) = 4.45 ms, which leaves e^-10 = 4.5e-5 of
+    /// a start-up transient, -87 dB. The output coupling's 0.1 s is left out: its start-up is a
+    /// decaying offset that the Blackman-Harris frame, 92 dB down away from its own bin, does not
+    /// read at 3.2 kHz.
+    /// @param run_rate The rate the block runs at.
+    std::size_t settle_frames(double run_rate)
+    {
+        constexpr double K_SETTLE_TIME_CONSTANTS = 10.0;
+        return static_cast<std::size_t>(K_SETTLE_TIME_CONSTANTS * K_TONE_LEG_FARADS *
+                                        (K_TONE_LEG_OHMS + K_TONE_POT_OHMS) * run_rate) +
+               1;
+    }
+
+    /// @brief Measures the level in dB the block gives one bin-exact tone at a tone position. The
+    /// stimulus is the sweep's -40 dBFS, so two positions read through one call compare by their
+    /// difference.
+    /// @param tone The tone pot's position.
+    /// @param run_rate The rate the block runs at.
+    /// @param tone_hz The tone to render; it is moved to the nearest bin-exact frequency.
+    /// @return The level of the fundamental in the analysis frame, or nothing when the block did not prepare.
+    std::optional<double> tone_level_db(double tone, double run_rate, double tone_hz)
+    {
+        constexpr float K_AMPLITUDE = 0.01f;
+        ToneNode node;
+        place_pots(node, tone);
+
+        const std::size_t settle = settle_frames(run_rate);
+        const double f0 = SushiDSP::measure::bin_exact_frequency(tone_hz, run_rate, SushiDSP::measure::K_FFT_SIZE);
+        const auto output = SushiDSP::measure::render(
+            node, SushiDSP::measure::sine_stimulus(f0, run_rate, settle + SushiDSP::measure::K_FFT_SIZE, K_AMPLITUDE),
+            run_rate, 256);
+        if (!node.prepared())
+        {
+            return std::nullopt;
+        }
+        const auto spectrum = SushiDSP::measure::magnitude_spectrum_db(output, settle);
+        return SushiDSP::measure::peak_near(spectrum, SushiDSP::measure::bin_of(f0, run_rate));
+    }
+
     /// @brief Measures the block's magnitude response at a tone position and the level pot's reference position.
     /// @param tone The tone pot's position.
     /// @param run_rate The rate the block runs at.
@@ -146,9 +200,7 @@ namespace
                                                                         const std::vector<double>& frequencies)
     {
         ToneNode node;
-        const TonePotentiometers pots = build_tone_block(node.netlist);
-        node.pot_positions[pots.tone] = tone;
-        node.pot_positions[pots.level] = K_LEVEL_POT_POSITION;
+        place_pots(node, tone);
 
         auto measured = SushiDSP::measure::frequency_response(node, run_rate, frequencies);
         if (!node.prepared())
@@ -330,12 +382,12 @@ TEST(Medium_TubeScreamerCircuitsTone, DkTsToneBlockBrightEndExceedsTheDarkEndAtT
 {
     // The wiper leg's turnover sits at about 3.2 kHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_RUN_RATE = 384000.0;
-    const auto dark = measure_tone_response(0.0, K_RUN_RATE, {K_TURNOVER_HZ});
-    const auto bright = measure_tone_response(1.0, K_RUN_RATE, {K_TURNOVER_HZ});
+    const auto dark = tone_level_db(0.0, K_RUN_RATE, K_TURNOVER_HZ);
+    const auto bright = tone_level_db(1.0, K_RUN_RATE, K_TURNOVER_HZ);
 
-    ASSERT_EQ(dark.size(), 1u);
-    ASSERT_EQ(bright.size(), 1u);
-    EXPECT_NEAR(bright[0].magnitude_db - dark[0].magnitude_db, K_TURNOVER_SPREAD_DB, K_SWEEP_ACCURACY_DB);
+    ASSERT_TRUE(dark.has_value());
+    ASSERT_TRUE(bright.has_value());
+    EXPECT_NEAR(*bright - *dark, K_TURNOVER_SPREAD_DB, K_SWEEP_ACCURACY_DB);
 }
 
 TEST(Medium_TubeScreamerCircuitsTone, DkTsToneBlockIsMonotonicBetweenThreeHundredHertzAndTwoKilohertzAtNoon)

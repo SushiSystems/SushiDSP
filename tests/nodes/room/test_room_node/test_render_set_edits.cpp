@@ -44,13 +44,14 @@
 #include <SushiDSP/nodes/room/room_node.hpp>
 #include <SushiDSP/nodes/room/room_render_set.hpp>
 
-#include "nodes/room/test_room_node/axis_hrtf.hpp"
 #include "nodes/room/test_room_node/room_node_rig.hpp"
+#include "support/axis_hrtf.hpp"
 #include "support/tolerance.hpp"
 
 namespace
 {
     using namespace SushiDSP::test::room_node_rig;
+    using SushiDSP::test::axis_hrtf;
     using SushiDSP::room::ListenerKind;
     using SushiDSP::room::RoomRenderSet;
     using SushiDSP::room::RoomScene;

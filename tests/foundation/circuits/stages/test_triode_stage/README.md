@@ -168,17 +168,21 @@ solver's four-iteration tolerance.
 
 ## `test_output.cpp`
 
-### `TriodeStageAliasFloorAtThreeTimesItsWindowIsUnderMinusSixtyDb` and `TriodeStageAliasFloorAtTwelveTimesItsWindowIsUnderMinusFortyDb`
+### `TriodeStageAliasFloorOfOneToneIsUnderTheBoundOfItsDrive`
 
-`// V5A alone folds under -60 dB at 6 V.` and `// V5A alone folds under -40 dB at 24 V.`
+`// V5A alone folds under -60 dB at 6 V and under -40 dB at 24 V.`
 
 DA5 spec section 11's first acceptance: the 5150's V5A stage alone in an 8x region, its 2.0 V
 window driven 3x and 12x past, folds under -60 dB and -40 dB. On the Norman grid law it measured
 -81.2 dB at 6 V and -53.7 dB at 24 V on 2026-09-07, and -102.4 and -79.8 dB once the stage's
 composite transfer was antialiased (DA5 part 4); the room-temperature Shockley knee read -37.3
 dB and -13.7 dB at the same drives.
-The sweep is 20 tones of one second and one analysis frame, rendered through the stage's 8x region,
-so no input of it is smaller without leaving the claim: the spec's acceptance is the worst of the
-1 to 20 kHz tones. The cases took 4.7 s (V5A) and 4.0 s (EL34) in the Debug run of 2026-11-10 against
-0.1 s for a `Small_` case, so they are `Medium_` (limit 5 s). They are two rows of one promise at two
-drives, kept as two cases because each has its own bound.
+
+The spec's acceptance is the worst of the 1 to 20 kHz tones, and the worst of a set is under a bound
+exactly when every member is, so the case is one row per tone and drive: 20 tones at 6 V under
+-60 dB and 20 at 24 V under -40 dB, 40 rows. A row is one tone of one second and one analysis frame
+rendered through the stage's 8x region, the render `measure::alias_floor` makes for that tone, so
+the rows keep what the sweeps read. The two sweeps took 5.4 s and 5.1 s as one case each in the Debug
+run of 2026-11-10, about 0.26 s a tone against 0.1 s for a `Small_` case, so a row is `Medium_`
+(limit 5 s). The 40 rows still add up to the 10.5 s the two sweeps took; only the time of one case
+is smaller.

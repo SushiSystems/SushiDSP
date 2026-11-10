@@ -29,12 +29,45 @@
 
 #pragma once
 
+#include <functional>
+#include <map>
 #include <memory>
+#include <mutex>
 
 #include <SushiDSP/nodes/room/hrtf_set.hpp>
 
 namespace SushiDSP::room
 {
+    /// @brief Builds an HrtfSet once per sample rate through the builder it is given and hands the
+    /// same immutable set to every caller. Thread-safe. It is the keyed table behind
+    /// SphericalHeadCache, kept apart so a test can hand it a cheap builder and read the identity
+    /// the cache promises without paying for the spherical head.
+    class HrtfRateCache
+    {
+        public:
+            /// @brief Names what builds the set for one rate.
+            using Builder = std::function<HrtfSet(double)>;
+
+            /// @brief Stores the builder.
+            /// @param builder Called once per rate, on the first request for it.
+            explicit HrtfRateCache(Builder builder);
+
+            /// @brief Returns the set the builder produced at the rate, built on the first request
+            /// and shared by every later one.
+            /// @throw whatever the builder throws; nothing is cached then.
+            std::shared_ptr<const HrtfSet> shared(double sample_rate);
+
+        private:
+            /// @brief Stores the builder.
+            Builder builder_;
+
+            /// @brief Guards the table.
+            std::mutex mutex_;
+
+            /// @brief Holds the built sets by sample rate.
+            std::map<double, std::shared_ptr<const HrtfSet>> table_;
+    };
+
     /// @brief Builds the rigid-sphere HrtfSet once per sample rate and hands the same immutable
     /// set to every caller, because the build costs seconds in a debug build. Thread-safe. Call it
     /// from a control thread only: it locks and may allocate, so never from process().

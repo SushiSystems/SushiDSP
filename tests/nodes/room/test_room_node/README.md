@@ -48,7 +48,7 @@ The six path lengths are the geometry of the example scene; the solver's arrival
 
 ## `test_render_set_edits.cpp`
 
-The edits RoomNode makes to a built render set. Each suite builds its sets once in `SetUpTestSuite`, over the six-axis head of `axis_hrtf.hpp` in place of the spherical head, whose build takes 2.1 s in a debug build: the cases read the geometry of the set, never the head's response. The tests copy what they change.
+The edits RoomNode makes to a built render set. Each suite builds its sets once in `SetUpTestSuite`, over the six-axis head of `tests/support/axis_hrtf.hpp` in place of the spherical head, whose build takes 2.1 s in a debug build: the cases read the geometry of the set, never the head's response. The tests copy what they change.
 
 ### `RoomNodeTakesTheFirstTapOfTheEarsBankAsTheDirectImage`
 

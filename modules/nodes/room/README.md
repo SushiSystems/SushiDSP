@@ -48,7 +48,7 @@ knowingly left open.
 | The room's eigenmodes below the Schroeder frequency, read at the listener's receiver | `ModalSolver` |
 | Minimum-phase HRIR pairs on a grid, ITDs, the diffuse-field average | `HrtfSet` |
 | The rigid-sphere HRTF for a machine with no measured set | `SphericalHeadHrtf` |
-| Building that set once per sample rate and sharing it across prepares | `SphericalHeadCache` |
+| Building that set once per sample rate and sharing it across prepares | `SphericalHeadCache`, over the keyed `HrtfRateCache` that takes the builder |
 | Reading a converted HRTF asset from disk | `HrtfSetLoader` |
 | Third-order Ambisonic encode gains for a direction | `AmbisonicEncoder` |
 | Sixteen Ambisonic channels to two ears | `BinauralDecoder` |

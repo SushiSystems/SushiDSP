@@ -276,11 +276,11 @@ The 0.25 dB tolerance is the sweep measurement's own accuracy - D6a puts its wor
 20 Hz at 0.17 dB - not the block's. The block is linear, so any drive level measures the same
 response; -40 dBFS is what measure::frequency_response uses.
 
-The closed-form rows, the bright-end case and the monotonic case sweep the block through
-`measure::frequency_response` at 384 kHz, the rate the sweep accuracy above is derived at: 3 s of
-sweep, 1.15 million samples of the solver per call. A call took 2.2 s in the Debug run of 2026-11-10
-(4.5 s for the two of the bright-end case) against 0.1 s for a `Small_` case, and the sweep length
-is fixed by `frequency_response`, so no input is smaller. They are `Medium_`.
+The closed-form rows and the monotonic case sweep the block through `measure::frequency_response`
+at 384 kHz, the rate the sweep accuracy above is derived at: 3 s of sweep, 1.15 million samples of
+the solver per call. A call took 2.2 s in the Debug run of 2026-11-10 against 0.1 s for a `Small_`
+case, and the sweep length is fixed by `frequency_response`, so no input is smaller. They are
+`Medium_`. The bright-end case reads one tone instead; its section says how.
 
 ### `DkTsToneBlockBrightEndExceedsTheDarkEndAtTheLegsTurnoverFrequency`
 
@@ -290,6 +290,18 @@ Keen puts the wiper leg's turnover where the 220 nF reaches 220 Ohm, "about 3.2K
 where the knob has to do its work: at the + end the leg hangs on the passive filter and cuts, at
 the - end it is the gain leg and boosts. The old netlist swung 19.08 dB of flat level here while
 its corner moved 807 Hz to 760 Hz, which is a volume control, not a tone control.
+
+The case compares one tone at the two end stops, not two sweeps: two sweeps took 4.5 s in the Debug
+run of 2026-11-10, 5.5 s with the analysis, over the 5 s of a `Medium_` case. A tone of 3199.2 Hz,
+the bin-exact frequency nearest 3.2 kHz at 384 kHz and a 65536-point frame, is rendered for the
+settle frames and one frame, 17 088 + 65 536 = 82 624 frames, 7.2 % of a sweep's 1.15 million, so
+a read is about 0.16 s and the two about 0.3 s. The settle is ten time constants of the wiper leg
+through the whole pot, 220 nF x (220 Ohm + 20 kOhm) = 4.45 ms, so 4.5e-5 of the start-up transient
+is left, -87 dB. The output coupling's 0.1 s start-up is a decaying offset that the
+Blackman-Harris frame does not read at 3.2 kHz. The tone is 0.025 % under the turnover, which moves
+the closed-form spread by under 0.005 dB (a slope under 15 dB per octave), and the bilinear warp at
+384 kHz is 2.3e-4 of the frequency, under 0.005 dB more, so the bound stays the 0.25 dB of the
+sibling cases, not widened, and the read's own error is under a tenth of it.
 
 `// At the bright end the stage passes +0.435 dB at 1 kHz.`
 
