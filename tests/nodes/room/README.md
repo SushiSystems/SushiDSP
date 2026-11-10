@@ -244,33 +244,53 @@ allows less the tail design and the modal solve.
 
 ## `test_late_reverb.cpp`
 
-### `LateReverbHadamardPreservesEnergy`
+### `HadamardPreservesEnergy`
 
-`// The normalised Hadamard matrix is orthogonal.`
+The transform alone: 1000 applications to a fixed vector keep its sum of squares within
+(8 \* 1000 + 32) u of the start, u the double roundoff. A pass has four butterfly stages; each
+stage's rounding error is at most u of its output norm, and the stages after it and the scale of
+1/4 carry that to u of the input norm, so a pass moves the norm by 4u and the energy by 8u. The two
+sums of sixteen squares add 16u each. The check accepts 16 times that bound.
 
-The transform alone: 1000 applications to a fixed vector keep its sum of squares within 1e-5 of
-the start, because the normalised Hadamard matrix is orthogonal.
+### `UnitLinesCarryAnImpulseToTheLeftEarEveryOtherFrameWithoutDecay`
 
 `// The left ear reads 0 and 4 in turn without decaying.`
 
 The network with 16 lines of length 1, unit filters and no absorption: an impulse puts 1 in
 every line; H maps the all-ones state to 4 e0 and back, so the left ear, whose vector A sums to
-zero and has A[0] = 1, reads 0 and 4 in turn without decaying over 1000 frames.
+zero and has A[0] = 1, reads 0 and 4 in turn without decaying over 1000 frames. Every value is a
+small integer, so the comparison is exact.
 
-### `LateReverbRunsBothSectionsOfEveryOutputFilter`
+### `ToneCorrectionRunsBothSectionsOnBothEars`
 
 `// Two sections of gain 0.5 scale the output by 0.25.`
 
-Two sections of gain 0.5 in the tone correction scale both ears by 0.25 against unity; the same
-pair in coherence_b scales the right ear alone, since the left ear is A alone.
+Two sections of gain 0.5 in the tone correction scale both ears by 0.25 against unity. The
+scale is exact in binary arithmetic, so the comparison is bitwise.
 
-### `LateReverbSurvivesALineLengthChangeWithoutAClick`
+### `CoherenceBRunsBothSectionsOnTheRightEar`
+
+The same pair in coherence_b scales the right ear by 0.25, since the right ear is the tone
+correction of the sum of the two coherence filters and coherence_a is silent.
+
+### `SurvivesALineLengthChangeWithoutAClick`
 
 `// A 50 Hz sine steps at most 0.0065 of peak per sample.`
 
 A 50 Hz sine at 48 kHz steps by at most 2 pi 50 / 48000 = 0.0065 of its peak per sample; a read
 head that jumped between lines hundreds of frames apart would step by up to twice the peak, and
-the 512-frame crossfade spreads that over 512 samples.
+the 512-frame crossfade spreads that over 512 samples. The test allows 0.05 of the peak, a
+characterised bound, since the output is a sum of filtered sines and not one sine.
+
+### `ProcessSumsReturnsTheRawSumsBeforeTheToneAndCoherenceFilters`
+
+`// Only line 1 passes its section, so the sums read A[1] and B[1].`
+
+Sixteen lines of length 1 and a first section that passes line 1 alone. The impulse puts 1 in
+every line; the next frame reads all ones, line 1 passes 1, and the sums are A[1] = 1 and
+B[1] = -1. The Hadamard step writes column 1 of H, scaled by 1/4, to the lines, which is -0.25
+on line 1, so the third frame reads -0.25 and 0.25. The design asks for tone and coherence
+filters of 0.25, an input gain of 0.5 and a delay of 100 frames; the sums take none of them.
 
 ### `ProcessPerformsNoHeapAllocation`
 
