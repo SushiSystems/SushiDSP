@@ -27,16 +27,22 @@
  * @author Mustafa Garip
  */
 
-#include <string_view>
-
 #include <gtest/gtest.h>
 
-#include <SushiLog/log/log_category.hpp>
+#include <SushiLog/log/log_level.hpp>
 
+#include <SushiDSP/foundation/log/in_memory_environment.hpp>
+#include <SushiDSP/foundation/log/log_level_setting_reader.hpp>
 #include <SushiDSP/foundation/log/sushidsp_log_project.hpp>
 
 TEST(Small_SushidspLogProject, IsSushidspSetBySdLogLevel)
 {
-    EXPECT_EQ(SushiDSP::K_SUSHIDSP_LOG_PROJECT.name(), std::string_view("sushidsp"));
-    EXPECT_EQ(SushiDSP::K_SUSHIDSP_LOG_PROJECT.level_variable(), std::string_view("SD_LOG_LEVEL"));
+    const SushiDSP::InMemoryEnvironment environment{{"SD_LOG_LEVEL", "info,room=debug"}};
+
+    const auto setting = SushiDSP::read_log_level_setting(SushiDSP::K_SUSHIDSP_LOG_PROJECT,
+                                                          environment);
+
+    ASSERT_TRUE(setting.has_value());
+    EXPECT_EQ(setting->level, SushiLog::LogLevel::Info);
+    EXPECT_EQ(setting->level_of("room"), SushiLog::LogLevel::Debug);
 }

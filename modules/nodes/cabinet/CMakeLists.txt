@@ -5,6 +5,7 @@
 
 add_library(cabinet STATIC
     source/cabinet_node.cpp
+    source/sushilog_cabinet_log.cpp
 )
 add_library(SushiDSP::cabinet ALIAS cabinet)
 target_link_libraries(cabinet PUBLIC SushiDSP::sushi_dsp_core SushiDSP::sushi_dsp_log SushiDSP::sushi_dsp_math)

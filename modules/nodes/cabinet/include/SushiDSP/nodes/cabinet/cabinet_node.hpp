@@ -37,6 +37,8 @@
 #include <SushiDSP/foundation/core/node_descriptor.hpp>
 #include <SushiDSP/foundation/core/rt_swap_slot.hpp>
 #include <SushiDSP/foundation/math/streaming_convolution.hpp>
+#include <SushiDSP/nodes/cabinet/cabinet_log.hpp>
+#include <SushiDSP/nodes/cabinet/sushilog_cabinet_log.hpp>
 
 namespace SushiDSP
 {
@@ -45,6 +47,12 @@ namespace SushiDSP
     class CabinetNode : public AudioNode, public CabinetHost
     {
         public:
+            /// @brief Makes a node that reports its refusals as SushiLog records.
+            CabinetNode();
+
+            /// @brief Makes a node that reports its refusals to @p log, which must outlive it.
+            explicit CabinetNode(CabinetLog& log);
+
             void prepare(const PrepareInfo& info) override;
             void process(ProcessContext& context) override;
             PortLayout ports() const override;
@@ -67,6 +75,10 @@ namespace SushiDSP
             std::uint32_t max_block_ = 0;
             std::vector<float> cabinet_impulse_response_;
             RtSwapSlot<StreamingConvolution> cabinet_slot_;
+            /// @brief The log a default-constructed node reports to.
+            SushiLogCabinetLog default_log_;
+            /// @brief Where refusals go: default_log_ or the log the caller gave.
+            CabinetLog* log_;
     };
 
     /// @brief The cabinet's product registration entry point.

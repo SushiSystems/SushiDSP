@@ -30,7 +30,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -38,7 +37,7 @@
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
 #include <SushiDSP/foundation/io/ir.hpp>
-#include <SushiDSP/foundation/log_capture/log_capture.hpp>
+#include <SushiDSP/nodes/cabinet/in_memory_cabinet_log.hpp>
 
 #include "support/tolerance.hpp"
 
@@ -292,19 +291,16 @@ TEST(Small_CabinetNodeStatus, AnEmptyImpulseResponseIsRefusedWithItsOwnStatus)
     EXPECT_EQ(node.set_cabinet(SushiDSP::Ir{}), SushiDSP::CabinetStatus::EmptyImpulseResponse);
 }
 
-TEST(Small_CabinetNodeStatus, AnEmptyImpulseResponseWritesOneWarnInTheCabinetCategory)
+TEST(Small_CabinetNodeStatus, AnEmptyImpulseResponseReportsOneRefusalForItsCause)
 {
-    SushiDSP::CabinetNode node;
+    SushiDSP::InMemoryCabinetLog log;
+    SushiDSP::CabinetNode node(log);
     node.prepare(prepare_info(256));
-    SushiDSP::LogCapture capture;
 
     node.set_cabinet(SushiDSP::Ir{});
 
-    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
-    ASSERT_EQ(lines.size(), 1u);
-    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
-    EXPECT_EQ(lines[0].category, "cabinet");
-    EXPECT_NE(lines[0].message.find("no samples"), std::string::npos) << lines[0].message;
+    ASSERT_EQ(log.refusals().size(), 1u);
+    EXPECT_EQ(log.refusals()[0].cause, SushiDSP::CabinetRefusalCause::EmptyImpulseResponse);
 }
 
 TEST(Small_CabinetNodeStatus, ARateMismatchIsRefusedWithItsOwnStatus)
@@ -315,18 +311,18 @@ TEST(Small_CabinetNodeStatus, ARateMismatchIsRefusedWithItsOwnStatus)
     EXPECT_EQ(node.set_cabinet(make_identity_ir(44100.0)), SushiDSP::CabinetStatus::SampleRateMismatch);
 }
 
-TEST(Small_CabinetNodeStatus, ARateMismatchWritesOneWarnNamingBothRates)
+TEST(Small_CabinetNodeStatus, ARateMismatchReportsOneRefusalNamingBothRates)
 {
-    SushiDSP::CabinetNode node;
+    SushiDSP::InMemoryCabinetLog log;
+    SushiDSP::CabinetNode node(log);
     node.prepare(prepare_info(256));
-    SushiDSP::LogCapture capture;
 
     node.set_cabinet(make_identity_ir(44100.0));
 
-    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
-    ASSERT_EQ(lines.size(), 1u);
-    EXPECT_NE(lines[0].message.find("44100"), std::string::npos) << lines[0].message;
-    EXPECT_NE(lines[0].message.find("48000"), std::string::npos) << lines[0].message;
+    ASSERT_EQ(log.refusals().size(), 1u);
+    EXPECT_EQ(log.refusals()[0].cause, SushiDSP::CabinetRefusalCause::SampleRateMismatch);
+    EXPECT_EQ(log.refusals()[0].impulse_response_rate, 44100.0);
+    EXPECT_EQ(log.refusals()[0].node_rate, K_SAMPLE_RATE);
 }
 
 TEST(Small_CabinetNodeStatus, AnUnpreparedNodeIsRefusedWithItsOwnStatus)
@@ -336,25 +332,24 @@ TEST(Small_CabinetNodeStatus, AnUnpreparedNodeIsRefusedWithItsOwnStatus)
     EXPECT_EQ(node.set_cabinet(make_identity_ir(K_SAMPLE_RATE)), SushiDSP::CabinetStatus::NotPrepared);
 }
 
-TEST(Small_CabinetNodeStatus, AnUnpreparedNodeWritesOneWarnNamingTheCause)
+TEST(Small_CabinetNodeStatus, AnUnpreparedNodeReportsOneRefusalForItsCause)
 {
-    SushiDSP::CabinetNode node;
-    SushiDSP::LogCapture capture;
+    SushiDSP::InMemoryCabinetLog log;
+    SushiDSP::CabinetNode node(log);
 
     node.set_cabinet(make_identity_ir(K_SAMPLE_RATE));
 
-    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
-    ASSERT_EQ(lines.size(), 1u);
-    EXPECT_NE(lines[0].message.find("not prepared"), std::string::npos) << lines[0].message;
+    ASSERT_EQ(log.refusals().size(), 1u);
+    EXPECT_EQ(log.refusals()[0].cause, SushiDSP::CabinetRefusalCause::NotPrepared);
 }
 
-TEST(Small_CabinetNodeStatus, AnInstalledCabinetWritesNothing)
+TEST(Small_CabinetNodeStatus, AnInstalledCabinetReportsNoRefusal)
 {
-    SushiDSP::CabinetNode node;
+    SushiDSP::InMemoryCabinetLog log;
+    SushiDSP::CabinetNode node(log);
     node.prepare(prepare_info(256));
-    SushiDSP::LogCapture capture;
 
     node.set_cabinet(make_identity_ir(K_SAMPLE_RATE));
 
-    EXPECT_TRUE(capture.lines().empty());
+    EXPECT_TRUE(log.refusals().empty());
 }

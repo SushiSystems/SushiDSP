@@ -29,13 +29,20 @@
 
 #include <SushiDSP/nodes/cabinet/cabinet_node.hpp>
 
-#include <SushiDSP/foundation/log/log.hpp>
-#include <SushiDSP/nodes/cabinet/cabinet_log_category.hpp>
-
 #include <memory>
 
 namespace SushiDSP
 {
+    CabinetNode::CabinetNode() : log_(&default_log_)
+    {
+
+    }
+
+    CabinetNode::CabinetNode(CabinetLog& log) : log_(&log)
+    {
+
+    }
+
     void CabinetNode::prepare(const PrepareInfo& info)
     {
         sample_rate_ = info.sample_rate;
@@ -99,25 +106,22 @@ namespace SushiDSP
     {
         if (impulse_response.samples.empty())
         {
-            SD_LOG_WARN(K_CABINET_LOG_CATEGORY,
-                        "set_cabinet() refused an impulse response of no samples; the active "
-                        "cabinet stays");
+            log_->report_refusal(
+                {CabinetRefusalCause::EmptyImpulseResponse, 0, impulse_response.sample_rate,
+                 sample_rate_});
             return CabinetStatus::EmptyImpulseResponse;
         }
         if (cabinet_partition_ == 0)
         {
-            SD_LOG_WARN(K_CABINET_LOG_CATEGORY,
-                        "set_cabinet() refused an impulse response of {} samples because the node "
-                        "is not prepared; the active cabinet stays",
-                        impulse_response.samples.size());
+            log_->report_refusal({CabinetRefusalCause::NotPrepared, impulse_response.samples.size(),
+                                  impulse_response.sample_rate, sample_rate_});
             return CabinetStatus::NotPrepared;
         }
         if (impulse_response.sample_rate != sample_rate_)
         {
-            SD_LOG_WARN(K_CABINET_LOG_CATEGORY,
-                        "set_cabinet() refused an impulse response at {} Hz for a node at {} Hz; "
-                        "the active cabinet stays",
-                        impulse_response.sample_rate, sample_rate_);
+            log_->report_refusal({CabinetRefusalCause::SampleRateMismatch,
+                                  impulse_response.samples.size(), impulse_response.sample_rate,
+                                  sample_rate_});
             return CabinetStatus::SampleRateMismatch;
         }
         cabinet_impulse_response_ = std::move(impulse_response.samples);

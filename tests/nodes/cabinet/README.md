@@ -35,3 +35,11 @@ around the processing blocks and disarmed across each set_cabinet(). That way ev
 block is one that picks up a freshly published cabinet, which is the case the name promises - a
 version of this test that published everything up front would only be proving that convolving
 allocates nothing.
+
+## `test_sushilog_cabinet_log.cpp`
+
+Tests `SushiLogCabinetLog`, which writes each refusal of `CabinetNode` as a `WARN` under the
+`cabinet` category. `LogCapture` is the scoped in-memory sink the size table allows a `Small_` test.
+
+`test_in_memory_cabinet_log.cpp` tests `InMemoryCabinetLog`; `compile_cabinet_log.cpp` checks that `CabinetLog` is
+abstract.

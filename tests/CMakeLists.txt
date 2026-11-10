@@ -135,6 +135,10 @@ add_executable(sushidsp_tests
     foundation/log_capture/test_log_capture.cpp
     foundation/log_capture/test_log_level_scope.cpp
     foundation/log/test_sushidsp_log_project.cpp
+    foundation/log/test_log_level_setting_reader.cpp
+    foundation/log/compile_environment_reader.cpp
+    foundation/log/test_in_memory_environment.cpp
+    foundation/log/test_process_environment.cpp
 
     # --- Core ---
     foundation/core/test_audio_device.cpp
@@ -212,6 +216,9 @@ add_executable(sushidsp_tests
     nodes/jcm800/test_jcm_tone_stack.cpp
     nodes/jcm800/test_jcm800/test_behaviour.cpp
     nodes/cabinet/test_cabinet_node.cpp
+    nodes/cabinet/test_sushilog_cabinet_log.cpp
+    nodes/cabinet/compile_cabinet_log.cpp
+    nodes/cabinet/test_in_memory_cabinet_log.cpp
     nodes/cabinet/compile_cabinet_log_category.cpp
     nodes/peavey5150/test_peavey5150/test_behaviour.cpp
     nodes/diezel_vh4/test_diezel_vh4/test_behaviour.cpp
@@ -370,6 +377,7 @@ add_executable(sushidsp_tests
     nodes/room/test_late_reverb_design.cpp
     nodes/room/test_modal_solver.cpp
     nodes/room/test_room_render_set.cpp
+    nodes/room/test_room_profile_sink.cpp
     nodes/room/test_room_node/test_publication.cpp
     nodes/room/test_room_node/test_first_order_taps.cpp
     nodes/room/test_room_node/test_render_set_edits.cpp
@@ -386,6 +394,8 @@ add_executable(sushidsp_tests
     applications/host_gui/test_channel_resampler.cpp
     applications/host_gui/test_audio_import_cache.cpp
     applications/host_gui/test_source_stat.cpp
+    applications/host_gui/test_audio_files.cpp
+    applications/host_gui/test_text_files.cpp
     applications/host_gui/test_audio_import_queue.cpp
     applications/host_gui/test_audio_importer.cpp
     applications/host_gui/ui/test_arrangement_layout.cpp

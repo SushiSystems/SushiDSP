@@ -8,6 +8,10 @@ guide says how to use them.
 
 - `modules/foundation/log/include/SushiDSP/foundation/log/log.hpp`
 - `modules/foundation/log/include/SushiDSP/foundation/log/sushidsp_log_project.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/environment_reader.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/process_environment.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/in_memory_environment.hpp`
+- `modules/foundation/log/include/SushiDSP/foundation/log/log_level_setting_reader.hpp`
 
 ## Depends on
 
@@ -31,6 +35,17 @@ A call reads `SD_LOG_WARN(K_ROOM_LOG_CATEGORY, "format {}", value)`. Each transl
 ceiling is `K_SUSHIDSP_LOG_CEILING`: `Error` when `SD_ENABLE_LOGGING` is 0, `Debug` under
 `NDEBUG`, `Trace` otherwise. `SD_LOG_LEVEL` sets the levels of the `sushidsp` project, such as
 `SD_LOG_LEVEL=warn,room=debug`.
+
+## Reading the level variable
+
+`EnvironmentReader` is the port through which SushiDSP reads an environment variable.
+`ProcessEnvironment` reads the process environment; `InMemoryEnvironment` holds a table, so a
+test reads a level variable without touching the process.
+`read_log_level_setting(project, environment)` reads the project's variable through a reader and
+parses it with SushiLog's `parse_level_setting`; `apply_log_level_setting(project, environment)`
+hands the result to SushiLog as the project's level and one level per named module. SushiLog
+still reads the variable itself at the first log call, so a product that never calls
+`apply_log_level_setting` behaves as before.
 
 ## Plug-ins
 
