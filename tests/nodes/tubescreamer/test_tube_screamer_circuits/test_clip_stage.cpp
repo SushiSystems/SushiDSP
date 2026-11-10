@@ -51,6 +51,8 @@
 #include <SushiDSP/foundation/signal_measure/null_test.hpp>
 #include <SushiDSP/foundation/spice_reference/spice_csv.hpp>
 
+#include "support/clip_stage_reference.hpp"
+
 namespace
 {
     using namespace SushiDSP::tube_screamer_circuits;
@@ -90,13 +92,29 @@ namespace
     /// the shipping run rate. Characterized: a regression floor (README).
     constexpr double K_RUN_RATE_NULL_BOUND_DB = -20.0;
 
-    /// @brief The null residual, in dB, the plain port must reach against the converged model.
-    /// Characterized: a regression floor (README).
-    constexpr double K_CONVERGED_PLAIN_NULL_BOUND_DB = -15.0;
+    /// @brief The null residual, in dB, the plain port reached against the block's own model
+    /// stepped at 1.92 MHz. Characterized: a regression floor, measured before the reference
+    /// became the independent solve (README); it is the base of the bound the test derives.
+    constexpr double K_CONVERGED_PLAIN_NULL_FLOOR_DB = -15.0;
 
-    /// @brief The null residual, in dB, the antialiased port must reach against the converged model.
-    /// Characterized: a regression floor (README).
-    constexpr double K_CONVERGED_ADAA_NULL_BOUND_DB = -4.0;
+    /// @brief The same floor for the antialiased port. Characterized (README).
+    constexpr double K_CONVERGED_ADAA_NULL_FLOOR_DB = -4.0;
+
+    /// @brief Solver steps per frame of the 1.92 MHz grid in the independent solve.
+    constexpr std::size_t K_REFERENCE_SUBSTEPS = 8;
+
+    /// @brief How far, relative to the signal, the converged-model floors may move when the
+    /// reference is the independent solve. Derived, not measured: the block's trapezoidal rule at
+    /// 1.92 MHz stands (w*h)^2 / 12 = 0.0329 from the true solution at the 192 kHz band edge, the
+    /// BDF2 solve at eight substeps (w*h)^2 / 3 = 0.0021, and the triangle inequality adds them to
+    /// the floor (README).
+    constexpr double K_INDEPENDENT_REFERENCE_MISS_RELATIVE = 0.035;
+
+    /// @brief The deviation, in dB, the independent solve may show against the closed form.
+    /// Derived: the diode pair's cubic term leaves 3e-5 of the response at 1e-4 V and 10 kHz, BDF2
+    /// 6e-6, and the bin has no leakage over whole cycles; 3.6e-5 is 3.1e-4 dB, and the bound is
+    /// three times that (README).
+    constexpr double K_REFERENCE_CLOSED_FORM_TOLERANCE_DB = 0.001;
 
     /// @brief The relative bound on the second branch being the first reversed, in the diode pair
     /// port's voltage. Characterized: the last-bit difference the solver leaves.
@@ -677,12 +695,11 @@ namespace
         return clip_run_rate_residual<Port>(decimated_stimulus, trimmed, K_STEPPED_DRIVE[setting]);
     }
 
-    /// @brief Rate the converged reference run uses: ten times the shipping run rate.
+    /// @brief Rate the converged reference grid uses: five times the shipping run rate.
     ///
     /// At 1.92 MHz the 13th harmonic of a 15 kHz tone sits at 195 kHz against a Nyquist of
-    /// 960 kHz, so the fold that sets the shipping alias floor needs the 128th harmonic instead of
-    /// the 13th and has fallen far below the noise. The block's own equations at this rate are
-    /// therefore a converged solution of the model, which is what a reference has to be.
+    /// 960 kHz, so the folds that set the shipping alias floor have fallen far below the noise and
+    /// the solve on this grid is a converged one, which is what a reference has to be.
     constexpr double K_CONVERGED_RUN_RATE = 1920000.0;
 
     /// @brief Renders a bin-exact sine through the clip block at an arbitrary rate.
@@ -728,6 +745,34 @@ namespace
             window.push_back(static_cast<float>(outputs[0]));
         }
         return window;
+    }
+
+    /// @brief Widens a null floor by the distance the independent reference may stand from the
+    /// block's own converged model.
+    /// @param floor_db The floor against the converged model, in dB.
+    /// @return The bound against the independent solve, in dB.
+    double independent_reference_bound_db(double floor_db)
+    {
+        return 20.0 * std::log10(std::pow(10.0, floor_db / 20.0) + K_INDEPENDENT_REFERENCE_MISS_RELATIVE);
+    }
+
+    /// @brief Solves the clip stage at the converged grid rate, with the ramped sine the block
+    /// renders take, and converts the frames to the decimator's sample type.
+    /// @param tone_hz Stimulus frequency in hertz.
+    /// @param amplitude_volts Stimulus peak in volts.
+    /// @param frames Analysis frames to keep after settling.
+    /// @return The frames from the same instants render_clip_at_rate keeps.
+    std::vector<float> solve_clip_at_converged_rate(double tone_hz, double amplitude_volts, std::size_t frames)
+    {
+        const std::size_t settle = static_cast<std::size_t>(0.05 * K_CONVERGED_RUN_RATE);
+        auto stimulus = [&](double seconds)
+        {
+            const double ramp = std::min(1.0, seconds * K_CONVERGED_RUN_RATE / static_cast<double>(settle));
+            return amplitude_volts * ramp * std::sin(2.0 * K_PI * tone_hz * seconds);
+        };
+        const std::vector<double> solved = TestSupport::solve_clip_stage(
+            stimulus, {K_CONVERGED_RUN_RATE, K_REFERENCE_SUBSTEPS, settle, frames, drive_to_position(1.0)});
+        return std::vector<float>(solved.begin(), solved.end());
     }
 
     /// @brief Drops the decimation settle from the head of a signal.
@@ -989,15 +1034,34 @@ TEST(Small_TubeScreamerCircuits, AdaaDiodePairPortResetDropsItsSampleIntervalHis
     EXPECT_NEAR(currents[0] - currents[1], endpoint_at_five, K_ENDPOINT_RELATIVE_BOUND * std::fabs(endpoint_at_five));
 }
 
-TEST(Medium_TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases)
+TEST(Medium_TubeScreamerCircuits, DkTsClipBlockSmallSignalResponseOfTheIndependentSolveMatchesItsClosedForm)
 {
-    // The reference is the block's own model at 1.92 MHz. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    // The independent solve shares no code with the block. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    constexpr double K_TONE = 10000.0;
+    constexpr double K_AMPLITUDE_VOLTS = 1.0e-4;
+    constexpr std::size_t K_SETTLE_FRAMES = 28800; // 15 ms, 150 cycles
+    constexpr std::size_t K_FRAMES = 9600;         // 50 cycles, so the bin below holds no leakage
+    constexpr std::size_t K_TONE_BIN = 50;
+
+    auto stimulus = [&](double seconds) { return K_AMPLITUDE_VOLTS * std::sin(2.0 * K_PI * K_TONE * seconds); };
+    const std::vector<double> solved = TestSupport::solve_clip_stage(
+        stimulus, {K_CONVERGED_RUN_RATE, K_REFERENCE_SUBSTEPS, K_SETTLE_FRAMES, K_FRAMES, 1.0});
+    ASSERT_EQ(solved.size(), K_FRAMES);
+
+    const double gain_db = 20.0 * std::log10(magnitude_at_bin(solved, K_TONE_BIN) / K_AMPLITUDE_VOLTS);
+
+    EXPECT_NEAR(gain_db, clip_closed_form_db(K_TONE, 1.0), K_REFERENCE_CLOSED_FORM_TOLERANCE_DB);
+}
+
+TEST(Medium_TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstAnIndependentSolveOnTheToneThatAliases)
+{
+    // The reference is tests/support/clip_stage_reference.hpp, not the block. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
     constexpr double K_TONE = 15000.0;
     constexpr double K_AMPLITUDE_VOLTS = 0.5;
     constexpr std::size_t K_FRAMES = 16384;
 
-    const std::vector<float> converged = render_clip_at_rate<DiodePairPort>(
-        K_CONVERGED_RUN_RATE, K_TONE, K_AMPLITUDE_VOLTS,
+    const std::vector<float> converged = solve_clip_at_converged_rate(
+        K_TONE, K_AMPLITUDE_VOLTS,
         static_cast<std::size_t>(K_FRAMES * (K_CONVERGED_RUN_RATE / K_SHIPPING_RUN_RATE)));
     ASSERT_FALSE(converged.empty());
     const std::vector<float> reference = decimate_to_run_rate(converged, K_CONVERGED_RUN_RATE);
@@ -1017,7 +1081,9 @@ TEST(Medium_TubeScreamerCircuits, DkTsClipBlockBothPortsNullAgainstTheConvergedM
     plain_window.resize(length);
     antialiased_window.resize(length);
 
-    // These are regression floors, not acceptances. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
-    EXPECT_LE(SushiDSP::measure::null_test(reference_window, plain_window, 64), K_CONVERGED_PLAIN_NULL_BOUND_DB);
-    EXPECT_LE(SushiDSP::measure::null_test(reference_window, antialiased_window, 64), K_CONVERGED_ADAA_NULL_BOUND_DB);
+    // The floors are widened by the derived miss of the reference. See tests/nodes/tubescreamer/test_tube_screamer_circuits/README.md.
+    EXPECT_LE(SushiDSP::measure::null_test(reference_window, plain_window, 64),
+              independent_reference_bound_db(K_CONVERGED_PLAIN_NULL_FLOOR_DB));
+    EXPECT_LE(SushiDSP::measure::null_test(reference_window, antialiased_window, 64),
+              independent_reference_bound_db(K_CONVERGED_ADAA_NULL_FLOOR_DB));
 }

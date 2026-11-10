@@ -6,7 +6,13 @@ mirrors the unit's header; the notes of one owner sit in that owner's README.
 `tests/support/` holds the headers every test may include as `"support/<name>.hpp"`.
 `tolerance.hpp` is copied from SushiSkills and derives a floating-point tolerance from a rounding
 bound, so no comparison types one; `test_tolerance.cpp` beside it checks that the copy keeps its
-promises under this repository's compiler flags.
+promises under this repository's compiler flags. `clip_stage_reference.hpp` is a host solve of the
+Tube Screamer clip stage's equations, written without the DK solver, that the clip stage's
+converged-model null test compares against. With s the source, u the inverting node, h the
+voltage across the input capacitor, g the one across the ground leg capacitor and v the one
+across the feedback network, and the nullator giving u = s - h, the solve integrates
+`dh/dt = (s - h) / (Rin * Cin)`, `dg/dt = (u - g) / (Rg * Cg)` and
+`Cf * dv/dt = (u - g) / Rg - v / Rf - 2 * Is * sinh(v / (n * Vt))`, and returns u + v.
 
 # Shards
 

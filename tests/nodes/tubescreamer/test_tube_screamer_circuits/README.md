@@ -197,20 +197,35 @@ corrections (D6c C2).
 Both ports must stay recognisably the same circuit; which one wins is what the printout reports
 and the spec records, and it is not asserted here in either direction.
 
-### `DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases`
+### `DkTsClipBlockSmallSignalResponseOfTheIndependentSolveMatchesItsClosedForm`
 
-`// The reference is the block's own model at 1.92 MHz.`
+`// The independent solve shares no code with the block.`
+
+The reference of the next case is `tests/support/clip_stage_reference.hpp`, a host solve of the
+stage's three equations (input capacitor, ground leg capacitor, feedback network) with the ideal
+op-amp as the constraint `u = s - h`. It is typed again from the ts_clip component table and uses
+none of `DkCircuit`, its ports or `SiliconDiode`. This case checks it against the closed form
+of `clip_closed_form_db` at 10 kHz, 1e-4 V, drive 1.0, measured in the bin that holds the 50
+cycles of the window, so the solve is held to a result it does not compute. The 0.001 dB
+tolerance is derived in the comment of `K_REFERENCE_CLOSED_FORM_TOLERANCE_DB`: 3.6e-5 of the
+amplitude from the diode pair's cubic term and the solver's order, 3.1e-4 dB, times three.
+
+### `DkTsClipBlockBothPortsNullAgainstAnIndependentSolveOnTheToneThatAliases`
+
+`// The reference is tests/support/clip_stage_reference.hpp, not the block.`
 
 The companion to the decimated-LTspice case, and the reason that one cannot decide alone:
 ts_clip's stimulus is a 1 kHz sine, and 192000 / 1000 is an integer, so at the shipping rate
 every folded harmonic of that tone lands exactly on a harmonic of it. The stimulus is blind to
 the aliasing antialiasing exists to remove, and can only charge it for its cost.
 
-This case puts the question on the tone that does alias. The reference is the same block's own
-equations at 1.92 MHz, where the 13th harmonic of 15 kHz is nowhere near Nyquist, then decimated
-to 192 kHz by the same converter - a converged solution of the model rather than of the circuit,
-which is the right reference for asking which discretisation is closer to the answer it is
-trying to compute.
+This case puts the question on the tone that does alias. The reference is the independent host
+solve above, stepped at eight substeps per frame of a 1.92 MHz grid, where the 13th harmonic of
+15 kHz is nowhere near Nyquist, then decimated to the shipping run rate by the same converter.
+It converges to the stage's own equations, not to the circuit, which is the right reference for
+asking which discretisation is closer to the answer it is trying to compute. Until 2026-11-10 the
+reference was the block itself at 1.92 MHz, so a fault in `DkCircuit` would have been in the
+reference and the candidates alike.
 
 `// Both candidates are trimmed by the same amount.`
 
@@ -228,10 +243,16 @@ printed because it still loses under a handicap that helps it, which strengthens
 does not separate delay from attenuation, and nothing here should be read as doing so. That
 separation would want a Thiran allpass or a linear-phase term in the frequency domain.
 
-`// These are regression floors, not acceptances.`
+`// The floors are widened by the derived miss of the reference.`
 
-Regression floors on the measured numbers, not acceptances. Which port is closer is the decision
-this case exists to make, and it is recorded in the spec rather than asserted here.
+The bounds are the old regression floors (-15 dB plain, -4 dB antialiased, measured against the
+block at 1.92 MHz) widened by `K_INDEPENDENT_REFERENCE_MISS_RELATIVE`, 0.035 of the signal, by
+the triangle inequality: the block's trapezoidal rule at 1.92 MHz stands (w\*h)^2 / 12 = 0.033
+from the true solution at the 192 kHz band edge and the BDF2 solve (w\*h)^2 / 3 = 0.002, so the
+bounds come to about -13.5 dB and -3.5 dB. The widening is derived, not measured, and it
+over-states the miss because it puts all of the signal at the band edge. The bounds are still
+regression floors, not acceptances. Which port is closer is the decision this case exists to
+make, and it is recorded in the spec rather than asserted here.
 
 ## `test_tone_stage.cpp`
 
@@ -317,6 +338,7 @@ the -60 dB gate means a component value or a node index is wrong, not that a sol
 
 `DkTsClipBlockAdaaPortKeepsTheNewtonMissShareUnderTwiceThePlainBound` (0.96 s),
 `DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples` (0.92 s),
-`DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases` (0.29 s) and the two
+`DkTsClipBlockBothPortsNullAgainstAnIndependentSolveOnTheToneThatAliases` (0.29 s before the reference
+became the independent solve; not timed since) and the two
 `DkTsClipBlockSmallSignalResponseMatchesItsClosedForm` rows (0.12 s) are `Medium_TubeScreamerCircuits` and
 `Medium_TubeScreamerCircuitsClipSmallSignal`.
