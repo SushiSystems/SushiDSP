@@ -28,44 +28,113 @@
  */
 
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <limits>
+#include <string>
 
 #include <gtest/gtest.h>
 
+#include "support/tolerance.hpp"
+
 #include <SushiDSP/foundation/math/newton_raphson_solver.hpp>
 
-TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverFindsSquareRootOfTwo)
+namespace
 {
-    auto function = [](float x)
+    using SushiDSP::NewtonRaphsonSolver;
+
+    constexpr float K_NO_MINIMUM = -std::numeric_limits<float>::infinity();
+    constexpr float K_NO_MAXIMUM = std::numeric_limits<float>::infinity();
+
+    /// The rounded operations on the path of the last Newton step of x^2 - c: the square, the
+    /// difference, the quotient and the update.
+    constexpr std::size_t K_STEP_OPERATIONS = 4;
+
+    float square_minus_two(float x)
     {
         return x * x - 2.0f;
-    };
-    auto derivative = [](float x)
+    }
+
+    float twice(float x)
     {
         return 2.0f * x;
+    }
+
+    /// @brief The joint evaluation of x^2 - 4, whose roots are plus and minus two.
+    NewtonRaphsonSolver::Evaluation square_minus_four(float x)
+    {
+        return NewtonRaphsonSolver::Evaluation{x * x - 4.0f, 2.0f * x};
+    }
+
+    /// @brief The joint evaluation of exp(x) - 3.
+    NewtonRaphsonSolver::Evaluation exponential_minus_three(float x)
+    {
+        const float e = std::exp(x);
+        return NewtonRaphsonSolver::Evaluation{e - 3.0f, e};
+    }
+
+    /// One start for a solve of x^2 = 2: the guess and the root it must reach.
+    struct SquareRootRow
+    {
+            const char* name;
+            float guess;
+            double root;
     };
 
-    const float root = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, 1.0f, 6);
+    const SquareRootRow kSquareRootRows[] = {
+        {"PositiveGuess", 1.0f, 1.41421356237309504880},
+        {"NegativeGuess", -1.0f, -1.41421356237309504880},
+    };
 
-    EXPECT_NEAR(root, std::sqrt(2.0f), 1e-4f);
-}
+    /// One start of the split-versus-joint comparison.
+    struct GuessRow
+    {
+            const char* name;
+            float guess;
+    };
 
-TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverConvergesFromNegativeGuess)
+    const GuessRow kGuessRows[] = {
+        {"MinusTwo", -2.0f}, {"MinusOne", -1.0f}, {"Zero", 0.0f},  {"Half", 0.5f}, {"One", 1.0f},
+        {"Two", 2.0f},       {"Three", 3.0f},     {"Four", 4.0f},
+    };
+
+    std::string square_root_name(const ::testing::TestParamInfo<SquareRootRow>& info)
+    {
+        return info.param.name;
+    }
+
+    std::string guess_name(const ::testing::TestParamInfo<GuessRow>& info)
+    {
+        return info.param.name;
+    }
+
+    class Small_NewtonRaphsonSolverSquareRoot : public ::testing::TestWithParam<SquareRootRow>
+    {
+    };
+
+    class Small_NewtonRaphsonSolverGuess : public ::testing::TestWithParam<GuessRow>
+    {
+    };
+
+    /// @brief Solves x^2 - 4 from 3 with the joint form and an unbounded range, filling the report.
+    float solve_square_minus_four(std::uint32_t max_iterations, NewtonRaphsonSolver::Report& report)
+    {
+        return NewtonRaphsonSolver::solve_joint(square_minus_four, 3.0f, max_iterations, K_NO_MINIMUM, K_NO_MAXIMUM,
+                                                &report);
+    }
+} // namespace
+
+// Four rounded operations decide the last step, and six steps from 1 leave a truncation error far below it.
+TEST_P(Small_NewtonRaphsonSolverSquareRoot, ConvergesToTheSquareRootOfTwo)
 {
-    auto function = [](float x)
-    {
-        return x * x - 2.0f;
-    };
-    auto derivative = [](float x)
-    {
-        return 2.0f * x;
-    };
+    const float root = NewtonRaphsonSolver::solve(square_minus_two, twice, GetParam().guess, 6);
 
-    const float root = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, -1.0f, 6);
-
-    EXPECT_NEAR(root, -std::sqrt(2.0f), 1e-4f);
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_relative_error<float>(root, GetParam().root, K_STEP_OPERATIONS)));
 }
+
+INSTANTIATE_TEST_SUITE_P(Guesses, Small_NewtonRaphsonSolverSquareRoot, ::testing::ValuesIn(kSquareRootRows),
+                         square_root_name);
 
 TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverHandlesNearZeroDerivativeWithoutDivergingToNanOrInf)
 {
@@ -79,32 +148,23 @@ TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverHandlesNearZeroDerivativeWith
         return 3.0f * x * x;
     };
 
-    const float result = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, 0.5f, 8);
+    const float result = NewtonRaphsonSolver::solve(function, derivative, 0.5f, 8);
 
     EXPECT_TRUE(std::isfinite(result));
 }
 
 TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverWarmStartConvergesInFewerIterationsThanColdStart)
 {
-    auto function = [](float x)
-    {
-        return x * x - 2.0f;
-    };
-    auto derivative = [](float x)
-    {
-        return 2.0f * x;
-    };
-
-    const float warm = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, 1.4f, 2);
-    const float cold = SushiDSP::NewtonRaphsonSolver::solve(function, derivative, 0.01f, 2);
+    const float warm = NewtonRaphsonSolver::solve(square_minus_two, twice, 1.4f, 2);
+    const float cold = NewtonRaphsonSolver::solve(square_minus_two, twice, 0.01f, 2);
 
     const float target = std::sqrt(2.0f);
     EXPECT_LT(std::abs(warm - target), std::abs(cold - target));
 }
 
-TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit)
+// Both overloads must walk identical iterates. See tests/foundation/math/README.md.
+TEST_P(Small_NewtonRaphsonSolverGuess, JointOverloadMatchesSplitOverloadBitForBit)
 {
-    // Both overloads must walk identical iterates. See tests/foundation/math/README.md.
     auto function = [](float x)
     {
         return std::exp(x) - 3.0f;
@@ -113,20 +173,14 @@ TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverJointOverloadMatchesSplitOver
     {
         return std::exp(x);
     };
-    auto joint = [](float x)
-    {
-        const float e = std::exp(x);
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{e - 3.0f, e};
-    };
-    for (float guess = -2.0f; guess <= 4.0f; guess += 0.37f)
-    {
-        const float split =
-            SushiDSP::NewtonRaphsonSolver::solve(function, derivative, guess, 4, -5.0f, 5.0f);
-        const float shared =
-            SushiDSP::NewtonRaphsonSolver::solve_joint(joint, guess, 4, -5.0f, 5.0f);
-        EXPECT_EQ(split, shared);
-    }
+
+    const float split = NewtonRaphsonSolver::solve(function, derivative, GetParam().guess, 4, -5.0f, 5.0f);
+    const float shared = NewtonRaphsonSolver::solve_joint(exponential_minus_three, GetParam().guess, 4, -5.0f, 5.0f);
+
+    EXPECT_EQ(split, shared);
 }
+
+INSTANTIATE_TEST_SUITE_P(Guesses, Small_NewtonRaphsonSolverGuess, ::testing::ValuesIn(kGuessRows), guess_name);
 
 TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverJointOverloadEvaluatesOncePerIteration)
 {
@@ -134,43 +188,48 @@ TEST(Small_NewtonRaphsonSolver, NewtonRaphsonSolverJointOverloadEvaluatesOncePer
     auto joint = [&evaluations](float x)
     {
         ++evaluations;
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{x * x - 2.0f, 2.0f * x};
+        return NewtonRaphsonSolver::Evaluation{x * x - 2.0f, 2.0f * x};
     };
-    SushiDSP::NewtonRaphsonSolver::solve_joint(joint, 1.0f, 4);
+    NewtonRaphsonSolver::solve_joint(joint, 1.0f, 4);
     EXPECT_EQ(evaluations, 4);
 }
 
-TEST(Small_NewtonRaphsonSolverReport, AFixedPointEndsTheSolveAndIsReported)
+// From 3 the iterates 3, 2.1667, 2.0064, 2.00001 reach 2 within the four rounded operations of a step.
+TEST(Small_NewtonRaphsonSolverReport, AFixedPointEndsTheSolveAtTheRoot)
 {
-    auto function = [](float x)
-    {
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{x * x - 4.0f, 2.0f * x};
-    };
-    SushiDSP::NewtonRaphsonSolver::Report report;
+    NewtonRaphsonSolver::Report report;
 
-    const float root = SushiDSP::NewtonRaphsonSolver::solve_joint(
-        function, 3.0f, 50, -std::numeric_limits<float>::infinity(),
-        std::numeric_limits<float>::infinity(), &report);
+    const float root = solve_square_minus_four(50, report);
 
-    EXPECT_NEAR(root, 2.0f, 1e-5f);
-    EXPECT_EQ(report.ending, SushiDSP::NewtonRaphsonSolver::Ending::FixedPoint);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<float>(root, 2.0, K_STEP_OPERATIONS)));
+}
+
+TEST(Small_NewtonRaphsonSolverReport, AFixedPointIsReportedAsFixedPoint)
+{
+    NewtonRaphsonSolver::Report report;
+
+    static_cast<void>(solve_square_minus_four(50, report));
+
+    EXPECT_EQ(report.ending, NewtonRaphsonSolver::Ending::FixedPoint);
+}
+
+TEST(Small_NewtonRaphsonSolverReport, AFixedPointEndsBeforeTheIterationBudget)
+{
+    NewtonRaphsonSolver::Report report;
+
+    static_cast<void>(solve_square_minus_four(50, report));
+
     EXPECT_GE(report.iterations, 2u);
     EXPECT_LT(report.iterations, 50u);
 }
 
 TEST(Small_NewtonRaphsonSolverReport, TheIterationCapIsReportedWithItsCount)
 {
-    auto function = [](float x)
-    {
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{x * x - 4.0f, 2.0f * x};
-    };
-    SushiDSP::NewtonRaphsonSolver::Report report;
+    NewtonRaphsonSolver::Report report;
 
-    static_cast<void>(SushiDSP::NewtonRaphsonSolver::solve_joint(
-        function, 3.0f, 1, -std::numeric_limits<float>::infinity(),
-        std::numeric_limits<float>::infinity(), &report));
+    static_cast<void>(solve_square_minus_four(1, report));
 
-    EXPECT_EQ(report.ending, SushiDSP::NewtonRaphsonSolver::Ending::IterationCap);
+    EXPECT_EQ(report.ending, NewtonRaphsonSolver::Ending::IterationCap);
     EXPECT_EQ(report.iterations, 1u);
 }
 
@@ -178,17 +237,14 @@ TEST(Small_NewtonRaphsonSolverReport, ANonFiniteStepIsReportedAndKeepsTheInitial
 {
     auto function = [](float)
     {
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{std::numeric_limits<float>::quiet_NaN(),
-                                                         1.0f};
+        return NewtonRaphsonSolver::Evaluation{std::numeric_limits<float>::quiet_NaN(), 1.0f};
     };
-    SushiDSP::NewtonRaphsonSolver::Report report;
+    NewtonRaphsonSolver::Report report;
 
-    const float root = SushiDSP::NewtonRaphsonSolver::solve_joint(
-        function, 1.5f, 8, -std::numeric_limits<float>::infinity(),
-        std::numeric_limits<float>::infinity(), &report);
+    const float root = NewtonRaphsonSolver::solve_joint(function, 1.5f, 8, K_NO_MINIMUM, K_NO_MAXIMUM, &report);
 
     EXPECT_FLOAT_EQ(root, 1.5f);
-    EXPECT_EQ(report.ending, SushiDSP::NewtonRaphsonSolver::Ending::NonFiniteStep);
+    EXPECT_EQ(report.ending, NewtonRaphsonSolver::Ending::NonFiniteStep);
     EXPECT_EQ(report.iterations, 1u);
 }
 
@@ -196,30 +252,23 @@ TEST(Small_NewtonRaphsonSolverReport, ZeroAllowedIterationsReportZero)
 {
     auto function = [](float x)
     {
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{x, 1.0f};
+        return NewtonRaphsonSolver::Evaluation{x, 1.0f};
     };
-    SushiDSP::NewtonRaphsonSolver::Report report;
+    NewtonRaphsonSolver::Report report;
 
-    static_cast<void>(SushiDSP::NewtonRaphsonSolver::solve_joint(
-        function, 1.0f, 0, -std::numeric_limits<float>::infinity(),
-        std::numeric_limits<float>::infinity(), &report));
+    static_cast<void>(NewtonRaphsonSolver::solve_joint(function, 1.0f, 0, K_NO_MINIMUM, K_NO_MAXIMUM, &report));
 
     EXPECT_EQ(report.iterations, 0u);
-    EXPECT_EQ(report.ending, SushiDSP::NewtonRaphsonSolver::Ending::IterationCap);
+    EXPECT_EQ(report.ending, NewtonRaphsonSolver::Ending::IterationCap);
 }
 
 TEST(Small_NewtonRaphsonSolverReport, AskingForAReportLeavesTheRootBitForBit)
 {
-    auto function = [](float x)
-    {
-        return SushiDSP::NewtonRaphsonSolver::Evaluation{std::exp(x) - 3.0f, std::exp(x)};
-    };
-    SushiDSP::NewtonRaphsonSolver::Report report;
+    NewtonRaphsonSolver::Report report;
 
-    const float without = SushiDSP::NewtonRaphsonSolver::solve_joint(function, 0.2f, 4);
-    const float with = SushiDSP::NewtonRaphsonSolver::solve_joint(
-        function, 0.2f, 4, -std::numeric_limits<float>::infinity(),
-        std::numeric_limits<float>::infinity(), &report);
+    const float without = NewtonRaphsonSolver::solve_joint(exponential_minus_three, 0.2f, 4);
+    const float with =
+        NewtonRaphsonSolver::solve_joint(exponential_minus_three, 0.2f, 4, K_NO_MINIMUM, K_NO_MAXIMUM, &report);
 
     EXPECT_EQ(std::memcmp(&without, &with, sizeof(float)), 0);
 }

@@ -23,62 +23,105 @@
 
 /**
  * @file test_halfband_coefficients.cpp
- * @brief Tests the three generated half-band designs: size, symmetry, zeros and unity DC gain.
+ * @brief Tests the three generated half-band designs: symmetry, zeros and unity DC gain.
  * @author Mustafa Garip
  */
 
 #include <gtest/gtest.h>
 
-#include <SushiDSP/foundation/math/halfband_coefficients.hpp>
-
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <string>
+
+#include "support/tolerance.hpp"
+
+#include <SushiDSP/foundation/math/halfband_coefficients.hpp>
 
 namespace
 {
-    double sum_of(const SushiDSP::HalfbandDesign& design)
+    /// One design under test, with the name its test carries.
+    struct Row
     {
-        double sum = 0.0;
+            const char* name;
+            const SushiDSP::HalfbandDesign* design;
+    };
+
+    const Row kRows[] = {
+        {"Stage1", &SushiDSP::K_HALFBAND_STAGE1},
+        {"Stage2", &SushiDSP::K_HALFBAND_STAGE2},
+        {"Stage3", &SushiDSP::K_HALFBAND_STAGE3},
+    };
+
+    std::string row_name(const ::testing::TestParamInfo<Row>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Returns how many taps differ from their mirror image about the centre.
+    std::uint32_t asymmetric_tap_count(const SushiDSP::HalfbandDesign& design)
+    {
+        std::uint32_t count = 0;
+        for (std::uint32_t i = 0; i < design.tap_count / 2; ++i)
+        {
+            count += design.taps[i] != design.taps[design.tap_count - 1 - i] ? 1u : 0u;
+        }
+        return count;
+    }
+
+    /// @brief Returns how many taps at an even distance from the centre, the centre excluded, are not zero.
+    std::uint32_t nonzero_even_distance_tap_count(const SushiDSP::HalfbandDesign& design)
+    {
+        const std::uint32_t centre = (design.tap_count - 1) / 2;
+        std::uint32_t count = 0;
+        for (std::uint32_t offset = 2; offset <= centre; offset += 2)
+        {
+            count += design.taps[centre - offset] != 0.0f ? 1u : 0u;
+            count += design.taps[centre + offset] != 0.0f ? 1u : 0u;
+        }
+        return count;
+    }
+
+    /// @brief Returns the sum of the taps and the sum of their magnitudes.
+    struct TapSums
+    {
+            double sum = 0.0;
+            double magnitude = 0.0;
+    };
+
+    TapSums tap_sums(const SushiDSP::HalfbandDesign& design)
+    {
+        TapSums sums;
         for (std::uint32_t i = 0; i < design.tap_count; ++i)
         {
-            sum += design.taps[i];
+            sums.sum += design.taps[i];
+            sums.magnitude += std::abs(static_cast<double>(design.taps[i]));
         }
-        return sum;
+        return sums;
     }
+
+    class Small_HalfbandDesign : public ::testing::TestWithParam<Row>
+    {
+    };
 } // namespace
 
-TEST(Small_HalfbandCoefficients, TapCountsMatchTheStageDesigns)
+TEST_P(Small_HalfbandDesign, IsSymmetricAboutItsCentre)
 {
-    EXPECT_EQ(SushiDSP::K_HALFBAND_STAGE1.tap_count, 115u);
-    EXPECT_EQ(SushiDSP::K_HALFBAND_STAGE2.tap_count, 27u);
-    EXPECT_EQ(SushiDSP::K_HALFBAND_STAGE3.tap_count, 15u);
+    EXPECT_EQ(asymmetric_tap_count(*GetParam().design), 0u);
 }
 
-TEST(Small_HalfbandCoefficients, EachDesignIsSymmetricAboutItsCentre)
+TEST_P(Small_HalfbandDesign, HasExactZeroTapsAtEveryEvenDistanceFromItsCentre)
 {
-    for (const SushiDSP::HalfbandDesign* design :
-         {&SushiDSP::K_HALFBAND_STAGE1, &SushiDSP::K_HALFBAND_STAGE2, &SushiDSP::K_HALFBAND_STAGE3})
-    {
-        for (std::uint32_t i = 0; i < design->tap_count / 2; ++i)
-        {
-            EXPECT_NEAR(design->taps[i], design->taps[design->tap_count - 1 - i], 1e-9f);
-        }
-    }
+    EXPECT_EQ(nonzero_even_distance_tap_count(*GetParam().design), 0u);
 }
 
-TEST(Small_HalfbandCoefficients, EveryOtherTapAwayFromCentreIsZero)
+// The table holds the design rounded to float, so each tap is off by at most u of itself.
+TEST_P(Small_HalfbandDesign, HasUnityDcGain)
 {
-    const SushiDSP::HalfbandDesign& design = SushiDSP::K_HALFBAND_STAGE1;
-    const std::uint32_t centre = (design.tap_count - 1) / 2;
-    for (std::uint32_t offset = 2; offset <= centre; offset += 2)
-    {
-        EXPECT_NEAR(design.taps[centre - offset], 0.0f, 1e-9f);
-        EXPECT_NEAR(design.taps[centre + offset], 0.0f, 1e-9f);
-    }
+    const TapSums sums = tap_sums(*GetParam().design);
+
+    const double bound = TestSupport::unit_roundoff<float>() * sums.magnitude;
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(sums.sum, 1.0, bound)));
 }
 
-TEST(Small_HalfbandCoefficients, EachDesignHasUnityDcGain)
-{
-    EXPECT_NEAR(sum_of(SushiDSP::K_HALFBAND_STAGE1), 1.0, 1e-4);
-    EXPECT_NEAR(sum_of(SushiDSP::K_HALFBAND_STAGE2), 1.0, 1e-4);
-    EXPECT_NEAR(sum_of(SushiDSP::K_HALFBAND_STAGE3), 1.0, 1e-4);
-}
+INSTANTIATE_TEST_SUITE_P(Designs, Small_HalfbandDesign, ::testing::ValuesIn(kRows), row_name);

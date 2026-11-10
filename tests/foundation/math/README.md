@@ -75,7 +75,7 @@ input adds sqrt(N) u ||x|| to the bound.
 
 ## `test_newton_raphson_solver.cpp`
 
-### `NewtonRaphsonSolverJointOverloadMatchesSplitOverloadBitForBit`
+### `JointOverloadMatchesSplitOverloadBitForBit`
 
 `// Both overloads must walk identical iterates.`
 
