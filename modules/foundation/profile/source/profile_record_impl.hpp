@@ -41,6 +41,9 @@ namespace SushiDSP::profile
             /// @brief Takes @p record and reads its subjects and period counts.
             explicit Impl(SushiProfiler::RunRecord record);
 
+            /// @brief Takes @p listed as the subjects of a run that recorded no period.
+            explicit Impl(std::vector<ProfileSubject> listed);
+
             SushiProfiler::RunRecord run;         /**< The run SushiProfiler recorded. */
             std::vector<ProfileSubject> subjects; /**< Every subject with samples. */
             std::size_t active = 0U;              /**< Active periods. */

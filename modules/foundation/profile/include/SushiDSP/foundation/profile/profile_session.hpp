@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include <SushiDSP/foundation/profile/environment_reader.hpp>
+#include <SushiDSP/foundation/profile/period_marker.hpp>
 #include <SushiDSP/foundation/profile/profile_record.hpp>
 
 #include <cstdint>
@@ -82,7 +84,7 @@ namespace SushiDSP::profile
      * One session runs per process. While it runs, the `dsp.block` timeline is bound, so
      * `mark_block` from a device callback opens its periods. Control thread only.
      */
-    class ProfileSession final
+    class ProfileSession final : public PeriodMarker
     {
         public:
             /// @brief The environment variable that names a configuration file.
@@ -94,7 +96,7 @@ namespace SushiDSP::profile
             explicit ProfileSession(std::ostream& report_output = discarded_output());
 
             /// @brief Finishes the session if it still runs, dropping its record.
-            ~ProfileSession();
+            ~ProfileSession() override;
 
             ProfileSession(const ProfileSession&) = delete;
             ProfileSession& operator=(const ProfileSession&) = delete;
@@ -102,7 +104,10 @@ namespace SushiDSP::profile
             ProfileSession& operator=(ProfileSession&&) = delete;
 
             /// @brief Starts from the file the variable SD_PROFILE_CONFIG names, if it is set.
-            [[nodiscard]] ProfileStart start_from_environment();
+            /// @param environment Where the variable is read from; the process environment by
+            /// default.
+            [[nodiscard]] ProfileStart start_from_environment(
+                const EnvironmentReader& environment = process_environment());
 
             /// @brief Starts from the JSON configuration @p config_json.
             [[nodiscard]] ProfileStart start(std::string_view config_json);
@@ -119,7 +124,7 @@ namespace SushiDSP::profile
             [[nodiscard]] bool running() const noexcept;
 
             /// @brief Opens the next period of @p timeline with @p budget_ns, 0 for none.
-            void mark(std::string_view timeline, std::uint64_t budget_ns);
+            void mark(std::string_view timeline, std::uint64_t budget_ns) override;
 
             /// @brief Stops the session, prints the configured report and returns the run.
             [[nodiscard]] ProfileFinish finish();

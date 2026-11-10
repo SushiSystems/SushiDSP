@@ -52,6 +52,26 @@ namespace SushiDSP::profile
     };
 
     /**
+     * @brief Opens every period of a window on @p marker and runs @p body once in each.
+     * @param timeline The timeline the window follows.
+     * @param warmup The periods marked warm-up, before the @p active ones.
+     * @param budget_ns The budget of every period, or 0 for none.
+     * @param body Called once per period, after it opens. A last period opens after the final
+     * call, so the final body period closes.
+     */
+    template <typename Body>
+    void run_periods(PeriodMarker& marker, std::string_view timeline, std::uint32_t warmup,
+                     std::uint32_t active, std::uint64_t budget_ns, Body&& body)
+    {
+        for (std::uint32_t period = 0; period < warmup + active; ++period)
+        {
+            marker.mark(timeline, budget_ns);
+            body();
+        }
+        marker.mark(timeline, budget_ns);
+    }
+
+    /**
      * @brief Runs @p body once per period of @p timeline inside a session and returns the record.
      * @param timeline The timeline the window follows.
      * @param warmup The periods recorded and marked warm-up, before the @p active ones.
@@ -70,12 +90,7 @@ namespace SushiDSP::profile
         if (!run.start.started())
             return run;
         register_this_thread();
-        for (std::uint32_t period = 0; period < warmup + active; ++period)
-        {
-            session.mark(timeline, budget_ns);
-            body();
-        }
-        session.mark(timeline, budget_ns);
+        run_periods(session, timeline, warmup, active, budget_ns, body);
         ProfileFinish finished = session.finish();
         run.record = std::move(finished.record);
         run.problems = std::move(finished.problems);

@@ -29,6 +29,9 @@
 
 #include <SushiDSP/foundation/profile/profile_runtime.hpp>
 
+#include <SushiDSP/foundation/profile/name_table.hpp>
+#include <SushiDSP/foundation/profile/sushidsp_profile_names.hpp>
+
 #include "block_timeline_binding.hpp"
 
 #if SD_ENABLE_PROFILER
@@ -40,19 +43,54 @@
 
 namespace SushiDSP::profile
 {
+    namespace
+    {
+        /// @brief Holds the nanoseconds in one second.
+        constexpr double K_NANOSECONDS_PER_SECOND = 1.0e9;
+    } // namespace
+
+    std::uint64_t block_budget_ns(std::uint32_t frames, double sample_rate) noexcept
+    {
+        if (sample_rate <= 0.0)
+            return 0U;
+        return static_cast<std::uint64_t>(K_NANOSECONDS_PER_SECOND * static_cast<double>(frames) /
+                                          sample_rate);
+    }
+
+    void mark_block(PeriodMarker& marker, std::uint32_t frames, double sample_rate)
+    {
+        if (sample_rate <= 0.0)
+            return;
+        marker.mark(names::K_BLOCK_TIMELINE, block_budget_ns(frames, sample_rate));
+    }
+
 #if SD_ENABLE_PROFILER
     namespace
     {
         /// @brief The timeline mark_block opens periods of, or null while no session runs.
         std::atomic<SushiProfiler::PeriodTimeline*> g_block_timeline{nullptr};
 
-        /// @brief Holds the nanoseconds in one second.
-        constexpr double K_NANOSECONDS_PER_SECOND = 1.0e9;
+        /// @brief Interns through SushiProfiler's collector.
+        class CollectorNameTable final : public NameTable
+        {
+            public:
+                /// @brief Returns the collector's id of @p text.
+                [[nodiscard]] NameID intern(std::string_view text) override
+                {
+                    return SushiProfiler::Collector::instance().names().intern(text);
+                }
+        };
     } // namespace
+
+    NameTable& collector_name_table() noexcept
+    {
+        static CollectorNameTable table;
+        return table;
+    }
 
     NameID intern_name(std::string_view text)
     {
-        return SushiProfiler::Collector::instance().names().intern(text);
+        return collector_name_table().intern(text);
     }
 
     void register_this_thread()
@@ -70,8 +108,7 @@ namespace SushiDSP::profile
             g_block_timeline.load(std::memory_order_acquire);
         if (timeline == nullptr || sample_rate <= 0.0)
             return;
-        const double budget = K_NANOSECONDS_PER_SECOND * static_cast<double>(frames) / sample_rate;
-        static_cast<void>(timeline->mark(static_cast<std::uint64_t>(budget)));
+        static_cast<void>(timeline->mark(block_budget_ns(frames, sample_rate)));
     }
 
     namespace Detail
@@ -82,10 +119,30 @@ namespace SushiDSP::profile
         }
     } // namespace Detail
 #else
+    namespace
+    {
+        /// @brief Interns nothing: this build records nothing.
+        class NoNameTable final : public NameTable
+        {
+            public:
+                /// @brief Returns 0 for every text.
+                [[nodiscard]] NameID intern(std::string_view text) override
+                {
+                    static_cast<void>(text);
+                    return 0U;
+                }
+        };
+    } // namespace
+
+    NameTable& collector_name_table() noexcept
+    {
+        static NoNameTable table;
+        return table;
+    }
+
     NameID intern_name(std::string_view text)
     {
-        static_cast<void>(text);
-        return 0U;
+        return collector_name_table().intern(text);
     }
 
     void register_this_thread()

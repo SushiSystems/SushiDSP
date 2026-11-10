@@ -81,12 +81,22 @@ namespace SushiDSP::profile
         }
     }
 
+    ProfileRecord::Impl::Impl(std::vector<ProfileSubject> listed) : subjects(std::move(listed))
+    {
+
+    }
+
     ProfileRecord::ProfileRecord() = default;
 
     ProfileRecord::ProfileRecord(std::shared_ptr<const Impl> impl) noexcept
         : impl_(std::move(impl))
     {
 
+    }
+
+    ProfileRecord ProfileRecord::from_subjects(std::vector<ProfileSubject> subjects)
+    {
+        return ProfileRecord(std::make_shared<const Impl>(std::move(subjects)));
     }
 
     bool ProfileRecord::empty() const noexcept
@@ -209,9 +219,16 @@ namespace SushiDSP::profile
         const std::vector<ProfileSubject> K_NO_SUBJECTS;
     } // namespace
 
+    /// @brief Holds the subjects a record was built from; this build records no run.
     struct ProfileRecord::Impl
     {
+            /// @brief Takes @p listed as the subjects.
+            explicit Impl(std::vector<ProfileSubject> listed) : subjects(std::move(listed))
+            {
 
+            }
+
+            std::vector<ProfileSubject> subjects; /**< The subjects the record was built from. */
     };
 
     ProfileRecord::ProfileRecord() = default;
@@ -222,9 +239,14 @@ namespace SushiDSP::profile
 
     }
 
+    ProfileRecord ProfileRecord::from_subjects(std::vector<ProfileSubject> subjects)
+    {
+        return ProfileRecord(std::make_shared<const Impl>(std::move(subjects)));
+    }
+
     bool ProfileRecord::empty() const noexcept
     {
-        return true;
+        return impl_ == nullptr;
     }
 
     std::size_t ProfileRecord::active_periods() const noexcept
@@ -239,7 +261,7 @@ namespace SushiDSP::profile
 
     const std::vector<ProfileSubject>& ProfileRecord::subjects() const noexcept
     {
-        return K_NO_SUBJECTS;
+        return impl_ == nullptr ? K_NO_SUBJECTS : impl_->subjects;
     }
 
     TimelineSummary ProfileRecord::summarise(std::string_view timeline) const

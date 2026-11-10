@@ -109,6 +109,9 @@ namespace SushiDSP::profile
             /// @brief Builds an empty record.
             ProfileRecord();
 
+            /// @brief Builds a record that holds @p subjects and no periods, with no session.
+            [[nodiscard]] static ProfileRecord from_subjects(std::vector<ProfileSubject> subjects);
+
             /// @brief Returns whether the run left no record, as when the build records nothing.
             [[nodiscard]] bool empty() const noexcept;
 

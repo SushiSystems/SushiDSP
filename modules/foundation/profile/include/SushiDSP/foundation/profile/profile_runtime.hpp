@@ -30,6 +30,7 @@
 
 #pragma once
 
+#include <SushiDSP/foundation/profile/period_marker.hpp>
 #include <SushiDSP/foundation/profile/profile.hpp>
 
 #include <cstdint>
@@ -42,6 +43,13 @@ namespace SushiDSP::profile
 
     /// @brief Holds whether this build records at all; false when SD_ENABLE_PROFILER is 0.
     inline constexpr bool K_PROFILER_BUILT = SD_ENABLE_PROFILER != 0;
+
+    /**
+     * @brief Returns the budget of one block, in nanoseconds: `frames / sample_rate`, truncated.
+     * @param frames The frames of the block.
+     * @param sample_rate The rate the block is played at, in hertz; at most 0 gives 0.
+     */
+    [[nodiscard]] std::uint64_t block_budget_ns(std::uint32_t frames, double sample_rate) noexcept;
 
     /**
      * @brief Returns the id of @p text for a named zone or a lane, interning it on first use.
@@ -69,4 +77,12 @@ namespace SushiDSP::profile
      * block size changes states each block's own budget.
      */
     void mark_block(std::uint32_t frames, double sample_rate) noexcept;
+
+    /**
+     * @brief Opens the next period of the block timeline on @p marker, for one block.
+     * @param marker Where the period goes; a rate of at most 0 opens none.
+     * @param frames The frames of the block that has just arrived.
+     * @param sample_rate The rate the block is played at, in hertz.
+     */
+    void mark_block(PeriodMarker& marker, std::uint32_t frames, double sample_rate);
 } // namespace SushiDSP::profile

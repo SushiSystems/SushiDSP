@@ -8,6 +8,9 @@ implementation.
 
 ## Owns
 
+- `modules/foundation/profile/include/SushiDSP/foundation/profile/environment_reader.hpp`
+- `modules/foundation/profile/include/SushiDSP/foundation/profile/name_table.hpp`
+- `modules/foundation/profile/include/SushiDSP/foundation/profile/period_marker.hpp`
 - `modules/foundation/profile/include/SushiDSP/foundation/profile/profile.hpp`
 - `modules/foundation/profile/include/SushiDSP/foundation/profile/profile_record.hpp`
 - `modules/foundation/profile/include/SushiDSP/foundation/profile/profile_run.hpp`
@@ -59,6 +62,21 @@ Each call site of `SD_ZONE` or `SD_COUNTER` is its own subject, so two sites tha
 two subjects of that name. `find()` returns the subject only when exactly one has the name and
 null otherwise, and `lookup()` tells a missing name from an ambiguous one and counts the matches.
 A record never reads half of a shared name as the whole; give each call site a name of its own.
+
+## Ports and in-memory adapters
+
+Each outside dependency has a port the module owns and an adapter that needs no process state.
+
+| Port | Real adapter | In-memory adapter | Used by |
+| --- | --- | --- | --- |
+| `PeriodMarker` | `ProfileSession` | `InMemoryPeriodMarker` | `run_periods`, `mark_block(marker, frames, rate)` |
+| `NameTable` | `collector_name_table()` | `InMemoryNameTable` | `intern_name` |
+| `EnvironmentReader` | `process_environment()` | `InMemoryEnvironment` | `start_from_environment(reader)` |
+
+`block_budget_ns(frames, rate)` is the budget of one block as a pure function. `ProfileRecord::from_subjects`
+builds a record that holds a subject list and no periods, so `lookup()` and `find()` run without a
+session. `run_periods` is the loop of `run_profiled` over any `PeriodMarker`. The calls without a
+port argument behave as before.
 
 ## The amplifiers and the tube screamer
 

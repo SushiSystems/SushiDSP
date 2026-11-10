@@ -58,6 +58,18 @@ namespace SushiDSP::profile
 {
     namespace
     {
+        /// @brief Reads the variables of this process.
+        class ProcessEnvironment final : public EnvironmentReader
+        {
+            public:
+                /// @brief Returns the value of @p name in this process, or an empty string.
+                [[nodiscard]] std::string value_of(std::string_view name) const override
+                {
+                    const char* const value = std::getenv(std::string(name).c_str());
+                    return value == nullptr ? std::string() : std::string(value);
+                }
+        };
+
         /// @brief A buffer that takes every character and keeps none.
         class DiscardingBuffer final : public std::streambuf
         {
@@ -69,6 +81,12 @@ namespace SushiDSP::profile
                 }
         };
     } // namespace
+
+    const EnvironmentReader& process_environment() noexcept
+    {
+        static const ProcessEnvironment reader;
+        return reader;
+    }
 
     std::ostream& discarded_output() noexcept
     {
@@ -125,10 +143,10 @@ namespace SushiDSP::profile
             static_cast<void>(finish());
     }
 
-    ProfileStart ProfileSession::start_from_environment()
+    ProfileStart ProfileSession::start_from_environment(const EnvironmentReader& environment)
     {
-        const char* const path = std::getenv(K_CONFIG_VARIABLE);
-        if (path == nullptr || path[0] == '\0')
+        const std::string path = environment.value_of(K_CONFIG_VARIABLE);
+        if (path.empty())
             return ProfileStart{};
         std::ifstream file(path, std::ios::binary);
         if (!file)
@@ -206,10 +224,10 @@ namespace SushiDSP::profile
 
     ProfileSession::~ProfileSession() = default;
 
-    ProfileStart ProfileSession::start_from_environment()
+    ProfileStart ProfileSession::start_from_environment(const EnvironmentReader& environment)
     {
-        const char* const path = std::getenv(K_CONFIG_VARIABLE);
-        if (path == nullptr || path[0] == '\0')
+        const std::string path = environment.value_of(K_CONFIG_VARIABLE);
+        if (path.empty())
             return ProfileStart{};
         return ProfileStart{ProfileStartStatus::NotBuilt,
                             std::string(K_CONFIG_VARIABLE) +
