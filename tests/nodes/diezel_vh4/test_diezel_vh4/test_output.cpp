@@ -23,34 +23,48 @@
 
 /**
  * @file test_output.cpp
- * @brief Tests the DiezelVh4 node against its golden files.
+ * @brief Golden-vector regression tests for the DiezelVh4 node.
  * @author Mustafa Garip
  */
 
-// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
-#define _USE_MATH_DEFINES
-
-#include <algorithm>
-#include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <SushiDSP/foundation/regression_test/regression_test.hpp>
 
 #include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
 #include <SushiDSP/foundation/golden_compare/golden_file.hpp>
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <SushiDSP/foundation/signal_measure/render.hpp>
 
 namespace
 {
+    constexpr std::uint32_t K_BLOCK = 256u;
+
+    /// @brief The residual, in dB against the golden file, a render may reach.
+    /// Characterized: the golden is the code's own output, so the bound only has to cover the
+    /// last-bit differences between builds that the saturating chain amplifies; -80 dB is the
+    /// bound the golden tests of every node use. A missing or short file reads 0 dB and fails.
+    constexpr double K_GOLDEN_RESIDUAL_BOUND_DB = -80.0;
+
+    /// @brief Names a golden file and the rate it was rendered at.
+    struct GoldenRow
+    {
+            const char* file;
+            double sample_rate;
+    };
+
+    const GoldenRow K_GOLDEN_ROWS[] = {{"diezel_vh4_48k", 48000.0}, {"diezel_vh4_96k", 96000.0}};
+
+    /// @brief Renders one second of the amp at the knob positions the snapshot pins.
+    ///
+    /// Every knob is set before the render prepares the node, so the smoothers snap and the file
+    /// holds the settled amp.
+    /// @param sample_rate Rate to render at.
+    /// @return sample_rate samples of output.
     std::vector<float> render_diezel_vh4(double sample_rate)
     {
         SushiDSP::DiezelVh4 node;
-        // Knobs before prepare(): the smoothers snap, so the file holds the settled amp.
         node.set_gain(0.6f);
         node.set_bass(0.5f);
         node.set_middle(0.5f);
@@ -59,32 +73,18 @@ namespace
         node.set_deep(0.5f);
         node.set_presence(0.5f);
         node.set_master(0.0f);
-        node.prepare({sample_rate, 256, 1});
-        const auto input = SushiDSP::golden::stimulus(sample_rate);
-        std::vector<float> output(input.size(), 0.0f);
-        for (std::size_t position = 0; position < input.size(); position += 256)
-        {
-            const std::uint32_t frames =
-                static_cast<std::uint32_t>(std::min<std::size_t>(256, input.size() - position));
-            const float* inputs[1] = {input.data() + position};
-            float* outputs[1] = {output.data() + position};
-            SushiDSP::ProcessContext context{outputs, inputs, frames, 0.0};
-            node.process(context);
-        }
-        return output;
+        return SushiDSP::measure::render(node, SushiDSP::golden::stimulus(sample_rate), sample_rate, K_BLOCK);
     }
 } // namespace
 
-/// @brief Tests that the 48 kHz render matches its golden file within -80 dB.
+/// @brief Tests that the render at each rate matches its golden file within the bound.
 /// @see tests/nodes/diezel_vh4/test_diezel_vh4/README.md
-SUSHIDSP_REGRESSION_TEST(Medium_DiezelVh4, DiezelVh4GoldenFile48k)
+TEST(Medium_DiezelVh4, DiezelVh4GoldenFileMatchesAtEachRate)
 {
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "diezel_vh4_48k", render_diezel_vh4(48000.0)),
-              -80.0);
-}
-
-SUSHIDSP_REGRESSION_TEST(Medium_DiezelVh4, DiezelVh4GoldenFile96k)
-{
-    EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, "diezel_vh4_96k", render_diezel_vh4(96000.0)),
-              -80.0);
+    for (const GoldenRow& row : K_GOLDEN_ROWS)
+    {
+        EXPECT_LE(SushiDSP::golden::compare_or_regenerate(SUSHIDSP_GOLDEN_DIR, row.file, render_diezel_vh4(row.sample_rate)),
+                  K_GOLDEN_RESIDUAL_BOUND_DB)
+            << row.file;
+    }
 }

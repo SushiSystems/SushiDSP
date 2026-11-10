@@ -155,9 +155,11 @@ readings to be recorded rather than asserted, so this pins the hooks and not the
 
 ## `test_output.cpp`
 
-### `K_D5B_JCM800_ALIAS_FLOOR_DB`
+### The alias-floor history
 
-`// K_D5B_JCM800_ALIAS_FLOOR_DB is the D5b baseline of -3.8 dB.`
+No test holds the alias floor while the issue is open: the test was a skipped body that
+asserted nothing, and the issue lives in the backlog. The
+bound it would hold is the D5b baseline of -3.8 dB less 30 dB, -33.8 dB.
 
 D5b baseline, measured by Task 2 of the D6a plan at commit eec6499 with the 15-tap Hamming
 halfbands: TubeScreamer drive=1 -8.3 dB, Jcm800 preamp=10 -3.8 dB. Spec D6a requires the pre-DK
@@ -189,12 +191,6 @@ removed the JCM800's level staging and the floor went to -6.7 dB, so that case i
 known issue and its own comment carries the reason. The TubeScreamer's floor is aliasing
 generated inside the oversampled domain, and D6c's rebuild moved it to -18.6 dB without reaching
 the bar, so it stays a regression floor. The case's own comment carries that number.
-
-### `Jcm800AliasFloorImprovedAtLeast30dBOverD5b`
-
-`// The case is skipped as a known issue but still prints.`
-
-Skipped as a known issue; the measurement below still runs and still prints its figure.
 
 -43.4 dB before DA4. Two D6a changes had got it there, pulling in opposite directions: Task 4's
 >= 90 dB halfbands took the resampling aliasing out (-3.8 -> -32.0 dB), Task 5's single 8x

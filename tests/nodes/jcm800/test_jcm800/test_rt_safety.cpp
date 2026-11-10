@@ -27,20 +27,26 @@
  * @author Mustafa Garip
  */
 
-// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
-#define _USE_MATH_DEFINES
-
-#include <cmath>
+#include <cstddef>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
+#include <SushiDSP/foundation/signal_measure/render.hpp>
 #include <SushiDSP/nodes/jcm800/jcm800.hpp>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+namespace
+{
+    /// @brief Runs `blocks` blocks of one context through a prepared node.
+    void process_blocks(SushiDSP::AudioNode& node, SushiDSP::ProcessContext& context, int blocks)
+    {
+        for (int block = 0; block < blocks; ++block)
+        {
+            node.process(context);
+        }
+    }
+} // namespace
 
 TEST(Medium_Jcm800, ProcessPerformsNoHeapAllocationWithoutCabinet)
 {
@@ -55,23 +61,17 @@ TEST(Medium_Jcm800, ProcessPerformsNoHeapAllocationWithoutCabinet)
     node.set_treble(0.7f);
     node.set_presence(0.9f);
 
-    std::vector<float> input(256);
-    for (std::size_t i = 0; i < input.size(); ++i)
-    {
-        input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
-    }
+    const std::vector<float> input = SushiDSP::measure::sine_stimulus(220.0, 48000.0, 256, 0.3f);
     std::vector<float> output(256, 0.0f);
     const float* input_channels[1] = {input.data()};
     float* output_channels[1] = {output.data()};
 
+    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
+
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
 
-    for (int block = 0; block < 500; ++block)
-    {
-        SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
-        node.process(context);
-    }
+    process_blocks(node, context, 500);
 
     trap.disarm();
 

@@ -34,6 +34,8 @@
 #include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c.hpp>
 
 #include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace
 {
@@ -46,15 +48,37 @@ namespace
     /// @brief Holds the region zones one block writes, one per control period.
     constexpr std::uint32_t K_ZONES_PER_BLOCK =
         SushiDSP::bench::K_BLOCK_SIZE / SushiDSP::MesaMark2c::K_CONTROL_PERIOD_FRAMES;
+
+    /// @brief Fails for every count that is not above zero.
+    void expect_all_positive(const std::vector<double>& counts)
+    {
+        for (const double count : counts)
+        {
+            EXPECT_GT(count, 0.0);
+        }
+    }
 } // namespace
 
-TEST(Medium_MesaMark2cProfile, ProcessWritesEachRegionZoneOncePerControlPeriodAndItsCounters)
+/// @brief Runs the profiled node once for a test and skips the test in a build that records nothing.
+class Medium_MesaMark2cProfile : public ::testing::Test
+{
+    protected:
+        void SetUp() override
+        {
+            run_ = SushiDSP::bench::profile_node<SushiDSP::MesaMark2c>(K_WARMUP, K_ACTIVE);
+            if (!run_->start.started())
+            {
+                GTEST_SKIP() << "this build records nothing";
+            }
+        }
+
+        std::optional<SushiDSP::profile::ProfiledRun> run_;
+};
+
+TEST_F(Medium_MesaMark2cProfile, ProcessWritesEachRegionZoneOncePerControlPeriodAndItsCounters)
 {
     namespace regions = SushiDSP::profile::names::mesa_mark2c;
-    const SushiDSP::profile::ProfiledRun run =
-        SushiDSP::bench::profile_node<SushiDSP::MesaMark2c>(K_WARMUP, K_ACTIVE);
-    if (!run.start.started())
-        GTEST_SKIP() << "this build records nothing";
+    const SushiDSP::profile::ProfiledRun& run = *run_;
 
     EXPECT_EQ(run.record.active_periods(), K_ACTIVE);
     EXPECT_EQ(run.record.zone_calls(regions::K_INPUT_ZONE), K_ACTIVE * K_ZONES_PER_BLOCK);
@@ -69,6 +93,5 @@ TEST(Medium_MesaMark2cProfile, ProcessWritesEachRegionZoneOncePerControlPeriodAn
     const SushiDSP::profile::ProfileSubject* const solves =
         run.record.find("counter:newton.solves");
     ASSERT_NE(solves, nullptr);
-    for (const double count : solves->samples)
-        EXPECT_GT(count, 0.0);
+    expect_all_positive(solves->samples);
 }

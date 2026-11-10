@@ -23,33 +23,32 @@
 
 /**
  * @file test_peavey5150_tone_stack.cpp
- * @brief Tests that the 5150 tone stack is silent from silence and finite on a tone.
- * @author Mustafa Garip
+ * @brief Tests that the Peavey tone stack is silent from silence and finite across its controls.
+ * @author Mustafa Garip & Sushi Systems
  */
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/peavey5150/peavey5150_tone_stack.hpp>
 
-#include <cmath>
+#include "support/tone_stack_contract.hpp"
+
+namespace
+{
+    constexpr double K_SAMPLE_RATE = 48000.0;
+} // namespace
 
 TEST(Small_Peavey5150ToneStack, SilenceGivesSilence)
 {
-    SushiDSP::Peavey5150ToneStack stack(48000.0);
-    stack.reset();
-    EXPECT_NEAR(stack.process_sample(0.0f), 0.0f, 1e-6f);
+    SushiDSP::Peavey5150ToneStack stack(K_SAMPLE_RATE);
+    TestSupport::expect_silence_gives_silence(stack);
 }
 
 TEST(Small_Peavey5150ToneStack, ToneStaysFiniteAcrossTheControls)
 {
-    SushiDSP::Peavey5150ToneStack stack(48000.0);
+    SushiDSP::Peavey5150ToneStack stack(K_SAMPLE_RATE);
     stack.set_low(0.7f);
     stack.set_mid(0.3f);
     stack.set_high(0.5f);
-    stack.reset();
-    for (int i = 0; i < 4800; ++i)
-    {
-        const float input = 0.1f * std::sin(2.0f * 3.14159265f * 500.0f * static_cast<float>(i) / 48000.0f);
-        EXPECT_TRUE(std::isfinite(stack.process_sample(input)));
-    }
+    TestSupport::expect_finite_on_a_sine(stack, 500.0, K_SAMPLE_RATE, 4800u, 0.1f);
 }

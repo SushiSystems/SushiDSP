@@ -23,32 +23,31 @@
 
 /**
  * @file test_mesa_mark2c_tone_stack.cpp
- * @brief Tests that the Mark IIC+ tone stack is silent from silence and finite with the bright switch engaged.
- * @author Mustafa Garip
+ * @brief Tests that the Mesa tone stack is silent from silence and finite with the bright switch on.
+ * @author Mustafa Garip & Sushi Systems
  */
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/mesa_mark2c/mesa_mark2c_tone_stack.hpp>
 
-#include <cmath>
+#include "support/tone_stack_contract.hpp"
+
+namespace
+{
+    constexpr double K_SAMPLE_RATE = 48000.0;
+} // namespace
 
 TEST(Small_MesaMark2cToneStack, SilenceGivesSilence)
 {
-    SushiDSP::MesaMark2cToneStack stack(48000.0);
-    stack.reset();
-    EXPECT_NEAR(stack.process_sample(0.0f), 0.0f, 1e-6f);
+    SushiDSP::MesaMark2cToneStack stack(K_SAMPLE_RATE);
+    TestSupport::expect_silence_gives_silence(stack);
 }
 
 TEST(Small_MesaMark2cToneStack, BrightSwitchKeepsTheOutputFinite)
 {
-    SushiDSP::MesaMark2cToneStack stack(48000.0);
+    SushiDSP::MesaMark2cToneStack stack(K_SAMPLE_RATE);
     stack.set_bright(true);
     stack.set_treble(0.9f);
-    stack.reset();
-    for (int i = 0; i < 4800; ++i)
-    {
-        const float input = 0.1f * std::sin(2.0f * 3.14159265f * 2000.0f * static_cast<float>(i) / 48000.0f);
-        EXPECT_TRUE(std::isfinite(stack.process_sample(input)));
-    }
+    TestSupport::expect_finite_on_a_sine(stack, 2000.0, K_SAMPLE_RATE, 4800u, 0.1f);
 }

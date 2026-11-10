@@ -220,7 +220,7 @@ That is the circuit rather than the model. §6 puts the midband product V1a × p
 after the first is in grid conduction on any real input". A plate ceiling of 72 to 210 V cannot hold
 the grid behind it inside four, so these are recorded here as measurements and no test asserts them;
 what the tests assert is the clean end of the knob, `DiezelVh4HasACleanEndAtMinimumGain`.
-`DiezelVh4GridProbesReportEveryStageInSignalOrder` pins the hooks themselves, five stages, every
+`DiezelVh4GridProbesMoveForEveryStageAfterAudio` pins the hooks themselves, five stages, every
 one moving after a render, zero outside the range.
 
 ### Silence in, silence out
@@ -299,7 +299,7 @@ capacitor between the inverter and the EL34 grids (§5 establishes none, and add
 reaches the grids as a shift of both tubes' operating points; `OutputTransformerStage` removes the
 pair's mean with its rolloff, and since DA5 part 3 its secondary carries no mean either, so the
 saturation's own rectification of the unequal halves, 0.021 of full scale here, the source of the
-0.0152 `DiezelVh4IsDcStableAcrossManyBlocksAtHighGain` read at bass 0, does not reach the
+0.0152 `IsDcStableAcrossManyBlocksAtHighGain` read at bass 0, does not reach the
 output. What remains at that setting is 0.0010, made where the ±1 output clamp cuts the unequal
 halves of a 1.06 peak.
 
@@ -390,7 +390,7 @@ down alike. The 20 Hz point reads 6.840 dB where the shelf is 10 dB deep: C13's 
 before the first distorting stage, so at 20 Hz the swept-sine estimate is measuring the saturated
 chain's own product rather than the shelf.
 
-`DiezelVh4MixBusAttenuationIsApplied` measures at **−120 dBFS**, which is where this chain is still
+`MixBusAttenuationIsApplied` measures at **−120 dBFS**, which is where this chain is still
 linear end to end: the same reading is 70.853 dB at −80, 72.965 at −100 and 73.114 at −120. At
 −80 dBFS the EL34 grids already carry 4.9 V, past the 4.1 V at which the cut-off tube's 35 V plate
 headroom saturates, so the pair is compressing there by 2.3 dB; before DA5 part 2 the reading was

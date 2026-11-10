@@ -23,122 +23,121 @@
 
 /**
  * @file test_jcm_tone_stack.cpp
- * @brief Tests the knobs and state of JcmToneStack.
- * @author Mustafa Garip
+ * @brief Tests the JCM800 tone stack's flat gain, its bass and middle knobs, its reset and its rate invariance.
+ * @author Mustafa Garip & Sushi Systems
  */
-
-// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
-#define _USE_MATH_DEFINES
-
-#include <cmath>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/jcm800/jcm_tone_stack.hpp>
+#include <SushiDSP/foundation/signal_measure/render.hpp>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <vector>
+
+namespace
+{
+    constexpr double K_SAMPLE_RATE = 48000.0;
+
+    /// @brief How far the flat stack's midband gain may sit from unity. Characterized: the stack
+    /// at noon is "approximately" unity at 1.5 kHz, and the reading is within 15 %.
+    constexpr double K_FLAT_UNITY_BAND = 0.15;
+
+    /// @brief The least ratio by which the knob's high end must exceed its low end in level.
+    /// Characterized: the knobs move their band by well over this.
+    constexpr double K_KNOB_LIFT_RATIO = 1.5;
+
+    /// @brief How far the gain at 8 times the rate may sit from the gain at the base rate, in dB.
+    /// Characterized: the float coefficients of the 384 kHz design quantise within 0.2 dB.
+    constexpr double K_RATE_AGREEMENT_DB = 0.2;
+
+    /// @brief Seconds the rate test runs; the last half is measured, and every probe frequency
+    /// fits a whole number of cycles in it.
+    constexpr double K_RATE_RUN_SECONDS = 0.4;
+
+    /// @brief The largest magnitude of a sine through a stack from sample `settled_from` on.
+    float settled_peak(SushiDSP::JcmToneStack& stack, double frequency_hz, std::size_t samples,
+                       std::size_t settled_from, float amplitude)
+    {
+        const std::vector<float> input = SushiDSP::measure::sine_stimulus(frequency_hz, K_SAMPLE_RATE, samples, amplitude);
+        float peak = 0.0f;
+        for (std::size_t i = 0; i < input.size(); ++i)
+        {
+            const float output = stack.process_sample(input[i]);
+            if (i > settled_from)
+            {
+                peak = std::max(peak, std::fabs(output));
+            }
+        }
+        return peak;
+    }
+
+    /// @brief A stack with the three knobs set.
+    SushiDSP::JcmToneStack stack_with(double sample_rate, float bass, float middle, float treble)
+    {
+        SushiDSP::JcmToneStack stack(sample_rate);
+        stack.set_bass(bass);
+        stack.set_middle(middle);
+        stack.set_treble(treble);
+        return stack;
+    }
+
+    /// @brief The power gain, in dB, of a sine through the stack over the last half of its run.
+    double power_gain_db(double frequency_hz, double sample_rate)
+    {
+        SushiDSP::JcmToneStack stack = stack_with(sample_rate, 0.6f, 0.4f, 0.7f);
+        const std::size_t length = static_cast<std::size_t>(K_RATE_RUN_SECONDS * sample_rate);
+        const std::vector<float> input = SushiDSP::measure::sine_stimulus(frequency_hz, sample_rate, length, 0.1f);
+        double input_power = 0.0;
+        double output_power = 0.0;
+        for (std::size_t i = 0; i < length; ++i)
+        {
+            const float y = stack.process_sample(input[i]);
+            if (i >= length / 2)
+            {
+                input_power += static_cast<double>(input[i]) * input[i];
+                output_power += static_cast<double>(y) * y;
+            }
+        }
+        return 10.0 * std::log10(output_power / input_power);
+    }
+} // namespace
 
 TEST(Small_JcmToneStack, JcmToneStackAtFlatSettingsIsApproximatelyUnityGainAtMidFrequency)
 {
-    SushiDSP::JcmToneStack tone_stack(48000.0);
-    tone_stack.set_bass(0.5f);
-    tone_stack.set_middle(0.5f);
-    tone_stack.set_treble(0.5f);
-
-    constexpr double sample_rate = 48000.0;
-    constexpr double test_freq = 1500.0;
-    float max_output = 0.0f;
-    for (int i = 0; i < 2000; ++i)
-    {
-        const float input = static_cast<float>(std::sin(2.0 * M_PI * test_freq * i / sample_rate));
-        const float output = tone_stack.process_sample(input);
-        if (i > 1000)
-        {
-            max_output = std::max(max_output, std::abs(output));
-        }
-    }
-
-    EXPECT_NEAR(max_output, 1.0f, 0.15f);
+    SushiDSP::JcmToneStack stack = stack_with(K_SAMPLE_RATE, 0.5f, 0.5f, 0.5f);
+    EXPECT_NEAR(settled_peak(stack, 1500.0, 2000u, 1000u, 1.0f), 1.0, K_FLAT_UNITY_BAND);
 }
 
 TEST(Small_JcmToneStack, JcmToneStackBassKnobChangesLowFrequencyLevel)
 {
-    SushiDSP::JcmToneStack dark(48000.0);
-    dark.set_bass(0.0f);
-    dark.set_middle(0.5f);
-    dark.set_treble(0.5f);
-    SushiDSP::JcmToneStack bright(48000.0);
-    bright.set_bass(1.0f);
-    bright.set_middle(0.5f);
-    bright.set_treble(0.5f);
-
-    constexpr double sample_rate = 48000.0;
-    constexpr double test_freq = 80.0;
-    float dark_max = 0.0f, bright_max = 0.0f;
-    for (int i = 0; i < 6000; ++i)
-    {
-        const float input = static_cast<float>(std::sin(2.0 * M_PI * test_freq * i / sample_rate));
-        const float dark_out = dark.process_sample(input);
-        const float bright_out = bright.process_sample(input);
-        if (i > 5000)
-        {
-            dark_max = std::max(dark_max, std::abs(dark_out));
-            bright_max = std::max(bright_max, std::abs(bright_out));
-        }
-    }
-
-    EXPECT_GT(bright_max, dark_max * 1.5f);
+    SushiDSP::JcmToneStack dark = stack_with(K_SAMPLE_RATE, 0.0f, 0.5f, 0.5f);
+    SushiDSP::JcmToneStack bright = stack_with(K_SAMPLE_RATE, 1.0f, 0.5f, 0.5f);
+    const float dark_peak = settled_peak(dark, 80.0, 6000u, 5000u, 1.0f);
+    const float bright_peak = settled_peak(bright, 80.0, 6000u, 5000u, 1.0f);
+    EXPECT_GT(bright_peak, dark_peak * K_KNOB_LIFT_RATIO);
 }
 
 TEST(Small_JcmToneStack, JcmToneStackMiddleKnobChangesMidFrequencyLevel)
 {
-    SushiDSP::JcmToneStack scooped(48000.0);
-    scooped.set_bass(0.5f);
-    scooped.set_middle(0.0f);
-    scooped.set_treble(0.5f);
-    SushiDSP::JcmToneStack boosted(48000.0);
-    boosted.set_bass(0.5f);
-    boosted.set_middle(1.0f);
-    boosted.set_treble(0.5f);
-
-    constexpr double sample_rate = 48000.0;
-    constexpr double test_freq = 750.0;
-    float scooped_max = 0.0f, boosted_max = 0.0f;
-    for (int i = 0; i < 3000; ++i)
-    {
-        const float input = static_cast<float>(std::sin(2.0 * M_PI * test_freq * i / sample_rate));
-        const float scooped_out = scooped.process_sample(input);
-        const float boosted_out = boosted.process_sample(input);
-        if (i > 2000)
-        {
-            scooped_max = std::max(scooped_max, std::abs(scooped_out));
-            boosted_max = std::max(boosted_max, std::abs(boosted_out));
-        }
-    }
-
-    EXPECT_GT(boosted_max, scooped_max * 1.5f);
+    SushiDSP::JcmToneStack scooped = stack_with(K_SAMPLE_RATE, 0.5f, 0.0f, 0.5f);
+    SushiDSP::JcmToneStack boosted = stack_with(K_SAMPLE_RATE, 0.5f, 1.0f, 0.5f);
+    const float scooped_peak = settled_peak(scooped, 750.0, 3000u, 2000u, 1.0f);
+    const float boosted_peak = settled_peak(boosted, 750.0, 3000u, 2000u, 1.0f);
+    EXPECT_GT(boosted_peak, scooped_peak * K_KNOB_LIFT_RATIO);
 }
 
 TEST(Small_JcmToneStack, JcmToneStackResetClearsState)
 {
-    SushiDSP::JcmToneStack stack_a(48000.0);
-    stack_a.set_bass(0.8f);
-    stack_a.set_middle(0.2f);
-    stack_a.set_treble(0.9f);
-    SushiDSP::JcmToneStack stack_b(48000.0);
-    stack_b.set_bass(0.8f);
-    stack_b.set_middle(0.2f);
-    stack_b.set_treble(0.9f);
+    SushiDSP::JcmToneStack used = stack_with(K_SAMPLE_RATE, 0.8f, 0.2f, 0.9f);
+    SushiDSP::JcmToneStack fresh = stack_with(K_SAMPLE_RATE, 0.8f, 0.2f, 0.9f);
 
-    stack_a.process_sample(1.0f);
-    stack_a.reset();
+    used.process_sample(1.0f);
+    used.reset();
 
-    const float from_reset = stack_a.process_sample(0.1f);
-    const float from_fresh = stack_b.process_sample(0.1f);
-
-    EXPECT_NEAR(from_reset, from_fresh, 1e-5f);
+    EXPECT_EQ(used.process_sample(0.1f), fresh.process_sample(0.1f));
 }
 
 TEST(Small_JcmToneStack, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthOfADecibel)
@@ -146,29 +145,7 @@ TEST(Small_JcmToneStack, JcmToneStackAtEightTimesRateMatchesBaseRateWithinFifthO
     // Float coefficient quantisation stays within 0.2 dB. See tests/nodes/jcm800/README.md.
     for (const double frequency : {80.0, 250.0, 1000.0, 4000.0, 10000.0})
     {
-        double gain[2] = {0.0, 0.0};
-        int index = 0;
-        for (const double rate : {48000.0, 384000.0})
-        {
-            SushiDSP::JcmToneStack stack(rate);
-            stack.set_bass(0.6f);
-            stack.set_middle(0.4f);
-            stack.set_treble(0.7f);
-            const std::size_t length = static_cast<std::size_t>(rate);
-            double input_power = 0.0, output_power = 0.0;
-            for (std::size_t i = 0; i < length; ++i)
-            {
-                const float x = 0.1f * static_cast<float>(std::sin(2.0 * M_PI * frequency *
-                                                                   static_cast<double>(i) / rate));
-                const float y = stack.process_sample(x);
-                if (i >= length / 2)
-                {
-                    input_power += static_cast<double>(x) * x;
-                    output_power += static_cast<double>(y) * y;
-                }
-            }
-            gain[index++] = 10.0 * std::log10(output_power / input_power);
-        }
-        EXPECT_NEAR(gain[0], gain[1], 0.2) << frequency << " Hz";
+        EXPECT_NEAR(power_gain_db(frequency, 48000.0), power_gain_db(frequency, 384000.0), K_RATE_AGREEMENT_DB)
+            << frequency << " Hz";
     }
 }

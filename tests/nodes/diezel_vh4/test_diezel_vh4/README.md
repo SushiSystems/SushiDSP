@@ -9,7 +9,7 @@
 The master level whose linear multiplier is exactly 1.0, derived from the calibration constant
 rather than written out, so a recalibration does not silently move what the tests below measure.
 
-### `DiezelVh4DescriptorExposesTenParametersInContractOrder`
+### `DiezelVh4DescriptorListsTheParametersInContractOrder`
 
 `// The index order is the contract of hosts and presets.`
 
@@ -17,7 +17,7 @@ The index order is the contract a host and a saved preset address these by, so i
 rather than merely checked for membership. The first five are the channel's own front panel in
 panel order; Deep, Presence and Master are the master section.
 
-### `DiezelVh4IsDcStableAcrossManyBlocksAtHighGain`
+### `Medium_DiezelVh4Settled` (row table, `IsDcStableAcrossManyBlocksAtHighGain`)
 
 `// Each knob visits both extremes in turn: ten settings.`
 
@@ -45,7 +45,9 @@ an order of magnitude higher than the 4.43 % this test read on 2026-09-06 becaus
 now run at face value in volts, which leaves every stage past V1a saturated at any knob position
 - the knob moves the reading by six points rather than by twenty.
 
-What is asserted is therefore that the reading does not fall as the knob rises. Spec section 4
+What is asserted is therefore that the reading does not fall as the knob rises (the tolerance
+`K_THD_FALL_TOLERANCE_PERCENTAGE_POINTS` and the floor `K_SATURATED_THD_FLOOR_PERCENT` are
+characterized). Spec section 4
 allows 1.0 percentage points of fall; this test holds the tighter 0.5 the readings support. Once
 every stage clips, THD saturates as a metric, and a strictly rising spectrum is not a property
 the circuit has to have. DiezelVh4HasACleanEndAtMinimumGain is what proves the knob's other end
@@ -87,9 +89,7 @@ The knob is read at 0.01 rather than 0.0 because the GAIN pot is a plain divider
 that passes signal. It read 0.0940 % on 2026-09-07 and 1.843 % on the volt-true power stage the
 same day, the pair's class-AB handover now reaching the output.
 
-### `DiezelVh4GridProbesReportEveryStageInSignalOrder`
-
-`// The probes cover all five stages in signal order.`
+### `DiezelVh4GridProbesMoveForEveryStageAfterAudio`
 
 The probes are what modules/nodes/diezel_vh4/README.md's grid table is measured with, so they
 have to cover the chain rather than a prefix of it: five stages, every one of them moving after
@@ -140,9 +140,14 @@ default position this test uses - has thrown the fundamental away before the fir
 stage, so what reaches Deep down there is mostly the saturated chain's own product rather than a
 20 Hz tone, and the lift reads 6.840 dB where the shelf is 10 dB.
 
-### `DiezelVh4MixBusAttenuationIsApplied`
+### `MixBusAttenuationIsApplied`
 
 `// The chain is linear end to end at -120 dBFS.`
+
+This is a `Characterization_Medium_DiezelVh4` test: the 73.114 dB is the measured gain, because the
+last block (power stage, transformer and sag) has no derivation. The table up to the EL34 grids is
+the derived part and gives 20 log10(49062) = 93.81 dB. A backlog entry removes the suite once the
+last block is derived.
 
 The mix bus costs this channel 23.6 dB before V4a ever sees it: R43 680 kOhm into the 48.1 kOhm
 the three grounded legs make, x0.0660 (dossier section 6), and a single-channel module has to
@@ -185,3 +190,21 @@ rows above are written for. The grid probes corroborate the table at that level 
 
 K_MASTER_UNITY_GAIN is absent on purpose: the knob is set to unity_master_db, which is its
 reciprocal, so the two cancel and the master contributes x1.
+
+### `ToneStackDoesNotAmplifyItsInputAtMidband`
+
+The tone stack is passive, so its gain is at most 1 and R40's divider (0.990664) bounds the whole
+path: the settled peak of a 1 kHz sine is at most 0.990664 of the input, up to eight float
+roundings of the filter chain.
+
+## Characterized constants
+
+The constants below have no derivation and are named in `test_behaviour.cpp`:
+`K_SETTLE_SAMPLES` (16384, three times the 5376-sample startup transient, rounded to a power of
+two), `K_RESIDUAL_DC_BOUND` (0.01, -40 dBFS), `K_THD_FALL_TOLERANCE_PERCENTAGE_POINTS` (0.5; the
+spec allows 1.0), `K_SATURATED_THD_FLOOR_PERCENT` (10), `K_CLEAN_END_THD_CEILING_PERCENT` (10),
+`K_CALIBRATION_BAND_DB` (1 dB around the spec's -6 dBFS, since the spec says "about"),
+`K_TRAVEL_SLACK_DB` (0.5 dB below the analytic 3.0 dB), `K_SHELF_CORNER_BAND_DB` (0.5 dB around the
+half-depth lift), `K_CHARACTERIZED_SMALL_SIGNAL_GAIN_DB` (73.114) and `K_SMALL_SIGNAL_GAIN_BAND_DB`
+(0.5). The input high-pass test compares the measured travel with the analytic first-order
+tilt computed from the 618 Hz and 314 Hz corners.

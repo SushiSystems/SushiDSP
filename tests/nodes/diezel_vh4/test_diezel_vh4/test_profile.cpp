@@ -34,6 +34,8 @@
 #include <SushiDSP/nodes/diezel_vh4/diezel_vh4.hpp>
 
 #include <cstdint>
+#include <optional>
+#include <vector>
 
 namespace
 {
@@ -42,15 +44,37 @@ namespace
 
     /// @brief Holds the active periods of the run below.
     constexpr std::uint32_t K_ACTIVE = 4;
+
+    /// @brief Fails for every count that is not above zero.
+    void expect_all_positive(const std::vector<double>& counts)
+    {
+        for (const double count : counts)
+        {
+            EXPECT_GT(count, 0.0);
+        }
+    }
 } // namespace
 
-TEST(Medium_DiezelVh4Profile, ProcessWritesEachRegionZoneOncePerBlockAndItsCounters)
+/// @brief Runs the profiled node once for a test and skips the test in a build that records nothing.
+class Medium_DiezelVh4Profile : public ::testing::Test
+{
+    protected:
+        void SetUp() override
+        {
+            run_ = SushiDSP::bench::profile_node<SushiDSP::DiezelVh4>(K_WARMUP, K_ACTIVE);
+            if (!run_->start.started())
+            {
+                GTEST_SKIP() << "this build records nothing";
+            }
+        }
+
+        std::optional<SushiDSP::profile::ProfiledRun> run_;
+};
+
+TEST_F(Medium_DiezelVh4Profile, ProcessWritesEachRegionZoneOncePerBlockAndItsCounters)
 {
     namespace regions = SushiDSP::profile::names::diezel_vh4;
-    const SushiDSP::profile::ProfiledRun run =
-        SushiDSP::bench::profile_node<SushiDSP::DiezelVh4>(K_WARMUP, K_ACTIVE);
-    if (!run.start.started())
-        GTEST_SKIP() << "this build records nothing";
+    const SushiDSP::profile::ProfiledRun& run = *run_;
 
     EXPECT_EQ(run.record.active_periods(), K_ACTIVE);
     EXPECT_EQ(run.record.zone_calls(regions::K_INPUT_ZONE), K_ACTIVE);
@@ -65,6 +89,5 @@ TEST(Medium_DiezelVh4Profile, ProcessWritesEachRegionZoneOncePerBlockAndItsCount
     const SushiDSP::profile::ProfileSubject* const solves =
         run.record.find("counter:newton.solves");
     ASSERT_NE(solves, nullptr);
-    for (const double count : solves->samples)
-        EXPECT_GT(count, 0.0);
+    expect_all_positive(solves->samples);
 }

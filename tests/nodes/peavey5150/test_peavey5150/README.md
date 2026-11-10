@@ -172,11 +172,10 @@ trip. A host compensates by this number, so it is pinned against the oversampler
 
 ## `test_output.cpp`
 
-### `Peavey5150AliasFloorAtItsDefaultIsUnderMinusThirtyDb`
+### The alias-floor history
 
-`// The case is skipped as a known issue but still prints.`
-
-Skipped as a known issue; the measurement below still runs and still prints its figure.
+No test holds the alias floor while the issue is open: the test was a skipped body that
+asserted nothing, and the issue lives in the backlog.
 
 DA5 spec section 11's second acceptance for the 5150: pre gain 0.5 at -12 dBFS under -30 dB. It
 read +26.0 dB before DA5 part 1, -17.2 dB after it, -11.4 dB after part 2 and -26.8 dB with
