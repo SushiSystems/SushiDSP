@@ -393,7 +393,7 @@ time constant of 83 frames, so a zero-started tap settles inside the 512-frame f
 the taps leave of the field, a move steps the cascade's coefficients on the network's running
 state, 3 % in the second section here, and the residual is -45.8 dBFS
 (`docs/backlog/README.md`). The three cases are
-`RoomNodeCrossfadesAPublishWithoutAStep`, `RoomNodeCrossfadesASmallMoveFromTheCarriedState` and
+`RoomNodeCrossfadesAPublishWithoutAStep`, `RoomNodeCrossfadesAPublishWithoutAStep` and
 `RoomNodeRepublishesTheSameSceneWithoutAResidual`, bounded at -44, -58 and -120 dBFS. The
 residual column is measured through the seam of the next section, whose high half feeds the
 taps: before the wave layer landed the same two moves read -53.9 and -60.2 dBFS. The
@@ -409,7 +409,7 @@ One `CrossoverPair` splits the input at `RoomRenderSet::crossover_hz`: the low h
 modal bank, the high half feeds the early renderer and the tail, and each output is that ear's
 modal field plus the geometric sum. A crossover of zero, which the solver publishes when f_s is
 under 40 Hz, bypasses the pair: the high half carries the whole input and the bank, whose count is
-then zero, adds nothing; `RoomNodeSwitchesTheWaveLayerOffInADeadRoom` renders a 12 m carpeted
+then zero, adds nothing; `RoomNodeSwitchesTheModalLayerOffUnderTheLayerLimit` renders a 12 m carpeted
 room with four open faces, f_s = 22 Hz, through the node and through the two bricks alone and
 finds the outputs equal sample for sample.
 
@@ -423,7 +423,7 @@ The modal bank has its own state, two banks of it, and a published set is adopte
 rule shaped like the early renderer's `carry_tap`. `Room::SourceStage::same_resonators` compares the
 arriving design's sections with the active bank's, bit for bit: one room designs one set of
 resonators whatever the poses, so a moved cabinet or listener leaves every section equal and
-changes `source_gain` and `ear_gain` alone (spec §9a.2; `RoomNodePublishesNewModalGainsWithoutRebuildingAResonator`
+changes `source_gain` and `ear_gain` alone (spec §9a.2; `RoomNodeKeepsTheResonatorsWhenTheCabinetMoves`
 counts 161 of the garage's 187 modes feeling a move along x and 150 a move along y). When the
 resonators match, the active bank keeps its state and its gains ramp from the retiring design to
 the arriving one, frame by frame, under the same raised cosine the taps fade under; the bank's
@@ -431,7 +431,7 @@ output is linear in the ear gains, so the ramp is the blend of the two steady re
 sample, measured at -144 dB in `RoomNodeRampsTheEarGainsAsTheOutputBlendWould`. The source gain
 ramps the drive, and the resonators then take their own decay time to settle to it, as the room's
 standing waves would after the cabinet is carried across the floor:
-`RoomNodeCarriesTheStandingWavesAcrossAMovedCabinet` measures a step ratio of 1.0000 and the
+`RoomNodeCarriesTheStandingWavesAcrossAMovedCabinetWithoutAStep` measures a step ratio of 1.0000 and the
 arriving pose's steady energy within 0.02 dB four blocks after the fade. When the resonators
 differ, a changed dimension or material, the spare modal bank is reset and rendered with the
 arriving design while the retiring bank renders the retiring design, and the two are blended
@@ -445,7 +445,7 @@ solver's `crossover_hz` while the modal layer runs, which is Eyring's figure unl
 count would pass `K_MAX_MODES` and the solver lowered it (spec §9a.4), and Eyring's figure itself
 when the layer is off, so a panel still shows the room's own number under 40 Hz. Before
 `prepare()` there is no set and the report is Eyring's figure for the scene in place.
-`RoomNodeReportsTheCrossoverTheSetSplitsAt` walks the garage, a 3.0 x 2.5 x 2.4 m concrete room
+`RoomNodeReportsTheLoweredCrossoverWhenTheModesDoNotFit` walks the garage, a 3.0 x 2.5 x 2.4 m concrete room
 whose 877 Hz Eyring figure has about 1250 modes under it, and the dead room through it.
 
 Measured on the garage with the cabinet at (0.4, 0.5, 0.5) and the listener at (5.4, 3.4, 2.0),
@@ -526,7 +526,7 @@ Measured at the microphone, energy-averaged over six poses per room, 65536 frame
 octave under f_s reads +0.5, +0.9 and +0.8 dB against the modal design's own power at those poses
 through the low half, and the octave over it -0.4, +0.0 and -1.2 dB against the field through the
 high half, garage, bedroom and block room; both within the spec's 2 dB
-(`RoomNodeIsContinuousAcrossTheSchroederFrequency`). The raw step between the two octaves reads
+(`RoomNodeCarriesTheDesignedModalLevelInTheOctaveUnderTheCrossover`). The raw step between the two octaves reads
 +0.16, +1.29 and +3.75 dB and is recorded, not bounded: it is the reference's own change across the
 seam, the 4x12's directivity index rising 4.6 dB between 250 and 500 Hz and the block room's
 absorption halving from 125 to 250 Hz, less the modal field's interior deficit. That deficit is
@@ -617,7 +617,7 @@ through the set's third-order decoder, and the tail through the set's diffuse-fi
 block the set is adopted (`Room::PairStage::take_direct_image`) and rendered by `DirectPath`: read out
 of the cabinet's ring at the alignment delay plus the tap's, through the tap's fitted filter and 1/r
 in the early renderer's own arithmetic, then convolved with the set's minimum-phase HRIR for its
-ear, the far ear read the interaural delay later. `RoomNodeEarsHearTheDirectSoundThroughTheHrirPair`
+ear, the far ear read the interaural delay later. `RoomNodeLeftEarHearsTheDirectSoundThroughTheHrirPair`
 renders the dead room and matches that chain, built in the test from the render set, to
 1e-5 of the peak in both ears. Woodworth's delay comes through the whole node:
 `RoomNodeReproducesWoodworthsInterauralDelayOnTheFallback` reads the lag of the interaural
@@ -642,7 +642,7 @@ is not measured here; the decoder acceptance of spec §9.5 runs only with the me
 **The tail.** The tail's two outputs pass one 128-tap FIR per ear, the diffuse-field average, then
 a 128-frame delay to the decoder's partition; the modal field passes the same delay, so every
 ears path waits one partition. The tail's coherence pair survives the head:
-`RoomNodeTailIsCoherentLowAndIncoherentHigh` reads the interaural cross-correlation of the dead
+`RoomNodeTailIsCoherentInTheLowOctave` reads the interaural cross-correlation of the dead
 room's tail alone as 0.944 in the 125 Hz octave and 0.176 in the 4 kHz octave, against the spec's
 0.8 and 0.3.
 
@@ -653,7 +653,7 @@ floored at zero. The direct sound then lands at the alignment delay, 128 frames,
 reflections and the tail keep their spacing to it; `latency_samples()` reports 128. Physical
 leaves the set as solved and reports 128 plus the propagation delay: 408 for the dead room's 2 m,
 491 for `RoomScene{}`'s 2.596 m, the 363 frames the plan's 280 assumed a 2 m scene for
-(`RoomNodeDefaultsDirectDelayToCompensated`). `RoomNodeDirectOnsetMovesWithTheDirectDelayChoice`
+(`RoomNodeDefaultsDirectDelayToCompensated`). `RoomNodePhysicalTimingMovesTheDirectOnsetByTheRoundedDelay`
 sees the direct onset and the floor image's onset both move by 280. The choice is the
 listener's: a microphone pair renders at physical timing whatever the parameter says. A changed
 choice publishes through the crossfade like a moved receiver; the index path stores it for the
@@ -736,7 +736,7 @@ fallback at the next `prepare()`.
   switches between two local minima of a target it misses by over 2 dB.
   The ceiling image of the reference garage, 53 degrees above the baffle's axis, comes out of
   that fit with a group delay that puts its rendered peak one frame after its arrival, which is
-  why `RoomNodePlacesTheFirstOrderPeaksWhereTheSolverSaid` measures placement with a 1 cm piston.
+  why `RoomNodePlacesTheFirstOrderPeakWhereTheSolverSaid` measures placement with a 1 cm piston.
 - **Fifteen materials.** `materials.hpp` ships unpainted concrete, painted concrete block, gypsum
   board on studs, heavy carpet on concrete, thin carpet on concrete, painted plaster on masonry,
   ceramic tile, parquet on concrete, a wood panel, a glass window, a double-glazed window, a
