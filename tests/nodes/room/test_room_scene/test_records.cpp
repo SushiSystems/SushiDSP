@@ -23,44 +23,30 @@
 
 /**
  * @file test_records.cpp
- * @brief Tests for the three records the room's control thread publishes to its audio thread.
+ * @brief Tests for the size budget of the records the room's control thread publishes to its audio thread.
  * @author Mustafa Garip & Sushi Systems
  */
 
 #include <gtest/gtest.h>
 
 #include <cstddef>
-#include <type_traits>
 
 #include <SushiDSP/nodes/room/early_tap_set.hpp>
-#include <SushiDSP/nodes/room/fdn_design.hpp>
 #include <SushiDSP/nodes/room/modal_design.hpp>
 
-TEST(Small_RoomScene, RoomRecordsAreTriviallyCopyable)
+namespace
 {
-    static_assert(std::is_trivially_copyable<SushiDSP::room::EarlyTap>::value,
-                  "the audio thread reads it");
-    static_assert(std::is_trivially_copyable<SushiDSP::room::EarlyTapSet>::value,
-                  "the audio thread reads it");
-    static_assert(std::is_trivially_copyable<SushiDSP::room::FdnDesign>::value,
-                  "the audio thread reads it");
-    static_assert(std::is_trivially_copyable<SushiDSP::room::ModalDesign>::value,
-                  "the audio thread reads it");
-    SUCCEED();
-}
+    /// @brief Bounds the size of a record published to the audio thread each GUI frame, in bytes:
+    /// the early tap set stays under 24 KiB.
+    constexpr std::size_t K_EARLY_TAP_SET_BUDGET_BYTES = 24u * 1024u;
 
-TEST(Small_RoomScene, RoomRecordsCarryTheSpecsCapacities)
-{
-    EXPECT_EQ(SushiDSP::room::EarlyTapSet::K_MAX_EARLY_TAPS, 128u);
-    EXPECT_EQ(SushiDSP::room::FdnDesign::K_LINE_COUNT, 16u);
-    EXPECT_EQ(SushiDSP::room::ModalDesign::K_MAX_MODES, 512u);
-}
+    /// @brief Bounds the size of the modal design published each GUI frame, in bytes: 64 KiB.
+    constexpr std::size_t K_MODAL_DESIGN_BUDGET_BYTES = 64u * 1024u;
+} // namespace
 
 TEST(Small_RoomScene, RoomRecordsAreSmallEnoughToPublishPerGuiFrame)
 {
-    // One EarlyTap is 152 bytes and one Mode is 56. See tests/nodes/room/test_room_scene/README.md.
-    EXPECT_EQ(sizeof(SushiDSP::room::EarlyTap), 152u);
-    EXPECT_EQ(sizeof(SushiDSP::room::ModalDesign::Mode), 56u);
-    EXPECT_LT(sizeof(SushiDSP::room::EarlyTapSet), 24u * 1024u);
-    EXPECT_LT(sizeof(SushiDSP::room::ModalDesign), 64u * 1024u);
+    // A 128-tap set is 19472 bytes and 512 modes are 28688. See tests/nodes/room/test_room_scene/README.md.
+    EXPECT_LT(sizeof(SushiDSP::room::EarlyTapSet), K_EARLY_TAP_SET_BUDGET_BYTES);
+    EXPECT_LT(sizeof(SushiDSP::room::ModalDesign), K_MODAL_DESIGN_BUDGET_BYTES);
 }

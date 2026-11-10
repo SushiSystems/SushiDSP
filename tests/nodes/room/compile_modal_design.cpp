@@ -27,4 +27,9 @@
  * @author Mustafa Garip
  */
 
+#include <type_traits>
+
 #include <SushiDSP/nodes/room/modal_design.hpp>
+
+static_assert(std::is_trivially_copyable_v<SushiDSP::room::ModalDesign>,
+              "a design is a plain record the audio thread copies between banks");

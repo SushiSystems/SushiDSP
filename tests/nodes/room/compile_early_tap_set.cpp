@@ -39,3 +39,6 @@ static_assert(std::tuple_size_v<decltype(SushiDSP::room::EarlyTapSet::taps)> ==
 
 static_assert(std::is_trivially_copyable_v<SushiDSP::room::EarlyTap>,
               "a tap is a plain record the audio thread copies between banks");
+
+static_assert(std::is_trivially_copyable_v<SushiDSP::room::EarlyTapSet>,
+              "a tap set is a plain record the audio thread copies between banks");

@@ -23,7 +23,8 @@
 
 /**
  * @file test_behaviour.cpp
- * @brief Tests for RoomScene, the shoebox, its materials, its patches and its three poses.
+ * @brief Tests for RoomScene, the shoebox: its geometry, its validity checks, its patches, its
+ * decay bound and its built-room loss.
  * @author Mustafa Garip & Sushi Systems
  */
 
@@ -34,35 +35,270 @@
 #include <limits>
 #include <string>
 
-#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
+#include <SushiDSP/nodes/room/band_response.hpp>
 #include <SushiDSP/nodes/room/built_room_loss.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
+#include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
+
+#include <support/tolerance.hpp>
+
+namespace
+{
+    using SushiDSP::room::K_BAND_COUNT;
+    using SushiDSP::room::MaterialId;
+    using SushiDSP::room::RoomScene;
+    using SushiDSP::room::Surface;
+
+    /// @brief Holds one value per octave band, 125 Hz to 4 kHz.
+    using Bands = std::array<double, K_BAND_COUNT>;
+
+    /// @brief Counts the rounded operations on the longest path to a mean absorption: a face's
+    /// weighted sum of at most three terms, its division, the sum over six faces and the final
+    /// division, with a margin for the order the code adds in. The table's coefficients are
+    /// rounded to float once, and the expected values below use the same rounded coefficients.
+    constexpr std::size_t K_MEAN_OPERATIONS = 16;
+
+    /// @brief Counts the rounded operations the decay floor 1 - exp(-x) is held to. The
+    /// subtraction amplifies the rounding of the exponential by 1 / x, and x is at least 0.0058
+    /// for the smallest room below, an amplification of 172 units of roundoff.
+    constexpr std::size_t K_FLOOR_OPERATIONS = 32;
+
+    /// @brief Counts the rounded operations of a face's absorption plus the built-room loss.
+    constexpr std::size_t K_FACE_OPERATIONS = 8;
+
+    /// @brief Checks every band of a computed array against an expected one.
+    void expect_bands_within(const Bands& computed, const Bands& expected, std::size_t operations)
+    {
+        for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
+        {
+            EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<double>(
+                computed[band], expected[band], operations)))
+                << "band " << band;
+        }
+    }
+
+    /// @brief Builds the cube of one material and edge, with nothing in it.
+    RoomScene cube_of(MaterialId material, double edge)
+    {
+        RoomScene cube;
+        cube.dimensions = {edge, edge, edge};
+        cube.surfaces.fill(material);
+        return cube;
+    }
+
+    /// @brief Builds the 12 m cube whose four walls are open doorways over carpet.
+    RoomScene dead_room()
+    {
+        RoomScene dead = cube_of(MaterialId::HeavyCarpetOnConcrete, 12.0);
+        dead.patches[0] = {Surface::MinusX, MaterialId::OpenDoorway, 144.0};
+        dead.patches[1] = {Surface::PlusX, MaterialId::OpenDoorway, 144.0};
+        dead.patches[2] = {Surface::MinusY, MaterialId::OpenDoorway, 144.0};
+        dead.patches[3] = {Surface::PlusY, MaterialId::OpenDoorway, 144.0};
+        dead.patch_count = 4;
+        dead.source_position = {3.0, 4.0, 1.0};
+        dead.listener_position = {7.0, 5.0, 1.5};
+        dead.microphone_position = {7.0, 5.0, 1.5};
+        return dead;
+    }
+
+    /// @brief Builds the 3.0 x 2.5 x 2.4 m unpainted concrete room.
+    RoomScene small_concrete_room()
+    {
+        RoomScene room;
+        room.dimensions = {3.0, 2.5, 2.4};
+        room.surfaces.fill(MaterialId::ConcreteUnpainted);
+        room.source_position = {0.3, 0.3, 0.3};
+        room.listener_position = {1.5, 1.25, 1.2};
+        room.microphone_position = {1.5, 1.25, 1.2};
+        return room;
+    }
+
+    /// @brief Returns a face's absorption with the built-room loss added band by band.
+    Bands plus_built_room_loss(const Bands& face)
+    {
+        Bands result{};
+        for (std::size_t band = 0; band < K_BAND_COUNT; ++band)
+        {
+            result[band] = face[band] + SushiDSP::room::K_BUILT_ROOM_LOSS[band];
+        }
+        return result;
+    }
+
+    /// @brief Builds the 10 m cube of gypsum board on studs.
+    RoomScene gypsum_cube()
+    {
+        return cube_of(MaterialId::GypsumBoardOnStuds, 10.0);
+    }
+
+    /// @brief Builds the scene a fresh slot holds.
+    RoomScene fresh_scene()
+    {
+        return RoomScene{};
+    }
+
+    /// @brief Holds a scene, the mean absorption its areas and table rows give, and the decay
+    /// floor of its volume over its area.
+    struct ReferenceRoom
+    {
+            const char* name;
+            RoomScene (*build)();
+            Bands mean;
+            double floor;
+    };
+
+    /// @brief Holds the reference rooms. Every value is derived in
+    /// tests/nodes/room/test_room_scene/README.md.
+    const std::array<ReferenceRoom, 7> K_REFERENCE_ROOMS = {{
+        {"Fresh",
+         fresh_scene,
+         {0.2238775446098678, 0.09020408242940903, 0.07204081703509603, 0.12081632702326288,
+          0.19979592443120722, 0.22714285400449014},
+         0.008180640655788274},
+        {"Garage",
+         SushiDSP::test::garage_scene,
+         {0.0706122446881265, 0.0706122446881265, 0.07999999958033464, 0.07999999958033464,
+          0.07999999958033464, 0.08938775447254278},
+         0.008180640655788274},
+        {"Bedroom",
+         SushiDSP::test::bedroom_scene,
+         {0.2349253664933034, 0.09500000086515697, 0.07171641876782055, 0.11074626890581045,
+          0.18074627387434689, 0.2058955201350931},
+         0.007262553994486387},
+        {"BlockRoom",
+         SushiDSP::test::block_room_scene,
+         {0.10000000149011612, 0.05000000074505806, 0.059999998658895486, 0.07000000029802322,
+          0.09000000357627869, 0.07999999821186066},
+         0.008143858539927828},
+        {"DeadRoom",
+         dead_room,
+         {0.6733333331843218, 0.6866666662196318, 0.7133333335320154, 0.7900000015894572,
+          0.8666666746139526, 0.8833333253860474},
+         0.026476518082418576},
+        {"SmallConcreteRoom",
+         small_concrete_room,
+         {0.009999999776482582, 0.009999999776482582, 0.019999999552965164, 0.019999999552965164,
+          0.019999999552965164, 0.029999999329447746},
+         0.005816352478816955},
+        {"GypsumCube",
+         gypsum_cube,
+         {0.29f, 0.10f, 0.05f, 0.04f, 0.07f, 0.09f},
+         0.022112954592812484},
+    }};
+
+    /// @brief Names a reference room case after the room.
+    std::string reference_room_name(const ::testing::TestParamInfo<ReferenceRoom>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Holds the edge of a concrete cube and whether the decay bound admits it.
+    struct CubeEdge
+    {
+            const char* name;
+            double edge_m;
+            bool valid;
+    };
+
+    /// @brief Holds an edge under and one over the 4.495 m where the bound is crossed.
+    const std::array<CubeEdge, 2> K_CUBE_EDGES = {{{"UnderTheCrossing", 4.4, true},
+                                                   {"OverTheCrossing", 4.6, false}}};
+
+    /// @brief Names a cube edge case.
+    std::string cube_edge_name(const ::testing::TestParamInfo<CubeEdge>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Holds an area a patch must be refused for.
+    struct BadArea
+    {
+            const char* name;
+            double area_m2;
+    };
+
+    /// @brief Holds the four areas that are not a positive finite number.
+    const std::array<BadArea, 4> K_BAD_AREAS = {
+        {{"Zero", 0.0},
+         {"Negative", -1.0},
+         {"NotANumber", std::numeric_limits<double>::quiet_NaN()},
+         {"Infinity", std::numeric_limits<double>::infinity()}}};
+
+    /// @brief Names a bad area case.
+    std::string bad_area_name(const ::testing::TestParamInfo<BadArea>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Holds one face of the default scene.
+    struct Face
+    {
+            const char* name;
+            Surface surface;
+    };
+
+    /// @brief Holds the six faces.
+    const std::array<Face, 6> K_FACES = {{{"MinusX", Surface::MinusX},
+                                          {"PlusX", Surface::PlusX},
+                                          {"MinusY", Surface::MinusY},
+                                          {"PlusY", Surface::PlusY},
+                                          {"Floor", Surface::Floor},
+                                          {"Ceiling", Surface::Ceiling}}};
+
+    /// @brief Names a face case.
+    std::string face_name(const ::testing::TestParamInfo<Face>& info)
+    {
+        return info.param.name;
+    }
+} // namespace
+
+class Small_RoomSceneReferenceRoom : public ::testing::TestWithParam<ReferenceRoom>
+{
+};
+
+class Small_RoomSceneCubeEdge : public ::testing::TestWithParam<CubeEdge>
+{
+};
+
+class Small_RoomSceneBadArea : public ::testing::TestWithParam<BadArea>
+{
+};
+
+class Small_RoomSceneBuiltRoomLoss : public ::testing::TestWithParam<Face>
+{
+};
 
 TEST(Small_RoomScene, RoomSceneComputesTheGaragesVolumeAndArea)
 {
-    const SushiDSP::room::RoomScene garage = SushiDSP::test::garage_scene();
-    EXPECT_NEAR(garage.volume_m3(), 60.0, 1e-9);
-    EXPECT_NEAR(garage.surface_area_m2(), 98.0, 1e-9);
+    const RoomScene garage = SushiDSP::test::garage_scene();
+    EXPECT_EQ(garage.volume_m3(), 60.0);
+    EXPECT_EQ(garage.surface_area_m2(), 98.0);
 }
 
-TEST(Small_RoomScene, RoomSceneWeightsAPatchByItsArea)
+TEST_P(Small_RoomSceneReferenceRoom, RoomSceneAcceptsTheReferenceRoom)
 {
-    // 92 m2 of concrete and 6 m2 of doorway over 98 m2. See tests/nodes/room/test_room_scene/README.md.
-    const std::array<double, 6> absorption = SushiDSP::test::garage_scene().mean_absorption();
-    EXPECT_NEAR(absorption[0], 0.070612, 1e-6);
-    EXPECT_NEAR(absorption[2], 0.080000, 1e-6);
+    std::string reason;
+    EXPECT_TRUE(GetParam().build().is_valid(reason)) << reason;
 }
 
-TEST(Small_RoomScene, RoomSceneComputesTheBedroomsWeightedAbsorption)
+TEST_P(Small_RoomSceneReferenceRoom, RoomSceneWeightsEachPatchAndFaceByItsArea)
 {
-    // At 500 Hz the bedroom's mean absorption is 0.071716. See tests/nodes/room/test_room_scene/README.md.
-    EXPECT_NEAR(SushiDSP::test::bedroom_scene().mean_absorption()[2], 0.071716, 1e-6);
+    // Every row is derived in tests/nodes/room/test_room_scene/README.md.
+    expect_bands_within(GetParam().build().mean_absorption(), GetParam().mean, K_MEAN_OPERATIONS);
 }
+
+TEST_P(Small_RoomSceneReferenceRoom, RoomSceneFloorIsEyringInvertedAtTheDecayBound)
+{
+    // The floor is 1 - exp(-0.161 V / (12 S)); see tests/nodes/room/test_room_scene/README.md.
+    const double floor = GetParam().build().min_mean_absorption();
+    EXPECT_TRUE(TestSupport::is_within(
+        TestSupport::measure_relative_error<double>(floor, GetParam().floor, K_FLOOR_OPERATIONS)));
+}
+
+INSTANTIATE_TEST_SUITE_P(Rooms, Small_RoomSceneReferenceRoom, ::testing::ValuesIn(K_REFERENCE_ROOMS),
+                         reference_room_name);
 
 TEST(Small_RoomScene, RoomSceneRefusesADimensionOutsideItsBounds)
 {
-    using SushiDSP::room::RoomScene;
-
     RoomScene too_small = SushiDSP::test::garage_scene();
     too_small.dimensions.x = 1.0;
     std::string reason;
@@ -82,8 +318,6 @@ TEST(Small_RoomScene, RoomSceneRefusesADimensionOutsideItsBounds)
 
 TEST(Small_RoomScene, RoomSceneRefusesAPoseOutsideTheRoom)
 {
-    using SushiDSP::room::RoomScene;
-
     RoomScene behind_wall = SushiDSP::test::garage_scene();
     behind_wall.source_position.x = -0.1;
     std::string reason;
@@ -101,10 +335,6 @@ TEST(Small_RoomScene, RoomSceneRefusesAPoseOutsideTheRoom)
 
 TEST(Small_RoomScene, RoomSceneRefusesAPatchLargerThanItsFace)
 {
-    using SushiDSP::room::MaterialId;
-    using SushiDSP::room::RoomScene;
-    using SushiDSP::room::Surface;
-
     RoomScene garage = SushiDSP::test::garage_scene();
     garage.patches[0] = {Surface::PlusX, MaterialId::OpenDoorway, 12.0};
     std::string reason;
@@ -113,196 +343,8 @@ TEST(Small_RoomScene, RoomSceneRefusesAPatchLargerThanItsFace)
     EXPECT_NE(reason.find("10"), std::string::npos);
 }
 
-TEST(Small_RoomScene, RoomSceneAcceptsEveryReferenceRoom)
-{
-    using SushiDSP::room::MaterialId;
-    using SushiDSP::room::RoomScene;
-    using SushiDSP::room::Surface;
-
-    // The default scene clears its floor by a factor of 8.8. See tests/nodes/room/test_room_scene/README.md.
-    std::string reason;
-    const RoomScene fresh;
-    EXPECT_TRUE(fresh.is_valid(reason)) << reason;
-    EXPECT_NEAR(fresh.min_mean_absorption(), 0.008181, 1e-6);
-    EXPECT_NEAR(fresh.mean_absorption()[0], 0.223878, 1e-6);
-    EXPECT_NEAR(fresh.mean_absorption()[2], 0.072041, 1e-6);
-
-    EXPECT_TRUE(SushiDSP::test::garage_scene().is_valid(reason)) << reason;
-    EXPECT_TRUE(SushiDSP::test::bedroom_scene().is_valid(reason)) << reason;
-    EXPECT_TRUE(SushiDSP::test::block_room_scene().is_valid(reason)) << reason;
-
-    // The dead room reads 0.673 against a floor of 0.026477. See tests/nodes/room/test_room_scene/README.md.
-    RoomScene dead;
-    dead.dimensions = {12.0, 12.0, 12.0};
-    dead.surfaces.fill(MaterialId::HeavyCarpetOnConcrete);
-    dead.patches[0] = {Surface::MinusX, MaterialId::OpenDoorway, 144.0};
-    dead.patches[1] = {Surface::PlusX, MaterialId::OpenDoorway, 144.0};
-    dead.patches[2] = {Surface::MinusY, MaterialId::OpenDoorway, 144.0};
-    dead.patches[3] = {Surface::PlusY, MaterialId::OpenDoorway, 144.0};
-    dead.patch_count = 4;
-    dead.source_position = {3.0, 4.0, 1.0};
-    dead.listener_position = {7.0, 5.0, 1.5};
-    dead.microphone_position = {7.0, 5.0, 1.5};
-    EXPECT_TRUE(dead.is_valid(reason)) << reason;
-    EXPECT_NEAR(dead.min_mean_absorption(), 0.026477, 1e-6);
-
-    // The 3.0 x 2.5 x 2.4 m unpainted concrete room the crossover case walks: 6.96 s at 125 Hz.
-    RoomScene small_concrete;
-    small_concrete.dimensions = {3.0, 2.5, 2.4};
-    small_concrete.surfaces.fill(MaterialId::ConcreteUnpainted);
-    small_concrete.source_position = {0.3, 0.3, 0.3};
-    small_concrete.listener_position = {1.5, 1.25, 1.2};
-    small_concrete.microphone_position = {1.5, 1.25, 1.2};
-    EXPECT_TRUE(small_concrete.is_valid(reason)) << reason;
-    EXPECT_NEAR(small_concrete.min_mean_absorption(), 0.005816, 1e-6);
-}
-
-TEST(Small_RoomScene, RoomSceneRefusesARoomThatRingsPastTheModulesDecay)
-{
-    using SushiDSP::room::MaterialId;
-    using SushiDSP::room::RoomScene;
-
-    // The concrete cube rings 32.04 s against the 12 s bound. See tests/nodes/room/test_room_scene/README.md.
-    RoomScene cube;
-    cube.dimensions = {12.0, 12.0, 12.0};
-    cube.surfaces.fill(MaterialId::ConcreteUnpainted);
-    std::string reason;
-    EXPECT_FALSE(cube.is_valid(reason));
-    EXPECT_NE(reason.find("0.010000"), std::string::npos) << reason;
-    EXPECT_NE(reason.find("125"), std::string::npos) << reason;
-    EXPECT_NE(reason.find("0.026477"), std::string::npos) << reason;
-    EXPECT_NE(reason.find("12 s"), std::string::npos) << reason;
-
-    // The bound is on every band, not on the mid one. See tests/nodes/room/test_room_scene/README.md.
-    RoomScene gypsum;
-    gypsum.dimensions = {10.0, 10.0, 10.0};
-    gypsum.surfaces.fill(MaterialId::GypsumBoardOnStuds);
-    EXPECT_TRUE(gypsum.is_valid(reason)) << reason;
-
-    // A bare concrete cube crosses the bound at 4.495 m. See tests/nodes/room/test_room_scene/README.md.
-    RoomScene under;
-    under.dimensions = {4.4, 4.4, 4.4};
-    under.surfaces.fill(MaterialId::ConcreteUnpainted);
-    EXPECT_TRUE(under.is_valid(reason)) << reason;
-
-    RoomScene over;
-    over.dimensions = {4.6, 4.6, 4.6};
-    over.surfaces.fill(MaterialId::ConcreteUnpainted);
-    EXPECT_FALSE(over.is_valid(reason));
-
-    // The floor rises with the room's volume over its area. See tests/nodes/room/test_room_scene/README.md.
-    RoomScene shoebox;
-    shoebox.dimensions = {6.0, 4.0, 2.5};
-    shoebox.surfaces.fill(MaterialId::ConcreteUnpainted);
-    EXPECT_TRUE(shoebox.is_valid(reason)) << reason;
-    EXPECT_LT(shoebox.min_mean_absorption(), over.min_mean_absorption());
-}
-
-TEST(Small_RoomScene, RoomSceneSumsItsFurnishingAreaByQuantity)
-{
-    using SushiDSP::room::furniture;
-    using SushiDSP::room::FurnitureId;
-
-    SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
-    scene.furnishings[0] = {FurnitureId::WardrobeModule, 3.0};
-    scene.furnishings[1] = {FurnitureId::SofaTwoSeat, 2.0};
-    scene.furnishing_count = 2;
-
-    const std::array<double, 6> area = scene.furnishing_absorption_area();
-    const auto& wardrobe = furniture(FurnitureId::WardrobeModule).absorption_area;
-    const auto& sofa = furniture(FurnitureId::SofaTwoSeat).absorption_area;
-    for (std::size_t band = 0; band < area.size(); ++band)
-    {
-        const double expected =
-            3.0 * static_cast<double>(wardrobe[band]) + 2.0 * static_cast<double>(sofa[band]);
-        EXPECT_NEAR(area[band], expected, 1e-12) << "band " << band;
-    }
-}
-
-TEST(Small_RoomScene, RoomSceneWithoutFurnishingsHasNoFurnishingArea)
-{
-    const std::array<double, 6> area = SushiDSP::test::garage_scene().furnishing_absorption_area();
-    for (std::size_t band = 0; band < area.size(); ++band)
-    {
-        EXPECT_EQ(area[band], 0.0) << "band " << band;
-    }
-}
-
-TEST(Small_RoomScene, RoomSceneRefusesABadFurnishing)
-{
-    using SushiDSP::room::FurnitureId;
-    using SushiDSP::room::RoomScene;
-
-    const auto refused_with = [](double quantity)
-    {
-        RoomScene scene = SushiDSP::test::garage_scene();
-        scene.furnishings[0] = {FurnitureId::SofaTwoSeat, quantity};
-        scene.furnishing_count = 1;
-        std::string reason;
-        EXPECT_FALSE(scene.is_valid(reason)) << "quantity " << quantity;
-        EXPECT_FALSE(reason.empty()) << "quantity " << quantity;
-    };
-    refused_with(0.0);
-    refused_with(-1.0);
-    refused_with(std::numeric_limits<double>::quiet_NaN());
-    refused_with(std::numeric_limits<double>::infinity());
-
-    RoomScene unknown_item = SushiDSP::test::garage_scene();
-    unknown_item.furnishings[0] = {static_cast<FurnitureId>(200), 1.0};
-    unknown_item.furnishing_count = 1;
-    std::string reason;
-    EXPECT_FALSE(unknown_item.is_valid(reason));
-    EXPECT_FALSE(reason.empty());
-
-    RoomScene too_many = SushiDSP::test::garage_scene();
-    too_many.furnishing_count = 17;
-    reason.clear();
-    EXPECT_FALSE(too_many.is_valid(reason));
-    EXPECT_NE(reason.find("16"), std::string::npos) << reason;
-}
-
-TEST(Small_RoomScene, RoomSceneCountsFurnitureTowardTheDecayBound)
-{
-    using SushiDSP::room::FurnitureId;
-    using SushiDSP::room::MaterialId;
-    using SushiDSP::room::RoomScene;
-
-    // A 12 m concrete cube rings past the bound bare and inside it with six sofas.
-    RoomScene cube;
-    cube.dimensions = {12.0, 12.0, 12.0};
-    cube.surfaces.fill(MaterialId::ConcreteUnpainted);
-    std::string reason;
-    EXPECT_FALSE(cube.is_valid(reason));
-
-    cube.furnishings[0] = {FurnitureId::SofaTwoSeat, 6.0};
-    cube.furnishing_count = 1;
-    EXPECT_TRUE(cube.is_valid(reason)) << reason;
-}
-
-TEST(Small_RoomScene, RoomSceneKeepsItsAbsorptionWhenFurnished)
-{
-    using SushiDSP::room::FurnitureId;
-    using SushiDSP::room::RoomScene;
-
-    const RoomScene bare = SushiDSP::test::bedroom_scene();
-    RoomScene furnished = bare;
-    furnished.furnishings[0] = {FurnitureId::SofaTwoSeat, 2.0};
-    furnished.furnishing_count = 1;
-
-    const std::array<double, 6> before = bare.mean_absorption();
-    const std::array<double, 6> after = furnished.mean_absorption();
-    for (std::size_t band = 0; band < before.size(); ++band)
-    {
-        EXPECT_EQ(before[band], after[band]) << "band " << band;
-    }
-}
-
 TEST(Small_RoomScene, RoomSceneRefusesPatchesThatTogetherOverfillAFace)
 {
-    using SushiDSP::room::MaterialId;
-    using SushiDSP::room::RoomScene;
-    using SushiDSP::room::Surface;
-
     RoomScene garage = SushiDSP::test::garage_scene();
     garage.patch_count = 2;
     garage.patches[0] = {Surface::PlusY, MaterialId::GlassWindow, 8.0};
@@ -315,57 +357,84 @@ TEST(Small_RoomScene, RoomSceneRefusesPatchesThatTogetherOverfillAFace)
     EXPECT_TRUE(garage.is_valid(reason)) << reason;
 }
 
-TEST(Small_RoomScene, RoomSceneRefusesABadPatchAreaAndTooManyPatches)
+TEST_P(Small_RoomSceneBadArea, RoomSceneRefusesAPatchWhoseAreaIsNotPositiveAndFinite)
 {
-    using SushiDSP::room::MaterialId;
-    using SushiDSP::room::RoomScene;
-    using SushiDSP::room::Surface;
-
     RoomScene garage = SushiDSP::test::garage_scene();
-    garage.patch_count = 1;
+    garage.patches[0] = {Surface::PlusX, MaterialId::GlassWindow, GetParam().area_m2};
     std::string reason;
-    for (const double area : {0.0, -1.0, std::numeric_limits<double>::quiet_NaN(),
-                              std::numeric_limits<double>::infinity()})
-    {
-        garage.patches[0] = {Surface::PlusX, MaterialId::GlassWindow, area};
-        EXPECT_FALSE(garage.is_valid(reason)) << "area " << area;
-        EXPECT_FALSE(reason.empty());
-    }
+    EXPECT_FALSE(garage.is_valid(reason));
+    EXPECT_NE(reason.find("non-positive area"), std::string::npos) << reason;
+}
 
+INSTANTIATE_TEST_SUITE_P(Areas, Small_RoomSceneBadArea, ::testing::ValuesIn(K_BAD_AREAS), bad_area_name);
+
+TEST(Small_RoomScene, RoomSceneRefusesMorePatchesThanItHolds)
+{
+    RoomScene garage = SushiDSP::test::garage_scene();
     garage.patches[0] = {Surface::PlusX, MaterialId::GlassWindow, 1.0};
     garage.patch_count = RoomScene::K_MAX_PATCHES + 1;
+    std::string reason;
     EXPECT_FALSE(garage.is_valid(reason));
     EXPECT_NE(reason.find("patches"), std::string::npos);
 }
 
-TEST(Small_RoomScene, RoomSceneAddsTheBuiltRoomLossToEveryFaceWhenSet)
+TEST(Small_RoomScene, RoomSceneRefusalNamesTheFailingBandItsFloorAndTheBound)
 {
-    SushiDSP::room::RoomScene plain;
-    SushiDSP::room::RoomScene built = plain;
+    // The concrete cube rings 32.04 s against the 12 s bound. See tests/nodes/room/test_room_scene/README.md.
+    std::string reason;
+    EXPECT_FALSE(cube_of(MaterialId::ConcreteUnpainted, 12.0).is_valid(reason));
+    EXPECT_NE(reason.find("0.010000"), std::string::npos) << reason;
+    EXPECT_NE(reason.find("125"), std::string::npos) << reason;
+    EXPECT_NE(reason.find("0.026477"), std::string::npos) << reason;
+    EXPECT_NE(reason.find("12 s"), std::string::npos) << reason;
+}
+
+TEST(Small_RoomScene, RoomSceneRefusesARoomWhoseLowestBandAloneIsUnderTheFloor)
+{
+    // Carpet clears the floor from 250 Hz up and misses it at 125 Hz alone. See tests/nodes/room/test_room_scene/README.md.
+    std::string reason;
+    EXPECT_FALSE(cube_of(MaterialId::HeavyCarpetOnConcrete, 12.0).is_valid(reason));
+    EXPECT_NE(reason.find("0.020000 at 125 Hz"), std::string::npos) << reason;
+}
+
+TEST_P(Small_RoomSceneCubeEdge, RoomSceneAdmitsAConcreteCubeOnlyUnderTheBound)
+{
+    // A bare concrete cube crosses the bound at 4.495 m. See tests/nodes/room/test_room_scene/README.md.
+    std::string reason;
+    EXPECT_EQ(cube_of(MaterialId::ConcreteUnpainted, GetParam().edge_m).is_valid(reason), GetParam().valid)
+        << reason;
+}
+
+INSTANTIATE_TEST_SUITE_P(Edges, Small_RoomSceneCubeEdge, ::testing::ValuesIn(K_CUBE_EDGES), cube_edge_name);
+
+TEST(Small_RoomScene, RoomSceneFloorRisesWithVolumeOverArea)
+{
+    // The same concrete passes in a 6.0 x 4.0 x 2.5 m shoebox. See tests/nodes/room/test_room_scene/README.md.
+    RoomScene shoebox;
+    shoebox.surfaces.fill(MaterialId::ConcreteUnpainted);
+    const RoomScene cube = cube_of(MaterialId::ConcreteUnpainted, 4.6);
+    std::string reason;
+    EXPECT_TRUE(shoebox.is_valid(reason)) << reason;
+    EXPECT_LT(shoebox.min_mean_absorption(), cube.min_mean_absorption());
+}
+
+TEST_P(Small_RoomSceneBuiltRoomLoss, RoomSceneAddsTheBuiltRoomLossToTheFaceWhenSet)
+{
+    const RoomScene plain;
+    RoomScene built = plain;
     built.built_room_loss = true;
 
-    for (std::size_t face = 0; face < SushiDSP::room::K_SURFACE_COUNT; ++face)
-    {
-        const auto surface = static_cast<SushiDSP::room::Surface>(face);
-        const std::array<double, 6> without = plain.face_absorption(surface);
-        const std::array<double, 6> with = built.face_absorption(surface);
-        for (std::size_t band = 0; band < 6; ++band)
-        {
-            EXPECT_DOUBLE_EQ(with[band], without[band] + SushiDSP::room::K_BUILT_ROOM_LOSS[band])
-                << "face " << face << " band " << band;
-        }
-    }
+    expect_bands_within(built.face_absorption(GetParam().surface),
+                        plus_built_room_loss(plain.face_absorption(GetParam().surface)), K_FACE_OPERATIONS);
 }
+
+INSTANTIATE_TEST_SUITE_P(Faces, Small_RoomSceneBuiltRoomLoss, ::testing::ValuesIn(K_FACES), face_name);
 
 TEST(Small_RoomScene, RoomSceneCapsTheBuiltRoomLossAtFullAbsorption)
 {
-    SushiDSP::room::RoomScene scene;
-    scene.surfaces.fill(SushiDSP::room::MaterialId::OpenDoorway);
+    RoomScene scene;
+    scene.surfaces.fill(MaterialId::OpenDoorway);
     scene.built_room_loss = true;
 
-    const std::array<double, 6> absorption = scene.mean_absorption();
-    for (std::size_t band = 0; band < 6; ++band)
-    {
-        EXPECT_DOUBLE_EQ(absorption[band], 1.0) << "band " << band;
-    }
+    EXPECT_EQ(scene.mean_absorption(), (Bands{1.0, 1.0, 1.0, 1.0, 1.0, 1.0}));
 }
