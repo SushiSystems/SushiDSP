@@ -113,6 +113,63 @@ class TestUnsafeName(unittest.TestCase):
         text = 'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return "n-" + i.param.tag; });\n'
         self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [("test_a.cpp", 1)])
 
+    def test_keeps_to_string_when_the_signature_of_a_named_generator_declares_an_unsigned_type(self) -> None:
+        text = ('std::string name(const ::testing::TestParamInfo<std::uint32_t>& i)\n{\n'
+                '  return std::to_string(i.param);\n}\nINSTANTIATE_TEST_SUITE_P(, S, V, name);\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [])
+
+    def test_keeps_to_string_when_the_fixture_declares_an_unsigned_parameter(self) -> None:
+        text = ('class S : public ::testing::TestWithParam<std::size_t>\n{\n};\n'
+                'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return std::to_string(i.param); });\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [])
+
+    def test_keeps_to_string_when_the_fixture_names_its_parameter_through_the_interface(self) -> None:
+        text = ('class S : public Base,\n        public ::testing::WithParamInterface<unsigned int>\n{\n};\n'
+                'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return std::to_string(i.param); });\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [])
+
+    def test_reports_to_string_when_the_fixture_declares_a_signed_parameter(self) -> None:
+        text = ('class S : public ::testing::TestWithParam<int>\n{\n};\n'
+                'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return std::to_string(i.param); });\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [("test_a.cpp", 4)])
+
+    def test_reports_to_string_when_the_fixture_is_not_in_the_file(self) -> None:
+        text = 'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return std::to_string(i.param); });\n'
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [("test_a.cpp", 1)])
+
+    def test_reports_a_shared_generator_when_one_of_its_fixtures_is_signed(self) -> None:
+        text = ('class A : public ::testing::TestWithParam<std::size_t>\n{\n};\n'
+                'class B : public ::testing::TestWithParam<int>\n{\n};\n'
+                'std::string name(const auto& i)\n{\n  return std::to_string(i.param);\n}\n'
+                'INSTANTIATE_TEST_SUITE_P(, A, V, name);\nINSTANTIATE_TEST_SUITE_P(, B, V, name);\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [("test_a.cpp", 9)])
+
+    def test_keeps_to_string_of_an_element_of_an_unsigned_c_array(self) -> None:
+        text = ('constexpr std::size_t K_INDICES[] = {0, 1};\n'
+                'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return std::to_string(K_INDICES[i.param]); });\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [])
+
+    def test_keeps_to_string_of_an_element_of_an_unsigned_std_array(self) -> None:
+        text = ('constexpr std::array<unsigned, 2> K_SIZES = {1, 2};\n'
+                'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return std::to_string(K_SIZES[i.param]); });\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [])
+
+    def test_reports_to_string_of_an_element_of_a_signed_array(self) -> None:
+        text = ('constexpr int K_VALUES[] = {-1, 1};\n'
+                'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return std::to_string(K_VALUES[i.param]); });\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [("test_a.cpp", 2)])
+
+    def test_reports_to_string_of_an_element_of_an_array_declared_elsewhere(self) -> None:
+        text = 'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i) { return std::to_string(K_VALUES[i.param]); });\n'
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [("test_a.cpp", 1)])
+
+    def test_reports_a_computed_value_of_a_signed_parameter_beside_an_unsigned_array(self) -> None:
+        text = ('constexpr std::size_t K_INDICES[] = {0, 1};\n'
+                'class S : public ::testing::TestWithParam<int>\n{\n};\n'
+                'INSTANTIATE_TEST_SUITE_P(, S, V, [](const auto& i)\n'
+                '  { return std::to_string(static_cast<int>(std::lround(i.param * 100.0))); });\n')
+        self.assertEqual(found(rule_unsafe_name, {"a/test_a.cpp": text}), [("test_a.cpp", 6)])
+
 
 if __name__ == "__main__":
     unittest.main()
