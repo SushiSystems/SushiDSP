@@ -35,6 +35,8 @@
 
 #include <gtest/gtest.h>
 
+#include "support/tolerance.hpp"
+
 #include <SushiDSP/foundation/circuits/power_amp_feedback.hpp>
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
 
@@ -124,57 +126,96 @@ namespace
             to_divider * ohms(c.grid_leak_resistor_ohms) / grid_branch;
         return 20.0 * std::log10(std::abs(to_grid));
     }
-} // namespace
 
-TEST(Small_PowerAmpFeedback, PowerAmpFeedbackMatchesTheLadderSolvedByHand)
-{
-    for (const double presence : {0.0, 0.25, 0.5, 1.0})
+    const double kU = TestSupport::unit_roundoff<float>();
+
+    /// @brief The gain error in decibels of the measurement: the input and the output are floats, so the projection carries 8 u of relative error, and 20 / ln 10 turns it into decibels. The one-second settle leaves e^(-1 s / tau) of the start, with tau at most the sum of the resistors times the sum of the capacitors, 73 ms, which is 1e-6 and so adds 1e-5 dB.
+    const double kMeasurementDb = 8.686 * 8.0 * kU + 1e-5;
+
+    /// @brief The ladder's slope in decibels per neper of frequency, by a centred difference over a thousandth of a neper.
+    double slope_db_per_neper(double frequency_hz, double presence)
     {
-        for (const double frequency : {80.0, 600.0, 3000.0, 10000.0})
+        constexpr double K_STEP = 1e-3;
+        return (analytic_gain_db(frequency_hz * std::exp(K_STEP), presence) -
+                analytic_gain_db(frequency_hz * std::exp(-K_STEP), presence)) /
+               (2.0 * K_STEP);
+    }
+
+    // The bilinear transform maps the analog frequency f to tan(pi f / fs) fs / pi, which is f (1 + x^2 / 3 + ...) at x = pi f / fs, so the digital response at f is the analog response shifted by ln(1 + x^2 / 3) nepers; the factor 1.5 covers the next terms for x below 0.33.
+    double warp_bound_db(double slope, double frequency_hz)
+    {
+        const double x = K_PI * frequency_hz / K_RATE;
+        return std::fabs(slope) * x * x / 3.0 * 1.5;
+    }
+
+    /// @brief Holds one presence position and one drive frequency.
+    struct LadderRow
+    {
+            const char* name;
+            double presence;
+            double frequency_hz;
+    };
+
+    const LadderRow kLadderRows[] = {
+        {"PresenceZeroAt80Hz", 0.0, 80.0},       {"PresenceZeroAt600Hz", 0.0, 600.0},
+        {"PresenceZeroAt3kHz", 0.0, 3000.0},     {"PresenceZeroAt10kHz", 0.0, 10000.0},
+        {"PresenceQuarterAt80Hz", 0.25, 80.0},   {"PresenceQuarterAt600Hz", 0.25, 600.0},
+        {"PresenceQuarterAt3kHz", 0.25, 3000.0}, {"PresenceQuarterAt10kHz", 0.25, 10000.0},
+        {"PresenceHalfAt80Hz", 0.5, 80.0},       {"PresenceHalfAt600Hz", 0.5, 600.0},
+        {"PresenceHalfAt3kHz", 0.5, 3000.0},     {"PresenceHalfAt10kHz", 0.5, 10000.0},
+        {"PresenceFullAt80Hz", 1.0, 80.0},       {"PresenceFullAt600Hz", 1.0, 600.0},
+        {"PresenceFullAt3kHz", 1.0, 3000.0},     {"PresenceFullAt10kHz", 1.0, 10000.0},
+    };
+
+    /// @brief Builds a leg with the Mark IIC+ values and the inverter's tail impedance.
+    SushiDSP::PowerAmpFeedback make_leg()
+    {
+        return SushiDSP::PowerAmpFeedback(K_RATE, SushiDSP::K_MARK2C_FEEDBACK,
+                                          SushiDSP::PowerAmpFeedbackTermination{K_TAIL_IMPEDANCE_OHMS});
+    }
+
+    /// @brief Builds a leg at 0 Hz, which the derivation refuses, and drops the exception.
+    void construct_at_zero_hertz_and_swallow_the_refusal()
+    {
+        try
         {
-            SushiDSP::PowerAmpFeedback leg(
-                K_RATE, SushiDSP::K_MARK2C_FEEDBACK,
-                SushiDSP::PowerAmpFeedbackTermination{K_TAIL_IMPEDANCE_OHMS});
-            leg.set_presence(static_cast<float>(presence));
-            EXPECT_NEAR(steady_gain_db(leg, frequency), analytic_gain_db(frequency, presence), 0.05)
-                << "presence " << presence << " at " << frequency << " Hz";
+            SushiDSP::PowerAmpFeedback leg(0.0, SushiDSP::K_MARK2C_FEEDBACK);
+        }
+        catch (const std::runtime_error&)
+        {
         }
     }
-}
+} // namespace
 
-TEST(Small_PowerAmpFeedback, PowerAmpFeedbackOpeningPresenceRemovesMoreTrebleThanBass)
+
+class Small_PowerAmpFeedbackLadder : public ::testing::TestWithParam<LadderRow>
 {
-    SushiDSP::PowerAmpFeedback shut(K_RATE, SushiDSP::K_MARK2C_FEEDBACK,
-                                    SushiDSP::PowerAmpFeedbackTermination{K_TAIL_IMPEDANCE_OHMS});
-    SushiDSP::PowerAmpFeedback open(K_RATE, SushiDSP::K_MARK2C_FEEDBACK,
-                                    SushiDSP::PowerAmpFeedbackTermination{K_TAIL_IMPEDANCE_OHMS});
-    shut.set_presence(0.0f);
-    open.set_presence(1.0f);
+};
 
-    const double bass_travel = steady_gain_db(shut, 80.0) - steady_gain_db(open, 80.0);
-    SushiDSP::PowerAmpFeedback shut_hf(
-        K_RATE, SushiDSP::K_MARK2C_FEEDBACK,
-        SushiDSP::PowerAmpFeedbackTermination{K_TAIL_IMPEDANCE_OHMS});
-    SushiDSP::PowerAmpFeedback open_hf(
-        K_RATE, SushiDSP::K_MARK2C_FEEDBACK,
-        SushiDSP::PowerAmpFeedbackTermination{K_TAIL_IMPEDANCE_OHMS});
-    shut_hf.set_presence(0.0f);
-    open_hf.set_presence(1.0f);
-    const double treble_travel =
-        steady_gain_db(shut_hf, 10000.0) - steady_gain_db(open_hf, 10000.0);
+TEST_P(Small_PowerAmpFeedbackLadder, PowerAmpFeedbackMatchesTheLadderSolvedByHand)
+{
+    const LadderRow& row = GetParam();
+    SushiDSP::PowerAmpFeedback leg = make_leg();
+    leg.set_presence(static_cast<float>(row.presence));
+    const double bound = warp_bound_db(slope_db_per_neper(row.frequency_hz, row.presence), row.frequency_hz) + kMeasurementDb;
 
-    // The traced network's own figures, from docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md.
-    EXPECT_NEAR(bass_travel, 14.15, 0.2);
-    EXPECT_NEAR(treble_travel, 34.38, 0.2);
-    EXPECT_GT(treble_travel, bass_travel + 15.0);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(
+        steady_gain_db(leg, row.frequency_hz), analytic_gain_db(row.frequency_hz, row.presence), bound)));
 }
 
-TEST(Small_PowerAmpFeedback, PowerAmpFeedbackThrowsAndLogsOneErrorWhenTheDerivationFails)
+INSTANTIATE_TEST_SUITE_P(Settings, Small_PowerAmpFeedbackLadder, ::testing::ValuesIn(kLadderRows),
+                         [](const ::testing::TestParamInfo<LadderRow>& info) { return std::string(info.param.name); });
+
+TEST(Small_PowerAmpFeedback, PowerAmpFeedbackThrowsWhenTheDerivationFails)
+{
+    EXPECT_THROW(SushiDSP::PowerAmpFeedback(0.0, SushiDSP::K_MARK2C_FEEDBACK), std::runtime_error);
+}
+
+TEST(Small_PowerAmpFeedback, PowerAmpFeedbackLogsOneErrorWhenTheDerivationFails)
 {
     SushiDSP::LogCapture capture;
 
-    EXPECT_THROW(SushiDSP::PowerAmpFeedback(0.0, SushiDSP::K_MARK2C_FEEDBACK),
-                 std::runtime_error);
+    construct_at_zero_hertz_and_swallow_the_refusal();
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 1u);

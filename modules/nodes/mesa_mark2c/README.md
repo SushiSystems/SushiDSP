@@ -36,7 +36,7 @@ default peak stays inside the −7 to −5 dBFS window `K_MASTER_UNITY_GAIN` is 
 distortion's distribution between the stages did, which is what took the THD figure above from
 8.50 pp to 3.32 pp.
 
-The same termination is not a fixed figure. `FmvToneStackLoadingCostIsTheDecksOwnAndNotOneFigure`
+The same termination is not a fixed figure. `FmvToneStackLoadingTiltIsTheDecksOwn`
 measures it on both decks: the slope resistor sets how large a perturbation a 44 k source is, 100 k
 here against the JCM's 33 k, so the identical termination tilts the JCM's band by 3.89 dB and this
 one by 0.87 dB. The other three amplifiers pass no termination and are unchanged.

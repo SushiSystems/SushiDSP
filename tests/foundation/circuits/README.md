@@ -21,7 +21,7 @@ source and an open output.
 the tolerance at 6 kHz, where a 48 kHz run would separate them by more than the measurement's
 own error.
 
-### `FmvToneStackLoadingCostIsTheDecksOwnAndNotOneFigure`
+### `FmvToneStackLoadingAttenuatesTheDeck`, `FmvToneStackLoadingTiltIsTheDecksOwn` and `FmvToneStackLoadingCostsMoreThanOneDecibelAtOneKilohertz`
 
 `// The same termination costs each deck a different tilt.`
 
