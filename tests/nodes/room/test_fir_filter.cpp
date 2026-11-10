@@ -36,20 +36,17 @@
 
 TEST(Small_FirFilter, UnitImpulseTapPassesTheInputUnchanged)
 {
+    // A tap of one at lag zero and zeros elsewhere multiplies by one and adds zeros, which is exact.
     std::vector<float> taps(SushiDSP::room::FirFilter::K_TAPS, 0.0f);
     taps[0] = 1.0f;
     SushiDSP::room::FirFilter filter;
     filter.prepare(8u);
     filter.load(taps.data());
     filter.reset();
-    std::array<float, 8> input{};
-    input[0] = 1.0f;
-    input[3] = -0.5f;
+    const std::array<float, 8> input = {1.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f};
     std::array<float, 8> output{};
-    filter.process(input.data(), output.data(), 8u);
-    for (std::size_t i = 0; i < input.size(); ++i)
-    {
-        EXPECT_NEAR(output[i], input[i], 1e-6f);
-    }
-}
 
+    filter.process(input.data(), output.data(), 8u);
+
+    EXPECT_EQ(output, input);
+}

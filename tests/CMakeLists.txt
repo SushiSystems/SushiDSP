@@ -74,8 +74,8 @@ add_executable(sushidsp_tests
     nodes/room/test_fir_filter.cpp
     nodes/room/test_diffuse_field.cpp
     nodes/room/test_cabinet_geometry.cpp
-    nodes/room/test_early_tap_set.cpp
-    nodes/room/test_fdn_design.cpp
+    nodes/room/compile_early_tap_set.cpp
+    nodes/room/compile_fdn_design.cpp
     nodes/room/test_modal_design.cpp
     nodes/room/test_room_host.cpp
     nodes/room/test_pair_stage.cpp

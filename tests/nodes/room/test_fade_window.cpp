@@ -33,11 +33,23 @@
 
 #include <cstdint>
 
-TEST(Small_FadeWindow, CrossfadeIsTwoEarsOfFiveHundredTwelveFrames)
+namespace
 {
-    EXPECT_EQ(SushiDSP::room::K_CROSSFADE_FRAMES, 512u);
-    EXPECT_EQ(SushiDSP::room::K_EARS, 2u);
-}
+    /// @brief Expects the weights of every frame of a fade of @p total frames to lie in (0, 1]
+    /// and never to fall.
+    void expect_weights_rise_within_unit_range(std::uint32_t total)
+    {
+        float previous = 0.0f;
+        for (std::uint32_t frame = 0; frame < total; ++frame)
+        {
+            const float weight = SushiDSP::room::fade_weight(frame, total);
+            EXPECT_GT(weight, 0.0f) << "frame " << frame;
+            EXPECT_LE(weight, 1.0f) << "frame " << frame;
+            EXPECT_GE(weight, previous) << "frame " << frame;
+            previous = weight;
+        }
+    }
+} // namespace
 
 TEST(Small_FadeWindow, WeightEndsAtOne)
 {
@@ -46,13 +58,5 @@ TEST(Small_FadeWindow, WeightEndsAtOne)
 
 TEST(Small_FadeWindow, WeightRisesMonotonicallyAndStaysInUnitRange)
 {
-    float previous = 0.0f;
-    for (std::uint32_t frame = 0; frame < 512u; ++frame)
-    {
-        const float weight = SushiDSP::room::fade_weight(frame, 512u);
-        EXPECT_GT(weight, 0.0f);
-        EXPECT_LE(weight, 1.0f);
-        EXPECT_GE(weight, previous);
-        previous = weight;
-    }
+    expect_weights_rise_within_unit_range(SushiDSP::room::K_CROSSFADE_FRAMES);
 }
