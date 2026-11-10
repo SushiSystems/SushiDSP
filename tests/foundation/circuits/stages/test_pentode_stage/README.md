@@ -51,3 +51,8 @@ alone in an 8x region, driven to the 8 V that one model volt of the old stage st
 its whole 38 V window, folds under -80 dB and -50 dB. Measured 2026-09-07: -88.1 dB at 8 V and
 -55.1 dB at 38 V, and -101.2 and -84.4 dB once antialiased (DA5 part 4), where the
 bias-referenced stage read -49.7 dB at one model volt.
+The sweep is 20 tones of one second and one analysis frame, rendered through the stage's 8x region,
+so no input of it is smaller without leaving the claim: the spec's acceptance is the worst of the
+1 to 20 kHz tones. The cases took 4.7 s (V5A) and 4.0 s (EL34) in the Debug run of 2026-11-10 against
+0.1 s for a `Small_` case, so they are `Medium_` (limit 5 s). They are two rows of one promise at two
+drives, kept as two cases because each has its own bound.

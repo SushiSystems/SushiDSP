@@ -49,13 +49,13 @@ namespace
     }
 } // namespace
 
-SUSHIDSP_REGRESSION_TEST(Small_TriodeStage, TriodeStageAliasFloorAtThreeTimesItsWindowIsUnderMinusSixtyDb)
+SUSHIDSP_REGRESSION_TEST(Medium_TriodeStage, TriodeStageAliasFloorAtThreeTimesItsWindowIsUnderMinusSixtyDb)
 {
     // V5A alone folds under -60 dB at 6 V. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     EXPECT_LT(alias_floor_at(6.0f), -60.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Small_TriodeStage, TriodeStageAliasFloorAtTwelveTimesItsWindowIsUnderMinusFortyDb)
+SUSHIDSP_REGRESSION_TEST(Medium_TriodeStage, TriodeStageAliasFloorAtTwelveTimesItsWindowIsUnderMinusFortyDb)
 {
     // V5A alone folds under -40 dB at 24 V. See tests/foundation/circuits/stages/test_triode_stage/README.md.
     EXPECT_LT(alias_floor_at(24.0f), -40.0);

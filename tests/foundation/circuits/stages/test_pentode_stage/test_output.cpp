@@ -60,13 +60,13 @@ namespace
     }
 } // namespace
 
-SUSHIDSP_REGRESSION_TEST(Small_PentodeStage, PentodeStageAliasFloorInsideItsWindowIsUnderMinusEightyDb)
+SUSHIDSP_REGRESSION_TEST(Medium_PentodeStage, PentodeStageAliasFloorInsideItsWindowIsUnderMinusEightyDb)
 {
     // The EL34 folds under -80 dB at 8 V. See tests/foundation/circuits/stages/test_pentode_stage/README.md.
     EXPECT_LT(alias_floor_at(8.0f), -80.0);
 }
 
-SUSHIDSP_REGRESSION_TEST(Small_PentodeStage, PentodeStageAliasFloorAtItsWholeWindowIsUnderMinusFiftyDb)
+SUSHIDSP_REGRESSION_TEST(Medium_PentodeStage, PentodeStageAliasFloorAtItsWholeWindowIsUnderMinusFiftyDb)
 {
     // The EL34 folds under -50 dB at 38 V. See tests/foundation/circuits/stages/test_pentode_stage/README.md.
     EXPECT_LT(alias_floor_at(38.0f), -50.0);
