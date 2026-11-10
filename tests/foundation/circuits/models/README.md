@@ -2,9 +2,11 @@
 
 ## `test_pentode_el34.cpp`
 
-### `PentodeEL34MatchesKorenAtThreeOperatingPoints`
+### `Small_PentodeEl34Koren.CurrentsAndConductancesMatchKorensLaw`
 
-`// The three points are hand-computed from Koren's law.`
+`// The README prints each oracle to 15 digits; the bound is half a unit of the last one plus the model's own rounding.`
+
+The three rows are hand-computed from Koren's law. The 15 printed digits and 64 u of model rounding set the bound.
 
 mu = 11, kp = 60, kvb = 24, kg1 = 650, kg2 = 4500, kx = 1.35.
 
@@ -44,9 +46,9 @@ z = 400/11 - 5 = 31.3636363636364,  Ig2 = 2.32789367120296e-2 A,
 dIg2/dVg1k = 1.00200640630040e-3 S,  dIg2/dVg2k = 9.10914914818548e-5 S
 ```
 
-### `PentodeEL34GridCurrentFollowsNormansSoftLaw`
+### `Small_PentodeEl34Grid.CurrentAndConductanceFollowNormansSoftLaw`
 
-`// Ig1 = 1e-6 * ln(1 + exp((Vg1k - 0.5)/0.15)).`
+`// Ig1 = 1e-6 ln(1 + exp((Vg1k - 0.5) / 0.15)), its slope the logistic of the same argument; the oracle is README.md.`
 
 Ig1 = 1e-6 \* ln(1 + exp((Vg1k - 0.5)/0.15)), dIg1/dVg1k = (1e-6/0.15) \* logistic(same).
 
@@ -59,33 +61,33 @@ Vg1k =  1.0 : argument = 3.33333333333333, ln(1+exp) = 3.36838574941280
               Ig1 = 3.36838574941280e-6 A,  dIg1 = 6.43703202889193e-6 S
 ```
 
-### `PentodeEL34JacobianMatchesCentredDifferencesEverywhere`
+### `Small_PentodeEl34Difference.JacobianMatchesCentredDifferencesOfTheCurrents`
 
-`// The screen law kinks at z = 0; skip it.`
+`// None sits within a step of the screen kink z = Vg2k / mu + Vg1k = 0, where a centred difference averages two slopes.`
 
 The screen law has a max(0, z) kink at z = Vg2k/mu + Vg1k = 0. A centred difference that
 straddles the kink averages two different one-sided slopes and is not the derivative there, so
 skip a step-sized neighbourhood of it.
 
-### `PentodeEL34ScreenCurrentIsCOneAcrossItsKink`
+### `Small_PentodeEl34Kink.ScreenCurrentAndSlopesStayWithinTheirPowerLaw`
 
-`// kx > 1, so the screen current is C1 at z = 0.`
+`// kx > 1, so z^kx and kx z^(kx-1) vanish continuously at z = 0. Near the kink z lies within |offset| of zero, so the screen current stays under |z|^kx / kg2 and its slopes under kx |z|^(kx-1) / kg2 (and a mu-th of it for Vg2k).`
 
 z = Vg2k/mu + Vg1k crosses zero at Vg1k = -Vg2k/mu. kx = 1.35 > 1, so z^kx and kx\*z^(kx-1) both
 vanish continuously there: no slope step for the Newton solver to trip on.
 
-### `PentodeEL34PlateCurrentKneesOverWithPlateVoltage`
+### `Small_PentodeEl34.PentodeEL34PlateCurrentKneesOverWithPlateVoltage`
 
-`// Ip factors into a grid term times atan(Vpk/kvb).`
+`// Ip is a grid-only term times atan(Vpk / kvb), so quadrupling Vpk scales it by atan(400 / 24) / atan(100 / 24) = 1.13152342150114. The grid term is the same product in both, so the ratio costs two arctangents, two divisions, two products and one quotient.`
 
 The pentode's whole character is atan(Vpk/kvb): Ip factors into a grid-only term times that
 knee, so quadrupling the plate voltage raises Ip only by atan(400/24)/atan(100/24) =
 1.51086817167369 / 1.33525134607403 = 1.13152342150114. A triode, whose plate current tracks Vpk
 directly, would have risen far more.
 
-### `PentodeEL34JointFormAgreesWithTheSeparateEntryPoints`
+### `Small_PentodeEl34Joint.AgreesWithTheSeparateEntryPoints`
 
-`// current() and jacobian() forward to the joint form.`
+`// current() and jacobian() forward to the joint form, so the values are identical, and the three structural zeros stay zero.`
 
 Same shape as the triode case. current() and jacobian() forward to the joint form, so these
 agree exactly by construction today, and pinning that keeps the three entry points from drifting
@@ -197,9 +199,11 @@ made them one put a step from -2.5 nA to -593 MA right here (D6c C2).
 
 ## `test_triode12_ax7.cpp`
 
-### `Triode12AX7PlateCurrentMatchesKorenAtThreeOperatingPoints`
+### `Small_Triode12Ax7Koren.PlateCurrentAndConductancesMatchKorensLaw`
 
-`// The three points are hand-computed from Koren's law.`
+`// The README prints each oracle to 15 digits; the bound is half a unit of the last one plus the model's own rounding.`
+
+The three rows are hand-computed from Koren's law.
 
 mu = 100, kp = 600, kvb = 300, kg1 = 1060, kx = 1.4.
 
@@ -234,9 +238,9 @@ Ip = 2 * 3.00123784256887^1.4 / 1060 = 8.78910615164942e-3 A
 dIp/dVgk = 4.08295444882820e-3 S,  dIp/dVpk = 4.10158287076973e-5 S
 ```
 
-### `Triode12AX7GridCurrentFollowsNormansSoftLaw`
+### `Small_Triode12Ax7Grid.CurrentAndConductanceFollowNormansSoftLaw`
 
-`// Ig = 1e-6 * ln(1 + exp((Vgk - 0.5)/0.15)).`
+`// Ig = 1e-6 ln(1 + exp((Vgk - 0.5) / 0.15)), its slope the logistic of the same argument; the oracle is README.md.`
 
 Ig = 1e-6 \* ln(1 + exp((Vgk - 0.5)/0.15)), dIg/dVgk = (1e-6/0.15) \* logistic(same argument).
 
@@ -249,16 +253,16 @@ Vgk =  1.0 : argument = 3.33333333333333, ln(1+exp) = 3.36838574941280
              Ig = 3.36838574941280e-6 A,  dIg = (1e-6/0.15) * 0.965554 = 6.43703202889193e-6 S
 ```
 
-### `Triode12AX7IsCutOffAndCOneAtNonPositivePlateVoltage`
+### `Small_Triode12Ax7NearZero.PlateCurrentAndConductancesStayWithinTheirPowerLaw`
 
-`// The piecewise definition is C1 at Vpk = 0.`
+`// At Vgk = 0 the softplus argument is kp / mu = 6 for any plate voltage, so E1 <= Vpk s / kp with s = ln(1 + e^6) <= 6.01. Ip, gm and gp then stay under the power law of that E1 and go to zero with Vpk: the definition is C1 at Vpk = 0. Each bound carries the rounding budget of the model.`
 
 Approaching Vpk = 0 from above, plate current and both of its derivatives go to zero, so the
 piecewise definition is C1 and not a slope discontinuity like the D5b clamp was.
 
-### `Triode12AX7JointFormAgreesWithTheSeparateEntryPoints`
+### `Small_Triode12Ax7Joint.AgreesWithTheSeparateEntryPoints`
 
-`// current() and jacobian() forward to the joint form.`
+`// current() and jacobian() forward to the joint form, so the values are identical, and the grid current stays independent of the plate.`
 
 current() and jacobian() forward to the joint form, so these agree exactly by construction
 today. Pinning that is the point: the three entry points cannot drift apart later, and a

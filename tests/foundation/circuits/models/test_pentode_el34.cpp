@@ -27,23 +27,68 @@
  * @author Mustafa Garip
  */
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <string>
 
 #include <gtest/gtest.h>
 
+#include "support/tolerance.hpp"
+
 #include <SushiDSP/foundation/circuits/models/pentode_el34.hpp>
 
-TEST(Small_PentodeEl34, PentodeEL34MatchesKorenAtThreeOperatingPoints)
+namespace
 {
-    // The three points are hand-computed from Koren's law. See tests/foundation/circuits/models/README.md.
-    const SushiDSP::PentodeEL34 pentode;
+    using Currents = std::array<double, 3>;
+    using Jacobian = std::array<std::array<double, 3>, 3>;
+
+    constexpr std::size_t K_GRID = 0;
+    constexpr std::size_t K_SCREEN = 1;
+    constexpr std::size_t K_PLATE = 2;
+
+    /// @brief Holds the digits the README prints its Koren oracle to.
+    constexpr int K_ORACLE_DIGITS = 15;
+
+    /// @brief Holds the rounding budget of the model's longest chain (argument, softplus, power, arctangent, products), counted generously.
+    constexpr double K_ORACLE_OPERATIONS = 64.0;
+
+    /// @brief Holds the step of the centred differences, in volts.
+    constexpr double K_STEP = 1e-5;
+
+    const double kU = TestSupport::unit_roundoff<double>();
+
+    /// @brief Returns the bound for a reference printed with K_ORACLE_DIGITS digits: half a unit of the last one plus the model's own rounding.
+    double oracle_bound(double reference)
+    {
+        if (reference == 0.0)
+        {
+            return 0.0;
+        }
+        const double printed = 0.5 * std::pow(10.0, std::floor(std::log10(std::fabs(reference))) - (K_ORACLE_DIGITS - 1));
+        return printed + K_ORACLE_OPERATIONS * kU * std::fabs(reference);
+    }
+
+    TestSupport::ErrorRatio against_oracle(double computed, double reference)
+    {
+        return TestSupport::measure_error(computed, reference, oracle_bound(reference));
+    }
+
+    /// @brief Holds one operating point and the name its row is reported under.
     struct Point
     {
+            const char* name;
             double vg1k;
             double vg2k;
             double vpk;
+    };
+
+    /// @brief Holds one Koren row: an operating point and the hand-solved currents and conductances of README.md.
+    struct KorenRow
+    {
+            const char* name;
+            Currents voltages;
             double ip;
             double dip_dvg1k;
             double dip_dvg2k;
@@ -52,213 +97,299 @@ TEST(Small_PentodeEl34, PentodeEL34MatchesKorenAtThreeOperatingPoints)
             double dig2_dvg1k;
             double dig2_dvg2k;
     };
-    const Point points[3] = {
-        {-37.0, 400.0, 400.0, 3.34149261300818e-2, 4.98316907313410e-3, 5.73718514953930e-4,
+
+    // At the idle point z < 0, so the screen draws nothing and its whole row is zero.
+    const KorenRow kKorenRows[] = {
+        {"IdleAtMinus37", {-37.0, 400.0, 400.0}, 3.34149261300818e-2, 4.98316907313410e-3, 5.73718514953930e-4,
          3.30555615548759e-6, 0.0, 0.0, 0.0},
-        {-20.0, 300.0, 250.0, 7.92947981392609e-2, 1.04281593600714e-2, 1.05203721563143e-3,
+        {"MinusTwentyAt300", {-20.0, 300.0, 250.0}, 7.92947981392609e-2, 1.04281593600714e-2, 1.05203721563143e-3,
          2.04537709631731e-5, 3.23652408855726e-3, 6.00779783938442e-4, 5.46163439944038e-5},
-        {-5.0, 400.0, 100.0, 4.31496731894557e-1, 1.83712705886168e-2, 1.68594235250184e-3,
+        {"MinusFiveHardOn", {-5.0, 400.0, 100.0}, 4.31496731894557e-1, 1.83712705886168e-2, 1.68594235250184e-3,
          7.33338162266083e-4, 2.32789367120296e-2, 1.00200640630040e-3, 9.10914914818548e-5},
     };
-    for (const Point& point : points)
-    {
-        const std::array<double, 3> voltages{point.vg1k, point.vg2k, point.vpk};
-        std::array<double, 3> currents{};
-        std::array<std::array<double, 3>, 3> jacobian{};
-        pentode.current(voltages, currents);
-        pentode.jacobian(voltages, jacobian);
-        EXPECT_NEAR(currents[2], point.ip, 1e-12 + 1e-9 * point.ip) << point.vg1k;
-        EXPECT_NEAR(currents[1], point.ig2, 1e-12 + 1e-9 * point.ig2) << point.vg1k;
-        EXPECT_NEAR(jacobian[2][0], point.dip_dvg1k, 1e-12 + 1e-9 * point.dip_dvg1k) << point.vg1k;
-        EXPECT_NEAR(jacobian[2][1], point.dip_dvg2k, 1e-12 + 1e-9 * point.dip_dvg2k) << point.vg1k;
-        EXPECT_NEAR(jacobian[2][2], point.dip_dvpk, 1e-14 + 1e-9 * point.dip_dvpk) << point.vg1k;
-        EXPECT_NEAR(jacobian[1][0], point.dig2_dvg1k, 1e-12 + 1e-9 * point.dig2_dvg1k)
-            << point.vg1k;
-        EXPECT_NEAR(jacobian[1][1], point.dig2_dvg2k, 1e-13 + 1e-9 * point.dig2_dvg2k)
-            << point.vg1k;
-        EXPECT_DOUBLE_EQ(jacobian[1][2], 0.0);
-        EXPECT_DOUBLE_EQ(jacobian[0][1], 0.0);
-        EXPECT_DOUBLE_EQ(jacobian[0][2], 0.0);
-    }
-}
 
-TEST(Small_PentodeEl34, PentodeEL34GridCurrentFollowsNormansSoftLaw)
-{
-    // Ig1 = 1e-6 * ln(1 + exp((Vg1k - 0.5)/0.15)). See tests/foundation/circuits/models/README.md.
-    const SushiDSP::PentodeEL34 pentode;
-    struct Point
+    /// @brief Holds one grid-law row: the grid voltage and the current and conductance README.md prints.
+    struct GridRow
     {
+            const char* name;
             double vg1k;
             double ig1;
             double dig1;
     };
-    const Point points[3] = {
-        {-1.5, 1.61959548076714e-12, 1.07972944614873e-11},
-        {0.5, 6.93147180559945e-7, 3.33333333333333e-6},
-        {1.0, 3.36838574941280e-6, 6.43703202889193e-6},
+
+    const GridRow kGridRows[] = {
+        {"MinusOnePointFive", -1.5, 1.61959548076714e-12, 1.07972944614873e-11},
+        {"AtTheThreshold", 0.5, 6.93147180559945e-7, 3.33333333333333e-6},
+        {"OneVolt", 1.0, 3.36838574941280e-6, 6.43703202889193e-6},
     };
-    for (const Point& point : points)
-    {
-        std::array<double, 3> currents{};
-        std::array<std::array<double, 3>, 3> jacobian{};
-        pentode.current({point.vg1k, 400.0, 400.0}, currents);
-        pentode.jacobian({point.vg1k, 400.0, 400.0}, jacobian);
-        EXPECT_NEAR(currents[0], point.ig1, 1e-18 + 1e-9 * point.ig1) << point.vg1k;
-        EXPECT_NEAR(jacobian[0][0], point.dig1, 1e-18 + 1e-9 * point.dig1) << point.vg1k;
-    }
-}
 
-TEST(Small_PentodeEl34, PentodeEL34JacobianMatchesCentredDifferencesEverywhere)
+    // None sits within a step of the screen kink z = Vg2k / mu + Vg1k = 0, where a centred difference averages two slopes.
+    const Point kDifferencePoints[] = {
+        {"MinusFortyFiveAt50", -45.0, 50.0, 20.0},     {"MinusThirtyAt200", -30.0, 200.0, 450.0},
+        {"MinusFifteenAt400", -15.0, 400.0, 250.0},    {"MinusFiveAt50", -5.0, 50.0, 100.0},
+        {"ZeroAt200", 0.0, 200.0, 20.0},               {"MinusTwentyAt300", -20.0, 300.0, 250.0},
+        {"IdleAtMinus37", -37.0, 400.0, 400.0},        {"MinusFiveAt400", -5.0, 400.0, 100.0},
+    };
+
+    /// @brief Holds one offset from the screen kink, in volts of grid bias.
+    struct KinkOffset
+    {
+            const char* name;
+            double volts;
+    };
+
+    const KinkOffset kKinkOffsets[] = {
+        {"MinusOneHundredth", -1e-2}, {"MinusTenThousandth", -1e-4}, {"MinusMillionth", -1e-6},
+        {"PlusMillionth", 1e-6},      {"PlusTenThousandth", 1e-4},    {"PlusOneHundredth", 1e-2},
+    };
+
+    const Point kJointPoints[] = {
+        {"DeepCutOff", -45.0, 50.0, 20.0},     {"ScreenFloor", -37.0, 1e-4, 100.0}, {"Idle", -37.0, 400.0, 400.0},
+        {"MidBias", -20.0, 300.0, 250.0},      {"HardOn", -5.0, 400.0, 100.0},      {"ZeroBiasLowScreen", 0.0, 50.0, 20.0},
+        {"ZeroBiasHighScreen", 0.0, 400.0, 400.0}, {"ScreenFloorHardOn", -5.0, 1e-4, 250.0},
+    };
+
+    const Point kAbsurdPoints[] = {
+        {"AllNegativeHuge", -1e4, -1e4, -1e4}, {"AllPositiveHuge", 1e4, 1e4, 1e4},
+        {"GridNegativeHuge", -1e4, 400.0, 400.0}, {"GridPositiveHuge", 1e4, 400.0, 400.0},
+        {"GridMinusFifty", -50.0, 1.0, 0.0},   {"GridPlusFifty", 50.0, 1e-4, 1e4},
+        {"ScreenNegativeHuge", -50.0, -1e4, 400.0}, {"ScreenPositiveHuge", -50.0, 1e4, 400.0},
+        {"ScreenMinusOne", 0.0, -1.0, 0.0},    {"ScreenZero", 0.0, 0.0, 0.0},
+        {"ScreenTiny", 0.0, 1e-4, 0.0},        {"ScreenOne", 0.0, 1.0, 100.0},
+        {"PlateNegativeHuge", -50.0, 400.0, -1e4}, {"PlatePositiveHuge", -50.0, 400.0, 1e4},
+        {"HugeGridTinyScreen", -1e4, 1e-4, 1e4}, {"HugePlateNegativeScreen", 1e4, -1.0, -1e4},
+    };
+
+    std::string point_name(const ::testing::TestParamInfo<Point>& info)
+    {
+        return std::string(info.param.name);
+    }
+
+    Currents voltages_of(const Point& point)
+    {
+        return {point.vg1k, point.vg2k, point.vpk};
+    }
+
+    Currents currents_at(const SushiDSP::PentodeEL34& pentode, const Currents& voltages)
+    {
+        Currents currents{};
+        pentode.current(voltages, currents);
+        return currents;
+    }
+
+    Jacobian jacobian_at(const SushiDSP::PentodeEL34& pentode, const Currents& voltages)
+    {
+        Jacobian jacobian{};
+        pentode.jacobian(voltages, jacobian);
+        return jacobian;
+    }
+
+    /// @brief Returns the centred difference of one branch current with respect to one input, over the given step.
+    double centred_difference(const SushiDSP::PentodeEL34& pentode, Currents voltages, std::size_t output,
+                              std::size_t input, double step)
+    {
+        Currents down = voltages;
+        voltages[input] += step;
+        down[input] -= step;
+        return (currents_at(pentode, voltages)[output] - currents_at(pentode, down)[output]) / (2.0 * step);
+    }
+
+    /// @brief Measures one Jacobian entry against its centred difference.
+    ///
+    /// The truncation of the centred difference is estimated as the gap between the differences over the step and over twice the step, which shrinks fourfold with the step; it is taken three times over. The rounding term is the two currents' rounding over twice the step.
+    TestSupport::ErrorRatio difference_error(const SushiDSP::PentodeEL34& pentode, const Currents& voltages,
+                                             std::size_t output, std::size_t input)
+    {
+        const double fine = centred_difference(pentode, voltages, output, input, K_STEP);
+        const double coarse = centred_difference(pentode, voltages, output, input, 2.0 * K_STEP);
+        Currents up = voltages;
+        up[input] += K_STEP;
+        const double magnitude = std::fabs(currents_at(pentode, up)[output]) + std::fabs(currents_at(pentode, voltages)[output]);
+        const double bound = 3.0 * std::fabs(coarse - fine) + K_ORACLE_OPERATIONS * kU * magnitude / K_STEP;
+        return TestSupport::measure_error(jacobian_at(pentode, voltages)[output][input], fine, bound);
+    }
+
+    /// @brief Returns the largest grid-bias excursion z can reach for a requested offset from the kink: the offset plus the rounding of forming z from a 400 V screen.
+    double kink_z_limit(double offset)
+    {
+        return std::fabs(offset) + 8.0 * kU * 400.0 / SushiDSP::PentodeEL34::K_MU;
+    }
+
+    bool all_finite(const Currents& values)
+    {
+        return std::all_of(values.begin(), values.end(), [](double value) { return std::isfinite(value); });
+    }
+
+    bool all_finite(const Jacobian& values)
+    {
+        return std::all_of(values.begin(), values.end(), [](const Currents& row) { return all_finite(row); });
+    }
+} // namespace
+
+class Small_PentodeEl34Koren : public ::testing::TestWithParam<KorenRow>
+{
+};
+
+// The README prints each oracle to 15 digits; the bound is half a unit of the last one plus the model's own rounding.
+TEST_P(Small_PentodeEl34Koren, CurrentsAndConductancesMatchKorensLaw)
 {
     const SushiDSP::PentodeEL34 pentode;
-    for (const double vg1k : {-45.0, -30.0, -15.0, -5.0, 0.0})
-    {
-        for (const double vg2k : {50.0, 200.0, 400.0})
-        {
-            for (const double vpk : {20.0, 100.0, 250.0, 450.0})
-            {
-                // The screen law kinks at z = 0; skip it. See tests/foundation/circuits/models/README.md.
-                if (std::abs(vg2k / SushiDSP::PentodeEL34::K_MU + vg1k) < 1e-3)
-                {
-                    continue;
-                }
+    const KorenRow& row = GetParam();
+    const Currents currents = currents_at(pentode, row.voltages);
+    const Jacobian jacobian = jacobian_at(pentode, row.voltages);
 
-                std::array<std::array<double, 3>, 3> jacobian{};
-                pentode.jacobian({vg1k, vg2k, vpk}, jacobian);
-                for (std::size_t input = 0; input < 3; ++input)
-                {
-                    const double step = 1e-6;
-                    std::array<double, 3> up{vg1k, vg2k, vpk};
-                    std::array<double, 3> down{vg1k, vg2k, vpk};
-                    up[input] += step;
-                    down[input] -= step;
-                    std::array<double, 3> current_up{};
-                    std::array<double, 3> current_down{};
-                    pentode.current(up, current_up);
-                    pentode.current(down, current_down);
-                    for (std::size_t output = 0; output < 3; ++output)
-                    {
-                        const double numerical =
-                            (current_up[output] - current_down[output]) / (2.0 * step);
-                        EXPECT_NEAR(jacobian[output][input], numerical,
-                                    1e-5 * std::abs(jacobian[output][input]) + 1e-12)
-                            << vg1k << " " << vg2k << " " << vpk << " " << output << " " << input;
-                    }
-                }
-            }
-        }
-    }
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(currents[K_PLATE], row.ip)));
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(currents[K_SCREEN], row.ig2)));
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(jacobian[K_PLATE][0], row.dip_dvg1k)));
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(jacobian[K_PLATE][1], row.dip_dvg2k)));
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(jacobian[K_PLATE][2], row.dip_dvpk)));
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(jacobian[K_SCREEN][0], row.dig2_dvg1k)));
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(jacobian[K_SCREEN][1], row.dig2_dvg2k)));
 }
 
-TEST(Small_PentodeEl34, PentodeEL34ScreenCurrentIsCOneAcrossItsKink)
+TEST_P(Small_PentodeEl34Koren, StructuralZerosAreExact)
 {
-    // kx > 1, so the screen current is C1 at z = 0. See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
-    const double vg2k = 400.0;
-    const double kink = -vg2k / SushiDSP::PentodeEL34::K_MU;
-    for (const double offset : {-1e-2, -1e-4, -1e-6, 0.0, 1e-6, 1e-4, 1e-2})
-    {
-        std::array<double, 3> currents{};
-        std::array<std::array<double, 3>, 3> jacobian{};
-        pentode.current({kink + offset, vg2k, 400.0}, currents);
-        pentode.jacobian({kink + offset, vg2k, 400.0}, jacobian);
-        EXPECT_GE(currents[1], 0.0) << offset;
-        EXPECT_LT(currents[1], 1e-6) << offset;
-        EXPECT_GE(jacobian[1][0], 0.0) << offset;
-        EXPECT_LT(jacobian[1][0], 1e-4) << offset;
-        EXPECT_LT(std::abs(jacobian[1][1]), 1e-5) << offset;
-    }
+    const Jacobian jacobian = jacobian_at(pentode, GetParam().voltages);
 
-    std::array<double, 3> at_kink{};
-    std::array<std::array<double, 3>, 3> jacobian_at_kink{};
-    pentode.current({kink, vg2k, 400.0}, at_kink);
-    pentode.jacobian({kink, vg2k, 400.0}, jacobian_at_kink);
-    EXPECT_DOUBLE_EQ(at_kink[1], 0.0);
-    EXPECT_DOUBLE_EQ(jacobian_at_kink[1][0], 0.0);
-    EXPECT_DOUBLE_EQ(jacobian_at_kink[1][1], 0.0);
+    EXPECT_EQ(jacobian[K_SCREEN][2], 0.0);
+    EXPECT_EQ(jacobian[K_GRID][1], 0.0);
+    EXPECT_EQ(jacobian[K_GRID][2], 0.0);
 }
 
+INSTANTIATE_TEST_SUITE_P(Points, Small_PentodeEl34Koren, ::testing::ValuesIn(kKorenRows),
+                         [](const ::testing::TestParamInfo<KorenRow>& info) { return std::string(info.param.name); });
+
+class Small_PentodeEl34Grid : public ::testing::TestWithParam<GridRow>
+{
+};
+
+// Ig1 = 1e-6 ln(1 + exp((Vg1k - 0.5) / 0.15)), its slope the logistic of the same argument; the oracle is README.md.
+TEST_P(Small_PentodeEl34Grid, CurrentAndConductanceFollowNormansSoftLaw)
+{
+    const SushiDSP::PentodeEL34 pentode;
+    const GridRow& row = GetParam();
+    const Currents voltages{row.vg1k, 400.0, 400.0};
+
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(currents_at(pentode, voltages)[K_GRID], row.ig1)));
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(jacobian_at(pentode, voltages)[K_GRID][0], row.dig1)));
+}
+
+INSTANTIATE_TEST_SUITE_P(Points, Small_PentodeEl34Grid, ::testing::ValuesIn(kGridRows),
+                         [](const ::testing::TestParamInfo<GridRow>& info) { return std::string(info.param.name); });
+
+class Small_PentodeEl34Difference : public ::testing::TestWithParam<Point>
+{
+};
+
+TEST_P(Small_PentodeEl34Difference, JacobianMatchesCentredDifferencesOfTheCurrents)
+{
+    const SushiDSP::PentodeEL34 pentode;
+    const Currents voltages = voltages_of(GetParam());
+
+    EXPECT_TRUE(TestSupport::is_within(difference_error(pentode, voltages, K_GRID, 0)));
+    EXPECT_TRUE(TestSupport::is_within(difference_error(pentode, voltages, K_SCREEN, 0)));
+    EXPECT_TRUE(TestSupport::is_within(difference_error(pentode, voltages, K_SCREEN, 1)));
+    EXPECT_TRUE(TestSupport::is_within(difference_error(pentode, voltages, K_PLATE, 0)));
+    EXPECT_TRUE(TestSupport::is_within(difference_error(pentode, voltages, K_PLATE, 1)));
+    EXPECT_TRUE(TestSupport::is_within(difference_error(pentode, voltages, K_PLATE, 2)));
+}
+
+INSTANTIATE_TEST_SUITE_P(Points, Small_PentodeEl34Difference, ::testing::ValuesIn(kDifferencePoints), point_name);
+
+class Small_PentodeEl34Kink : public ::testing::TestWithParam<KinkOffset>
+{
+};
+
+// kx > 1, so z^kx and kx z^(kx-1) vanish continuously at z = 0. Near the kink z lies within |offset| of zero, so the screen current stays under |z|^kx / kg2 and its slopes under kx |z|^(kx-1) / kg2 (and a mu-th of it for Vg2k).
+TEST_P(Small_PentodeEl34Kink, ScreenCurrentAndSlopesStayWithinTheirPowerLaw)
+{
+    const SushiDSP::PentodeEL34 pentode;
+    constexpr double screen = 400.0;
+    const double kink = -screen / SushiDSP::PentodeEL34::K_MU;
+    const Currents voltages{kink + GetParam().volts, screen, 400.0};
+    const double limit = kink_z_limit(GetParam().volts);
+    const double slope_limit = SushiDSP::PentodeEL34::K_KX * std::pow(limit, SushiDSP::PentodeEL34::K_KX - 1.0) /
+                               SushiDSP::PentodeEL34::K_KG2;
+    const Currents currents = currents_at(pentode, voltages);
+    const Jacobian jacobian = jacobian_at(pentode, voltages);
+
+    EXPECT_GE(currents[K_SCREEN], 0.0);
+    EXPECT_LE(currents[K_SCREEN], std::pow(limit, SushiDSP::PentodeEL34::K_KX) / SushiDSP::PentodeEL34::K_KG2);
+    EXPECT_GE(jacobian[K_SCREEN][0], 0.0);
+    EXPECT_LE(jacobian[K_SCREEN][0], slope_limit);
+    EXPECT_GE(jacobian[K_SCREEN][1], 0.0);
+    EXPECT_LE(jacobian[K_SCREEN][1], slope_limit / SushiDSP::PentodeEL34::K_MU);
+}
+
+INSTANTIATE_TEST_SUITE_P(Offsets, Small_PentodeEl34Kink, ::testing::ValuesIn(kKinkOffsets),
+                         [](const ::testing::TestParamInfo<KinkOffset>& info) { return std::string(info.param.name); });
+
+TEST(Small_PentodeEl34, PentodeEL34ScreenDrawsExactlyNothingAtTheKink)
+{
+    const SushiDSP::PentodeEL34 pentode;
+    const Currents voltages{-400.0 / SushiDSP::PentodeEL34::K_MU, 400.0, 400.0};
+    const Currents currents = currents_at(pentode, voltages);
+    const Jacobian jacobian = jacobian_at(pentode, voltages);
+
+    EXPECT_EQ(currents[K_SCREEN], 0.0);
+    EXPECT_EQ(jacobian[K_SCREEN][0], 0.0);
+    EXPECT_EQ(jacobian[K_SCREEN][1], 0.0);
+}
+
+// Ip is a grid-only term times atan(Vpk / kvb), so quadrupling Vpk scales it by atan(400 / 24) / atan(100 / 24) = 1.13152342150114. The grid term is the same product in both, so the ratio costs two arctangents, two divisions, two products and one quotient.
 TEST(Small_PentodeEl34, PentodeEL34PlateCurrentKneesOverWithPlateVoltage)
 {
-    // Ip factors into a grid term times atan(Vpk/kvb). See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
-    std::array<double, 3> high{};
-    std::array<double, 3> low{};
-    pentode.current({-20.0, 300.0, 400.0}, high);
-    pentode.current({-20.0, 300.0, 100.0}, low);
-    EXPECT_NEAR(high[2] / low[2], 1.13152342150114, 1e-9);
-    EXPECT_DOUBLE_EQ(high[1], low[1]);
-    EXPECT_DOUBLE_EQ(high[0], low[0]);
+    const Currents high = currents_at(pentode, {-20.0, 300.0, 400.0});
+    const Currents low = currents_at(pentode, {-20.0, 300.0, 100.0});
+
+    EXPECT_TRUE(TestSupport::is_within(against_oracle(high[K_PLATE] / low[K_PLATE], 1.13152342150114)));
 }
 
-TEST(Small_PentodeEl34, PentodeEL34JointFormAgreesWithTheSeparateEntryPoints)
+TEST(Small_PentodeEl34, PentodeEL34PlateVoltageLeavesTheGridAndScreenCurrentsUnchanged)
 {
-    // current() and jacobian() forward to the joint form. See tests/foundation/circuits/models/README.md.
     const SushiDSP::PentodeEL34 pentode;
-    for (const double vg1k : {-45.0, -37.0, -20.0, -5.0, 0.0})
-    {
-        for (const double vg2k : {1e-4, 50.0, 300.0, 400.0})
-        {
-            for (const double vpk : {20.0, 100.0, 250.0, 400.0})
-            {
-                const std::array<double, 3> v{vg1k, vg2k, vpk};
-                std::array<double, 3> separate_currents{};
-                std::array<std::array<double, 3>, 3> separate_jacobian{};
-                pentode.current(v, separate_currents);
-                pentode.jacobian(v, separate_jacobian);
-                std::array<double, 3> joint_currents{};
-                std::array<std::array<double, 3>, 3> joint_jacobian{};
-                pentode.current_and_jacobian(v, joint_currents, joint_jacobian);
-                for (std::size_t branch = 0; branch < 3; ++branch)
-                {
-                    EXPECT_DOUBLE_EQ(joint_currents[branch], separate_currents[branch])
-                        << vg1k << " " << vg2k << " " << vpk << " " << branch;
-                    for (std::size_t input = 0; input < 3; ++input)
-                    {
-                        EXPECT_DOUBLE_EQ(joint_jacobian[branch][input],
-                                         separate_jacobian[branch][input])
-                            << vg1k << " " << vg2k << " " << vpk << " " << branch << " " << input;
-                    }
-                }
-                EXPECT_DOUBLE_EQ(joint_jacobian[0][1], 0.0);
-                EXPECT_DOUBLE_EQ(joint_jacobian[0][2], 0.0);
-                EXPECT_DOUBLE_EQ(joint_jacobian[1][2], 0.0);
-            }
-        }
-    }
-    // The JCM800 idle point, straight out of the joint form (D6b Task 4's golden vector).
-    std::array<double, 3> currents{};
-    std::array<std::array<double, 3>, 3> jacobian{};
-    pentode.current_and_jacobian({-37.0, 400.0, 400.0}, currents, jacobian);
-    EXPECT_NEAR(currents[2], 3.34149261301e-2, 1e-11);
-    EXPECT_NEAR(jacobian[2][0], 4.98316907313e-3, 1e-11);
-    EXPECT_DOUBLE_EQ(currents[1], 0.0);
+    const Currents high = currents_at(pentode, {-20.0, 300.0, 400.0});
+    const Currents low = currents_at(pentode, {-20.0, 300.0, 100.0});
+
+    EXPECT_EQ(high[K_SCREEN], low[K_SCREEN]);
+    EXPECT_EQ(high[K_GRID], low[K_GRID]);
 }
 
-TEST(Small_PentodeEl34, PentodeEL34StaysFiniteUnderAbsurdInputs)
+class Small_PentodeEl34Joint : public ::testing::TestWithParam<Point>
+{
+};
+
+// current() and jacobian() forward to the joint form, so the values are identical, and the three structural zeros stay zero.
+TEST_P(Small_PentodeEl34Joint, AgreesWithTheSeparateEntryPoints)
 {
     const SushiDSP::PentodeEL34 pentode;
-    for (const double vg1k : {-1e4, -50.0, 0.0, 50.0, 1e4})
-    {
-        for (const double vg2k : {-1e4, -1.0, 0.0, 1e-4, 1.0, 1e4})
-        {
-            for (const double vpk : {-1e4, 0.0, 1e4})
-            {
-                std::array<double, 3> currents{};
-                std::array<std::array<double, 3>, 3> jacobian{};
-                pentode.current({vg1k, vg2k, vpk}, currents);
-                pentode.jacobian({vg1k, vg2k, vpk}, jacobian);
-                for (std::size_t branch = 0; branch < 3; ++branch)
-                {
-                    EXPECT_TRUE(std::isfinite(currents[branch]))
-                        << vg1k << " " << vg2k << " " << vpk << " " << branch;
-                    for (std::size_t input = 0; input < 3; ++input)
-                    {
-                        EXPECT_TRUE(std::isfinite(jacobian[branch][input]))
-                            << vg1k << " " << vg2k << " " << vpk << " " << branch << " " << input;
-                    }
-                }
-            }
-        }
-    }
+    const Currents voltages = voltages_of(GetParam());
+    Currents joint_currents{};
+    Jacobian joint_jacobian{};
+    pentode.current_and_jacobian(voltages, joint_currents, joint_jacobian);
+
+    EXPECT_EQ(joint_currents, currents_at(pentode, voltages));
+    EXPECT_EQ(joint_jacobian, jacobian_at(pentode, voltages));
+    EXPECT_EQ(joint_jacobian[K_GRID][1], 0.0);
+    EXPECT_EQ(joint_jacobian[K_GRID][2], 0.0);
+    EXPECT_EQ(joint_jacobian[K_SCREEN][2], 0.0);
 }
+
+INSTANTIATE_TEST_SUITE_P(Points, Small_PentodeEl34Joint, ::testing::ValuesIn(kJointPoints), point_name);
+
+class Small_PentodeEl34Absurd : public ::testing::TestWithParam<Point>
+{
+};
+
+TEST_P(Small_PentodeEl34Absurd, CurrentsAndConductancesStayFinite)
+{
+    const SushiDSP::PentodeEL34 pentode;
+    const Currents voltages = voltages_of(GetParam());
+
+    EXPECT_TRUE(all_finite(currents_at(pentode, voltages)));
+    EXPECT_TRUE(all_finite(jacobian_at(pentode, voltages)));
+}
+
+INSTANTIATE_TEST_SUITE_P(Points, Small_PentodeEl34Absurd, ::testing::ValuesIn(kAbsurdPoints), point_name);
