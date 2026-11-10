@@ -18,6 +18,7 @@
 | RW-38 | P2 | open | Give the post stage a stereo input | an effect can declare a stereo input, or the post stage runs one instance per channel |  |  | 2026-10-19 |
 | RW-72 | P2 | open | Write `imgui.ini` outside the working directory | the host sets ImGui's ini path to a folder of its own |  |  | 2026-10-19 |
 | RW-73 | P2 | open | Let the host find products without naming them | adding a product edits no file under `applications/host_gui/` |  |  | 2026-10-19 |
+| RW-92 | P1 | open | Keep a slot whose descriptor the catalogue does not know | Such a slot stays, builds no node, passes audio through, is saved back unchanged, and logs one warning |  | `applications/host_gui/slot_graph.cpp` | 2026-11-10 |
 
 ## Known issues
 

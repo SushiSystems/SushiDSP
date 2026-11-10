@@ -924,6 +924,7 @@ void SlotGraph::clear()
     next_slot_id_ = 0;
     shape_.reset();
     legacy_room_.reset();
+    unavailable_reported_.clear();
 }
 
 void SlotGraph::set_shape(const RigShape& shape)
@@ -1002,8 +1003,8 @@ SlotGraph::build_graph(bool apply_bypass,
         handles_out[id] = graph->add_node(std::move(node));
     }
 
-    const std::vector<std::pair<SlotId, SlotId>> resolved =
-        apply_bypass ? bridged_edges(handles_out) : direct_edges(handles_out);
+    // A slot with no node is bridged in either mode, as the bypassed ones are.
+    const std::vector<std::pair<SlotId, SlotId>> resolved = bridged_edges(handles_out);
 
     // Fan-out is counted per output port, as RigGraph::connect() counts it.
     std::map<std::pair<SlotId, std::uint32_t>, std::size_t> fan_out;
@@ -1045,22 +1046,6 @@ SlotGraph::build_graph(bool apply_bypass,
 
     graph->compile(info_);
     return graph;
-}
-
-std::vector<std::pair<SlotGraph::SlotId, SlotGraph::SlotId>>
-SlotGraph::direct_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const
-{
-    std::vector<std::pair<SlotId, SlotId>> result;
-    std::set<std::pair<SlotId, SlotId>> seen;
-    for (const Edge& edge : edges_)
-    {
-        if (live.count(edge.from) != 0 && live.count(edge.to) != 0 &&
-            seen.insert({edge.from, edge.to}).second)
-        {
-            result.push_back({edge.from, edge.to});
-        }
-    }
-    return result;
 }
 
 std::vector<std::pair<SlotGraph::SlotId, SlotGraph::SlotId>>
@@ -1112,29 +1097,19 @@ void SlotGraph::publish()
     std::unordered_map<SlotId, SushiDSP::NodeHandle> fresh_handles;
     auto graph = build_graph(true, fresh_handles);
 
-    // A slot the registry no longer knows is dropped here; see applications/host_gui/README.md.
-    std::vector<SlotId> surviving_order;
-    surviving_order.reserve(slot_order_.size());
+    // A slot the catalogue does not know stays, builds no node and is bridged like a bypassed one.
     for (SlotId id : slot_order_)
     {
-        if (fresh_handles.count(id) != 0 || slots_.at(id).bypassed)
+        const Slot& slot = slots_.at(id);
+        if (fresh_handles.count(id) == 0 && catalogue_.find(slot.descriptor_id.c_str()) == nullptr &&
+            unavailable_reported_.insert(id).second)
         {
-            surviving_order.push_back(id);
-        }
-        else
-        {
-            slots_.erase(id);
+            SD_LOG_WARN(K_HOST_GUI_LOG_CATEGORY,
+                        "slot {} names descriptor '{}', which this build does not list; the slot "
+                        "is kept with its values, builds no node and passes audio through",
+                        id, slot.descriptor_id);
         }
     }
-    slot_order_ = std::move(surviving_order);
-
-    edges_.erase(std::remove_if(edges_.begin(), edges_.end(),
-                                [this](const Edge& edge)
-                                {
-                                    return slots_.count(edge.from) == 0 ||
-                                           slots_.count(edge.to) == 0;
-                                }),
-                 edges_.end());
 
     for (const auto& [id, handle] : fresh_handles)
     {

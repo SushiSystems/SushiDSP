@@ -36,6 +36,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -468,16 +469,10 @@ class SlotGraph
         /// room node, adopting the node's own arrangement when the slot stores none.
         void apply_room_to_live_node(SlotId slot);
 
-        /// @brief Lists every edge whose endpoints both reached the graph. Duplicate edges are
-        /// dropped, so a preset that names one twice still builds one edge.
-        /// @param live The slot-to-handle mapping for the graph being built.
-        /// @return The edges, as (from, to) pairs.
-        std::vector<std::pair<SlotId, SlotId>>
-        direct_edges(const std::unordered_map<SlotId, SushiDSP::NodeHandle>& live) const;
-
-        /// @brief Lists every edge with bypassed slots collapsed away: an edge into a bypassed slot
-        /// is followed through to each live slot reachable past it, so a run of bypassed slots
-        /// bridges in one step. Duplicate edges are dropped.
+        /// @brief Lists every edge with the slots that have no node collapsed away: an edge into
+        /// a bypassed slot, or into one whose descriptor the catalogue does not know, is followed
+        /// through to each live slot reachable past it, so a run of such slots bridges in one
+        /// step. Duplicate edges are dropped.
         /// @param live The slot-to-handle mapping for the graph being built.
         /// @return The bridged edges, as (from, to) pairs.
         std::vector<std::pair<SlotId, SlotId>>
@@ -526,5 +521,9 @@ class SlotGraph
         /// @brief Records that a write to an unknown parameter has been logged since the last
         /// good one.
         bool unknown_parameter_reported_ = false;
+
+        /// @brief Holds the slots whose unknown descriptor has been logged, so publish() warns
+        /// once per slot and not on every republish.
+        std::set<SlotId> unavailable_reported_;
         std::atomic<RigInputSource> input_source_{RigInputSource::LiveInput};
 };

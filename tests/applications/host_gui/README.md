@@ -53,10 +53,11 @@ The whole point of the feature, in the order a user performs it: drag a source, 
 effect into a straight line, then drop a second effect on the splitter's open row. add_branch() is
 what turns that one drop into the four-edge shape RigGraph::compile() accepts, mixer and all.
 
-### `AppendWithUnknownDescriptorIdDropsTheSlotAndBuildsNoNodeForIt`
+### `AppendWithUnknownDescriptorIdKeepsTheSlotAndBuildsNoNodeForIt`
 
-A slot whose descriptor id the catalogue does not list is dropped when the graph publishes: it is
-absent from the slot order, its descriptor id reads back empty, and the graph holds one node.
+A slot whose descriptor id the catalogue does not list is kept when the graph publishes: it stays in
+the slot order and keeps its descriptor id, the graph builds no node for it, and the node after it is
+fed by the node before it.
 
 ## `test_rig_controller/test_bypass.cpp`
 
@@ -70,6 +71,17 @@ graph leaves it out, wiring its upstream neighbours straight to its downstream o
 Deliberately no process() call and no further structural edit here: the live node still reads the
 pre-edit default, but save_to_json() reports the controller's own stored value, matching what
 get_parameter() and the GUI slider show.
+
+### `AnUnknownSlotIsWrittenBackUnchanged`
+
+A slot whose descriptor the catalogue does not list is saved at its place in the order with its stored
+values and its edges, loaded into a second rig, and saved again: both documents hold the same node
+types in the same order and the same stored value.
+
+### `AnUnknownDescriptorIsWarnedOnceNamingItsId` (`test_logging.cpp`)
+
+Three appends publish the graph three times with an unlisted slot in it; the `host_gui` category
+gets one `WARN`, and it names the descriptor id.
 
 ### `ASavedRigAloneHoldsNeitherTheTracksNorTheTempo` and the `Small_RigControllerRigDocument` cases
 

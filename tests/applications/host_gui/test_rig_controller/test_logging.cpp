@@ -105,6 +105,23 @@ TEST_F(Small_RigControllerLogging, ACabinetOnAnUnknownSlotWritesOneWarnNamingThe
     EXPECT_NE(lines[0].message.find("slot 999"), std::string::npos) << lines[0].message;
 }
 
+TEST_F(Small_RigControllerLogging, AnUnknownDescriptorIsWarnedOnceNamingItsId)
+{
+    RigController controller = rig({48000.0, 256, 1});
+
+    SushiDSP::LogCapture capture;
+    controller.append("sushidsp.does_not_exist");
+    controller.append("sushidsp.tubescreamer");
+    controller.append("sushidsp.jcm800");
+
+    const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
+    ASSERT_EQ(lines.size(), 1u);
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Warn);
+    EXPECT_EQ(lines[0].category, "host_gui");
+    EXPECT_NE(lines[0].message.find("sushidsp.does_not_exist"), std::string::npos)
+        << lines[0].message;
+}
+
 TEST_P(Small_RigControllerUnknownWrite, AnUnknownWriteIsLoggedOncePerStreak)
 {
     RigController controller = rig({48000.0, 256, 1});

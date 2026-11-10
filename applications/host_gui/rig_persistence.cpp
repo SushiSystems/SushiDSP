@@ -31,7 +31,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
+#include <set>
 #include <string>
 #include <optional>
 #include <stdexcept>
@@ -567,6 +569,29 @@ namespace
     /// @brief Maps each node id of the preset being read to the slot built for it.
     using SlotByPresetId = std::unordered_map<int, SlotGraph::SlotId>;
 
+    /// @brief Reads the slot a preset node of an unlisted type stands for: its type, its stored
+    /// values, its cabinet path and its bypass flag.
+    /// @param node_json The node's entry in the preset.
+    /// @return The snapshot to restore.
+    SlotGraph::SlotSnapshot unavailable_snapshot(const nlohmann::json& node_json)
+    {
+        SlotGraph::SlotSnapshot snapshot;
+        snapshot.descriptor_id = node_json.at("type").get<std::string>();
+        if (node_json.contains("params") && node_json.at("params").is_object())
+        {
+            for (const auto& [param_id, value] : node_json.at("params").items())
+            {
+                if (value.is_number())
+                {
+                    snapshot.parameters[param_id] = value.get<float>();
+                }
+            }
+        }
+        snapshot.cabinet_path = node_json.value("cabinet_ir", std::string());
+        snapshot.bypassed = node_json.value("bypassed", false);
+        return snapshot;
+    }
+
     /// @brief Names each chain type as a preset writes it.
     constexpr Word<ChainType> K_CHAIN_WORDS[] = {
         {ChainType::Single, "single"},
@@ -893,6 +918,61 @@ RigPersistence::RigPersistence(const SushiDSP::PrepareInfo& info, SlotGraph& gra
 {
 }
 
+void RigPersistence::append_unavailable_nodes(
+    nlohmann::json& document,
+    std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle>& handles) const
+{
+    // Ids past the largest one the graph handed out cannot collide with a built node's.
+    SushiDSP::NodeHandle next_id = 0;
+    for (const auto& [slot, handle] : handles)
+    {
+        next_id = std::max<SushiDSP::NodeHandle>(next_id, handle + 1);
+    }
+
+    // The document keeps the slot order, so an unavailable slot is written where it sits.
+    nlohmann::json ordered = nlohmann::json::array();
+    std::unordered_map<SushiDSP::NodeHandle, nlohmann::json> built_by_id;
+    for (nlohmann::json& node_json : document.at("nodes"))
+    {
+        built_by_id[node_json.at("id").get<SushiDSP::NodeHandle>()] = node_json;
+    }
+    for (SlotGraph::SlotId slot : graph_.slot_order())
+    {
+        const auto built = handles.find(slot);
+        if (built != handles.end())
+        {
+            ordered.push_back(built_by_id.at(built->second));
+            continue;
+        }
+        const std::optional<SlotGraph::SlotSnapshot> snapshot = graph_.snapshot(slot);
+        if (!snapshot.has_value())
+        {
+            continue;
+        }
+        nlohmann::json node_json = nlohmann::json::object();
+        node_json["id"] = next_id;
+        node_json["type"] = snapshot->descriptor_id;
+        nlohmann::json params_json = nlohmann::json::object();
+        for (const auto& [param_id, value] : snapshot->parameters)
+        {
+            params_json[param_id] = value;
+        }
+        node_json["params"] = params_json;
+        node_json["inputs"] = nlohmann::json::array();
+        if (!snapshot->cabinet_path.empty())
+        {
+            node_json["cabinet_ir"] = snapshot->cabinet_path;
+        }
+        if (snapshot->bypassed)
+        {
+            node_json["bypassed"] = true;
+        }
+        ordered.push_back(node_json);
+        handles[slot] = next_id++;
+    }
+    document["nodes"] = ordered;
+}
+
 std::string RigPersistence::serialize_nodes(
     std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle>& handles_out) const
 {
@@ -953,6 +1033,7 @@ std::string RigPersistence::save_to_json(PresetScope scope) const
 {
     std::unordered_map<SlotGraph::SlotId, SushiDSP::NodeHandle> handles;
     nlohmann::json document = nlohmann::json::parse(serialize_nodes(handles));
+    append_unavailable_nodes(document, handles);
     document["format"] = K_PRESET_FORMAT;
     if (!graph_.ir_folder().empty())
     {
@@ -1082,13 +1163,24 @@ void RigPersistence::load_from_json(const std::string& json_text, PresetScope sc
     }
     const bool with_shape = format >= 2;
     std::string nodes_text = json_text;
+    std::set<int> unavailable_ids;
     if (with_shape)
     {
+        // A node of an unlisted type is kept aside, or the rig_preset reader refuses the preset.
         nlohmann::json nodes_only = nlohmann::json::object();
-        nodes_only["nodes"] = document.at("nodes");
-        for (nlohmann::json& node_json : nodes_only["nodes"])
+        nodes_only["nodes"] = nlohmann::json::array();
+        for (const nlohmann::json& entry : document.at("nodes"))
         {
+            nlohmann::json node_json = entry;
             node_json["inputs"] = nlohmann::json::array();
+            if (entry.contains("type") && entry.at("type").is_string() &&
+                entry.contains("id") && entry.at("id").is_number_integer() &&
+                catalogue_.find(entry.at("type").get<std::string>().c_str()) == nullptr)
+            {
+                unavailable_ids.insert(entry.at("id").get<int>());
+                continue;
+            }
+            nodes_only["nodes"].push_back(node_json);
         }
         nodes_text = nodes_only.dump();
     }
@@ -1230,8 +1322,36 @@ void RigPersistence::load_from_json(const std::string& json_text, PresetScope sc
     };
 
     std::unordered_map<SushiDSP::NodeHandle, SlotGraph::SlotId> handle_to_slot;
-    for (SushiDSP::NodeHandle handle : scratch.nodes())
+    std::map<int, SlotGraph::SlotId> unavailable_slot_by_preset_id;
+
+    // The slots are made in the file's order, so an unavailable one keeps its place.
+    std::vector<SushiDSP::NodeHandle> built_in_file_order;
+    std::vector<int> file_order_ids;
+    if (with_shape)
     {
+        for (const nlohmann::json& entry : document.at("nodes"))
+        {
+            const int preset_id = entry.at("id").get<int>();
+            file_order_ids.push_back(preset_id);
+            built_in_file_order.push_back(unavailable_ids.count(preset_id) != 0
+                                              ? SushiDSP::NodeHandle{}
+                                              : handle_by_preset_id.at(preset_id));
+        }
+    }
+    else
+    {
+        built_in_file_order = scratch.nodes();
+    }
+
+    for (std::size_t position = 0; position < built_in_file_order.size(); ++position)
+    {
+        if (with_shape && unavailable_ids.count(file_order_ids[position]) != 0)
+        {
+            unavailable_slot_by_preset_id[file_order_ids[position]] =
+                graph_.restore(unavailable_snapshot(document.at("nodes").at(position)), false);
+            continue;
+        }
+        const SushiDSP::NodeHandle handle = built_in_file_order[position];
         if (is_legacy_room(handle))
         {
             continue;
@@ -1262,6 +1382,10 @@ void RigPersistence::load_from_json(const std::string& json_text, PresetScope sc
     }
 
     SlotByPresetId slot_by_preset_id;
+    for (const auto& [preset_id, slot] : unavailable_slot_by_preset_id)
+    {
+        slot_by_preset_id[preset_id] = slot;
+    }
     for (const auto& [preset_id, handle] : handle_by_preset_id)
     {
         const auto slot = handle_to_slot.find(handle);
