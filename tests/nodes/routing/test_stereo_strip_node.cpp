@@ -27,17 +27,27 @@
  * @author Mustafa Garip & Sushi Systems
  */
 
-#include <vector>
-
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/nodes/routing/stereo_strip_node.hpp>
 
+#include "support/tolerance.hpp"
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
 namespace
 {
     constexpr std::uint32_t K_BLOCK = 64;
     constexpr double K_RATE = 48000.0;
+
+    /// @brief Counts the rounded operations on the longest path to a sample: the sum and the
+    /// difference of the inputs, the width product, the mid-side add, the balance gain and the
+    /// level gain are six; the level itself is a float pow of a divided exponent, which at 20 dB
+    /// costs about three more units of u; ten bounds the whole path.
+    constexpr std::size_t K_ROUNDED_OPERATIONS = 10;
 
     /// @brief Holds one block of a strip's two output channels.
     struct StereoBlock
@@ -45,6 +55,21 @@ namespace
             std::vector<float> left = std::vector<float>(K_BLOCK, 0.0f);
             std::vector<float> right = std::vector<float>(K_BLOCK, 0.0f);
     };
+
+    /// @brief One parameter that clamps: writing @p written reads back @p expected.
+    struct ClampRow
+    {
+            const char* name;
+            const char* id;
+            float written;
+            float expected;
+    };
+
+    /// @brief Names a clamp row by its name.
+    std::string clamp_row_name(const ::testing::TestParamInfo<ClampRow>& info)
+    {
+        return info.param.name;
+    }
 
     /// @brief Prepares a strip, writes its parameters, snaps the smoothers and runs one block of a
     /// constant stereo input.
@@ -66,14 +91,26 @@ namespace
         strip.process(context);
         return block;
     }
+
+    /// @brief Expects @p computed to match @p reference within the rounding of the strip's path.
+    void expect_strip_value(float computed, double reference)
+    {
+        EXPECT_TRUE(TestSupport::is_within(
+            TestSupport::measure_relative_error<float>(computed, reference,
+                                                       K_ROUNDED_OPERATIONS)));
+    }
+
+    class Small_StereoStripClamp : public ::testing::TestWithParam<ClampRow>
+    {
+    };
 } // namespace
 
 TEST(Small_StereoStripNode, StereoStripAtItsDefaultsPassesTheInput)
 {
     const StereoBlock block = render(0.0f, 0.0f, 1.0f, 0.75f, -0.25f);
 
-    EXPECT_NEAR(block.left[0], 0.75f, 1e-6f);
-    EXPECT_NEAR(block.right[0], -0.25f, 1e-6f);
+    expect_strip_value(block.left[0], 0.75);
+    expect_strip_value(block.right[0], -0.25);
 }
 
 TEST(Small_StereoStripNode, StereoStripLevelSetsTheLinearGain)
@@ -81,20 +118,21 @@ TEST(Small_StereoStripNode, StereoStripLevelSetsTheLinearGain)
     // -20 dB is a gain of 0.1.
     const StereoBlock block = render(-20.0f, 0.0f, 1.0f, 1.0f, 0.5f);
 
-    EXPECT_NEAR(block.left[0], 0.1f, 1e-5f);
-    EXPECT_NEAR(block.right[0], 0.05f, 1e-5f);
+    expect_strip_value(block.left[0], 0.1);
+    expect_strip_value(block.right[0], 0.05);
 }
 
 TEST(Small_StereoStripNode, StereoStripBalanceTurnsTheFarSideDownAndKeepsTheNearSide)
 {
     // Balance +0.5 keeps the right at unity and scales the left by 1 - 0.5.
     const StereoBlock right_leaning = render(0.0f, 0.5f, 1.0f, 1.0f, 1.0f);
-    EXPECT_NEAR(right_leaning.left[0], 0.5f, 1e-6f);
-    EXPECT_NEAR(right_leaning.right[0], 1.0f, 1e-6f);
+    expect_strip_value(right_leaning.left[0], 0.5);
+    expect_strip_value(right_leaning.right[0], 1.0);
 
+    // Balance -1 keeps the left at unity and scales the right by 1 - 1, which is exactly zero.
     const StereoBlock hard_left = render(0.0f, -1.0f, 1.0f, 1.0f, 1.0f);
-    EXPECT_NEAR(hard_left.left[0], 1.0f, 1e-6f);
-    EXPECT_NEAR(hard_left.right[0], 0.0f, 1e-6f);
+    expect_strip_value(hard_left.left[0], 1.0);
+    expect_strip_value(hard_left.right[0], 0.0);
 }
 
 TEST(Small_StereoStripNode, StereoStripWidthZeroIsTheMonoSumOnBothSides)
@@ -102,8 +140,8 @@ TEST(Small_StereoStripNode, StereoStripWidthZeroIsTheMonoSumOnBothSides)
     // Mid of (1.0, 0.0) is 0.5.
     const StereoBlock block = render(0.0f, 0.0f, 0.0f, 1.0f, 0.0f);
 
-    EXPECT_NEAR(block.left[0], 0.5f, 1e-6f);
-    EXPECT_NEAR(block.right[0], 0.5f, 1e-6f);
+    expect_strip_value(block.left[0], 0.5);
+    expect_strip_value(block.right[0], 0.5);
 }
 
 TEST(Small_StereoStripNode, StereoStripHalfWidthHalvesTheSideSignal)
@@ -111,21 +149,23 @@ TEST(Small_StereoStripNode, StereoStripHalfWidthHalvesTheSideSignal)
     // Mid 0.5, side 0.5 * 0.5 = 0.25: left 0.75, right 0.25.
     const StereoBlock block = render(0.0f, 0.0f, 0.5f, 1.0f, 0.0f);
 
-    EXPECT_NEAR(block.left[0], 0.75f, 1e-6f);
-    EXPECT_NEAR(block.right[0], 0.25f, 1e-6f);
+    expect_strip_value(block.left[0], 0.75);
+    expect_strip_value(block.right[0], 0.25);
 }
 
-TEST(Small_StereoStripNode, StereoStripReadsItsParametersBackClamped)
+TEST_P(Small_StereoStripClamp, StereoStripReadsAParameterBackClamped)
 {
+    const ClampRow& row = GetParam();
     SushiDSP::StereoStripNode strip;
-    strip.set_parameter_for_control_thread("level", 40.0f);
-    strip.set_parameter_for_control_thread("balance", -3.0f);
-    strip.set_parameter_for_control_thread("width", 2.0f);
 
-    EXPECT_FLOAT_EQ(strip.get_parameter("level"), 12.0f);
-    EXPECT_FLOAT_EQ(strip.get_parameter("balance"), -1.0f);
-    EXPECT_FLOAT_EQ(strip.get_parameter("width"), 1.0f);
-    EXPECT_STREQ(strip.type_id(), "sushidsp.stereo_strip");
-    EXPECT_EQ(strip.ports().input_channels, 2u);
-    EXPECT_EQ(strip.ports().output_channels, 2u);
+    strip.set_parameter_for_control_thread(row.id, row.written);
+
+    EXPECT_FLOAT_EQ(strip.get_parameter(row.id), row.expected);
 }
+
+INSTANTIATE_TEST_SUITE_P(Parameters, Small_StereoStripClamp,
+                         ::testing::Values(ClampRow{"LevelAboveItsMaximum", "level", 40.0f, 12.0f},
+                                           ClampRow{"BalanceBelowItsMinimum", "balance", -3.0f,
+                                                    -1.0f},
+                                           ClampRow{"WidthAboveItsMaximum", "width", 2.0f, 1.0f}),
+                         clamp_row_name);

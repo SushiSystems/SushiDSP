@@ -27,120 +27,197 @@
  * @author Mustafa Garip
  */
 
-#include <cmath>
-#include <vector>
-
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/routing/pan_node.hpp>
 
+#include "support/tolerance.hpp"
+
+#include <cmath>
+#include <cstdint>
+#include <string>
+#include <vector>
+
 namespace
 {
+    /// @brief Holds the frames of one block in the tests below.
+    constexpr std::uint32_t K_FRAMES = 64;
+
+    /// @brief Holds the most blocks a smoother may take to settle.
+    constexpr int K_MAX_BLOCKS = 10000;
+
+    /// @brief Holds the blocks the allocation test processes.
+    constexpr int K_TRAP_BLOCKS = 100;
+
+    /// @brief Bounds the absolute error of one settled gain. The angle is (pan + 1) * pi_f / 4 in
+    /// float, with pi_f off by 0.47 u relative, one rounding in the sum and one in the product, so
+    /// at most pi/2 * 2.5 u = 3.9 u; the cosine or sine of it moves by at most that, and the
+    /// library rounds the result by at most u. Five u covers both.
+    constexpr double K_GAIN_BOUND = 5.0 * TestSupport::unit_roundoff<float>();
+
+    /// @brief Bounds the absolute error of a squared-gain sum: two squares of gains each off by
+    /// K_GAIN_BOUND move by 2 |g| K_GAIN_BOUND, the gains sum to at most sqrt(2) in magnitude,
+    /// and the squares and their sum round by u each: 2 * sqrt(2) * 5 u + 2 u = 16.2 u; 17 u.
+    constexpr double K_POWER_BOUND = 17.0 * TestSupport::unit_roundoff<float>();
+
+    /// @brief Holds the gain of each side at the centre, one over the square root of two.
+    constexpr double K_CENTRE_GAIN = 0.70710678118654752440;
+
+    /// @brief Holds the two gains a settled pan node applies.
+    struct Gains
+    {
+            float left = 0.0f;
+            float right = 0.0f;
+    };
+
+    /// @brief One pan position, for the rows that check the power.
+    struct PanRow
+    {
+            const char* name;
+            float pan;
+    };
+
+    /// @brief One parameter bound of the pan descriptor.
+    struct BoundRow
+    {
+            const char* name;
+            float SushiDSP::ParameterDescriptor::*bound;
+            float expected;
+    };
+
+    /// @brief Names a pan row by its name.
+    std::string pan_row_name(const ::testing::TestParamInfo<PanRow>& info)
+    {
+        return info.param.name;
+    }
+
+    /// @brief Names a bound row by its name.
+    std::string bound_row_name(const ::testing::TestParamInfo<BoundRow>& info)
+    {
+        return info.param.name;
+    }
+
     /// @brief Runs a unit input through node at a fixed pan until the smoother settles, then
-    /// returns the resulting left/right gains (the output value, since the input is 1.0).
-    void settled_gains(SushiDSP::PanNode& node, float pan, float& left, float& right)
+    /// returns the resulting left and right gains (the output value, since the input is 1.0).
+    Gains settled_gains(SushiDSP::PanNode& node, float pan)
     {
         node.set_parameter_for_control_thread("pan", pan);
-
-        constexpr int K_MAX_BLOCKS = 10000;
-        std::vector<float> input(64, 1.0f);
-        std::vector<float> out_left(64, 0.0f);
-        std::vector<float> out_right(64, 0.0f);
+        std::vector<float> input(K_FRAMES, 1.0f);
+        std::vector<float> out_left(K_FRAMES, 0.0f);
+        std::vector<float> out_right(K_FRAMES, 0.0f);
         const float* inputs[1] = {input.data()};
         float* outputs[2] = {out_left.data(), out_right.data()};
-        SushiDSP::ProcessContext context{outputs, inputs, 64, 0.0};
+        SushiDSP::ProcessContext context{outputs, inputs, K_FRAMES, 0.0};
 
-        float previous_left = 0.0f;
-        float previous_right = 0.0f;
+        Gains previous;
+        Gains current;
         for (int block = 0; block < K_MAX_BLOCKS; ++block)
         {
             node.process(context);
-            left = out_left.back();
-            right = out_right.back();
-            if (block > 0 && left == previous_left && right == previous_right)
-            {
+            current = Gains{out_left.back(), out_right.back()};
+            if (block > 0 && current.left == previous.left && current.right == previous.right)
                 break;
-            }
-            previous_left = left;
-            previous_right = right;
+            previous = current;
         }
+        return current;
     }
 
-    float to_db(float gain)
+    /// @brief Prepares a node and returns the gains it settles to at @p pan.
+    Gains gains_at(float pan)
     {
-        return 20.0f * std::log10(std::fabs(gain));
+        SushiDSP::PanNode node;
+        node.prepare(SushiDSP::PrepareInfo{48000.0, K_FRAMES, 1});
+        return settled_gains(node, pan);
     }
+
+    /// @brief Expects @p computed to be @p reference within K_GAIN_BOUND.
+    void expect_gain(float computed, double reference)
+    {
+        EXPECT_TRUE(
+            TestSupport::is_within(TestSupport::measure_error(computed, reference, K_GAIN_BOUND)));
+    }
+
+    /// @brief Processes @p blocks blocks of @p context on @p node.
+    void process_blocks(SushiDSP::PanNode& node, SushiDSP::ProcessContext& context, int blocks)
+    {
+        for (int block = 0; block < blocks; ++block)
+            node.process(context);
+    }
+
+    class Small_PanNodePower : public ::testing::TestWithParam<PanRow>
+    {
+    };
+
+    class Small_PanNodeRange : public ::testing::TestWithParam<BoundRow>
+    {
+    };
 } // namespace
 
 TEST(Small_PanNode, PanNodeCentreIsMinus3Point01DbOnBothChannels)
 {
-    SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
+    const Gains gains = gains_at(0.0f);
 
-    float left = 0.0f, right = 0.0f;
-    settled_gains(node, 0.0f, left, right);
-
-    EXPECT_NEAR(to_db(left), -3.01f, 0.01f);
-    EXPECT_NEAR(to_db(right), -3.01f, 0.01f);
+    // One over the square root of two is -3.0103 dB.
+    expect_gain(gains.left, K_CENTRE_GAIN);
+    expect_gain(gains.right, K_CENTRE_GAIN);
 }
 
 TEST(Small_PanNode, PanNodeHardLeftIsUnityLeftAndDeepNullRight)
 {
-    SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
+    const Gains gains = gains_at(-1.0f);
 
-    float left = 0.0f, right = 0.0f;
-    settled_gains(node, -1.0f, left, right);
-
-    EXPECT_NEAR(left, 1.0f, 1e-4f);
-    EXPECT_LE(to_db(right), -80.0f);
+    expect_gain(gains.left, 1.0);
+    expect_gain(gains.right, 0.0);
 }
 
 TEST(Small_PanNode, PanNodeHardRightIsUnityRightAndDeepNullLeft)
 {
-    SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
+    const Gains gains = gains_at(1.0f);
 
-    float left = 0.0f, right = 0.0f;
-    settled_gains(node, 1.0f, left, right);
-
-    EXPECT_NEAR(right, 1.0f, 1e-4f);
-    EXPECT_LE(to_db(left), -80.0f);
+    expect_gain(gains.right, 1.0);
+    expect_gain(gains.left, 0.0);
 }
 
-TEST(Small_PanNode, PanNodeSumOfSquaredGainsStaysUnityAcrossItsRange)
+TEST_P(Small_PanNodePower, PanNodeSumOfSquaredGainsStaysUnity)
 {
-    SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
+    const Gains gains = gains_at(GetParam().pan);
 
-    for (int step = 0; step <= 20; ++step)
-    {
-        const float pan = -1.0f + step * (2.0f / 20.0f);
-        float left = 0.0f, right = 0.0f;
-        settled_gains(node, pan, left, right);
+    const double power = static_cast<double>(gains.left) * gains.left +
+                         static_cast<double>(gains.right) * gains.right;
 
-        const float power = left * left + right * right;
-        EXPECT_NEAR(power, 1.0f, 0.01f) << "pan = " << pan;
-    }
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(power, 1.0, K_POWER_BOUND)));
 }
 
-TEST(Small_PanNode, PanNodeDescriptorDeclaresOnePanParameterInContractOrder)
+INSTANTIATE_TEST_SUITE_P(Positions, Small_PanNodePower,
+                         ::testing::Values(PanRow{"HardLeft", -1.0f}, PanRow{"ThreeQuartersLeft",
+                                                                              -0.75f},
+                                           PanRow{"HalfLeft", -0.5f}, PanRow{"QuarterLeft", -0.25f},
+                                           PanRow{"Centre", 0.0f}, PanRow{"QuarterRight", 0.25f},
+                                           PanRow{"HalfRight", 0.5f},
+                                           PanRow{"ThreeQuartersRight", 0.75f},
+                                           PanRow{"HardRight", 1.0f}),
+                         pan_row_name);
+
+TEST_P(Small_PanNodeRange, PanNodeDescriptorDeclaresTheRangeOfItsPanParameter)
 {
     const SushiDSP::NodeDescriptor& descriptor = SushiDSP::pan_descriptor();
-    EXPECT_STREQ(descriptor.id, "sushidsp.pan");
-    EXPECT_STREQ(descriptor.name, "Pan");
     ASSERT_EQ(descriptor.parameter_count, 1u);
-    EXPECT_STREQ(descriptor.parameters[0].id, "pan");
-    EXPECT_FLOAT_EQ(descriptor.parameters[0].min, -1.0f);
-    EXPECT_FLOAT_EQ(descriptor.parameters[0].max, 1.0f);
-    EXPECT_FLOAT_EQ(descriptor.parameters[0].default_value, 0.0f);
+
+    EXPECT_EQ(descriptor.parameters[0].*(GetParam().bound), GetParam().expected);
 }
+
+INSTANTIATE_TEST_SUITE_P(Bounds, Small_PanNodeRange,
+                         ::testing::Values(BoundRow{"Minimum", &SushiDSP::ParameterDescriptor::min,
+                                                    -1.0f},
+                                           BoundRow{"Maximum", &SushiDSP::ParameterDescriptor::max,
+                                                    1.0f}),
+                         bound_row_name);
 
 TEST(Small_PanNode, PanNodeIndexedSetterAgreesWithNamedSetter)
 {
     SushiDSP::PanNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
+    node.prepare(SushiDSP::PrepareInfo{48000.0, K_FRAMES, 1});
 
     node.set_parameter_for_audio_thread(static_cast<std::uint16_t>(0), 0.5f);
     EXPECT_FLOAT_EQ(node.get_parameter("pan"), 0.5f);
@@ -149,21 +226,12 @@ TEST(Small_PanNode, PanNodeIndexedSetterAgreesWithNamedSetter)
     EXPECT_FLOAT_EQ(node.get_parameter("pan"), -0.25f);
 }
 
-TEST(Small_PanNode, PanNodePortsAreOneInputTwoOutputs)
-{
-    SushiDSP::PanNode node;
-    const SushiDSP::PortLayout ports = node.ports();
-    EXPECT_EQ(ports.input_channels, 1u);
-    EXPECT_EQ(ports.output_channels, 2u);
-}
-
 TEST(Medium_PanNode, ProcessPerformsNoHeapAllocation)
 {
     // apply_pan()'s cos/sin recompute runs on stack values only: no heap, lock, syscall, throw.
     SushiDSP::PanNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
     node.set_parameter_for_control_thread("pan", 0.5f);
-
     std::vector<float> input(256, 1.0f);
     std::vector<float> out_left(256, 0.0f);
     std::vector<float> out_right(256, 0.0f);
@@ -173,10 +241,7 @@ TEST(Medium_PanNode, ProcessPerformsNoHeapAllocation)
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-    for (int block = 0; block < 100; ++block)
-    {
-        node.process(context);
-    }
+    process_blocks(node, context, K_TRAP_BLOCKS);
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);

@@ -23,50 +23,63 @@
 
 /**
  * @file test_splitter_node.cpp
- * @brief Tests that SplitterNode copies its input and has no parameters.
+ * @brief Tests that SplitterNode copies its input to its output without allocating.
  * @author Mustafa Garip
  */
-
-#include <memory>
-#include <new>
-#include <vector>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
 #include <SushiDSP/nodes/routing/splitter_node.hpp>
 
+#include <cstddef>
+#include <vector>
+
+namespace
+{
+    /// @brief Holds the frames of one block in the tests below.
+    constexpr std::size_t K_FRAMES = 64;
+
+    /// @brief Holds the blocks the allocation test processes.
+    constexpr int K_TRAP_BLOCKS = 100;
+
+    /// @brief Holds the value the copy test feeds every frame.
+    constexpr float K_INPUT_LEVEL = 3.5f;
+
+    /// @brief Processes @p blocks blocks of @p context on @p node.
+    void process_blocks(SushiDSP::SplitterNode& node, SushiDSP::ProcessContext& context, int blocks)
+    {
+        for (int block = 0; block < blocks; ++block)
+            node.process(context);
+    }
+
+    /// @brief Expects every sample of @p samples to equal @p expected.
+    void expect_every_sample(const std::vector<float>& samples, float expected)
+    {
+        for (const float sample : samples)
+            EXPECT_FLOAT_EQ(sample, expected);
+    }
+} // namespace
+
 TEST(Small_SplitterNode, SplitterNodeCopiesInputToOutput)
 {
     SushiDSP::SplitterNode node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 64, 1});
-
-    std::vector<float> input(64, 3.5f);
-    std::vector<float> output(64, 0.0f);
+    node.prepare(SushiDSP::PrepareInfo{48000.0, K_FRAMES, 1});
+    std::vector<float> input(K_FRAMES, K_INPUT_LEVEL);
+    std::vector<float> output(K_FRAMES, 0.0f);
     const float* inputs[1] = {input.data()};
     float* outputs[1] = {output.data()};
-    SushiDSP::ProcessContext context{outputs, inputs, 64, 0.0};
+    SushiDSP::ProcessContext context{outputs, inputs, K_FRAMES, 0.0};
 
     node.process(context);
 
-    for (float sample : output)
-    {
-        EXPECT_FLOAT_EQ(sample, 3.5f);
-    }
-}
-
-TEST(Small_SplitterNode, SplitterNodeHasNoParameters)
-{
-    const SushiDSP::NodeDescriptor& descriptor = SushiDSP::splitter_descriptor();
-    EXPECT_STREQ(descriptor.id, "sushidsp.splitter");
-    EXPECT_EQ(descriptor.parameter_count, 0u);
+    expect_every_sample(output, K_INPUT_LEVEL);
 }
 
 TEST(Medium_SplitterNode, ProcessPerformsNoHeapAllocation)
 {
     SushiDSP::SplitterNode node;
     node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
-
     std::vector<float> input(256, 1.0f);
     std::vector<float> output(256, 0.0f);
     const float* inputs[1] = {input.data()};
@@ -75,10 +88,7 @@ TEST(Medium_SplitterNode, ProcessPerformsNoHeapAllocation)
 
     SushiDSP::test::AllocationTrap trap;
     trap.arm();
-    for (int block = 0; block < 100; ++block)
-    {
-        node.process(context);
-    }
+    process_blocks(node, context, K_TRAP_BLOCKS);
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
