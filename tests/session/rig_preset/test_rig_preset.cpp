@@ -27,10 +27,10 @@
  * @author Mustafa Garip
  */
 
-#include <cmath>
-#include <functional>
+#include <cstddef>
 #include <memory>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -38,63 +38,19 @@
 
 #include <SushiDSP/foundation/core/rig_graph.hpp>
 #include <SushiDSP/catalog/node_registry/node_registry.hpp>
+#include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 #include <SushiDSP/session/rig_preset/rig_preset.hpp>
 
 namespace
 {
-    /// @brief A minimal AudioNode with no node_registry() entry, so its type_id() can never
-    /// resolve to a NodeDescriptor — used to exercise serialize_rig_to_json()'s throw path.
-    struct UnregisteredNode : SushiDSP::AudioNode
-    {
-            void prepare(const SushiDSP::PrepareInfo&) override {}
-            void process(SushiDSP::ProcessContext&) override {}
-            SushiDSP::PortLayout ports() const override
-            {
-                return {1, 1};
-            }
-            float get_parameter(const char*) const override
-            {
-                return 0.0f;
-            }
-            void set_parameter_for_control_thread(const char*, float) override {}
-            void reset() override {}
-            const char* type_id() const override
-            {
-                return "not.registered";
-            }
-    };
-} // namespace
+    const SushiDSP::PrepareInfo kInfo{48000.0, 256, 1};
 
-TEST(Small_RigPreset, SerializeRigToJsonProducesOneEntryPerNodeWithInputs)
-{
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    SushiDSP::RigGraph graph(256, 4);
-    auto ts = graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
-    auto amp = graph.add_node(SushiDSP::make_node("sushidsp.jcm800", info));
-    graph.connect(ts, amp);
-    graph.compile(info);
+    /// Frames per block and the node capacity of the graphs the tests build.
+    constexpr std::size_t K_BLOCK = 256;
+    constexpr std::size_t K_CAPACITY = 8;
 
-    const std::string json_text = SushiDSP::serialize_rig_to_json(graph);
-    const nlohmann::json root = nlohmann::json::parse(json_text);
-
-    ASSERT_EQ(root.at("nodes").size(), 2u);
-    bool found_amp_with_one_input = false;
-    for (const auto& node_json : root.at("nodes"))
-    {
-        if (node_json.at("type").get<std::string>() == "sushidsp.jcm800")
-        {
-            ASSERT_EQ(node_json.at("inputs").size(), 1u);
-            found_amp_with_one_input = true;
-        }
-    }
-    EXPECT_TRUE(found_amp_with_one_input);
-}
-
-TEST(Small_RigPreset, DeserializeRigFromJsonRebuildsBranchingTopologyAndParameters)
-{
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-
-    const std::string json_text = R"({
+    /// A preset whose topology branches at the splitter and joins at the mixer.
+    constexpr const char* K_BRANCHING_PRESET = R"({
         "nodes": [
             { "id": 0, "type": "sushidsp.tubescreamer", "params": { "drive": 0.75 }, "inputs": [] },
             { "id": 1, "type": "sushidsp.splitter", "params": {}, "inputs": [0] },
@@ -104,83 +60,220 @@ TEST(Small_RigPreset, DeserializeRigFromJsonRebuildsBranchingTopologyAndParamete
         ]
     })";
 
-    SushiDSP::RigGraph graph(256, 8);
-    SushiDSP::deserialize_rig_from_json(graph, json_text, info);
-    graph.compile(info);
-
-    const auto handles = graph.nodes();
-    ASSERT_EQ(handles.size(), 5u);
-
-    bool found_drive_075 = false;
-    bool found_drive_010 = false;
-    for (SushiDSP::NodeHandle handle : handles)
+    /// Adds a node of a registered type to a graph.
+    SushiDSP::NodeHandle add(SushiDSP::RigGraph& graph, const char* type)
     {
-        SushiDSP::AudioNode* node = graph.node(handle);
-        const float drive = node->get_parameter("drive");
-        if (std::abs(drive - 0.75f) < 1e-6f)
-        {
-            found_drive_075 = true;
-        }
-        if (std::abs(drive - 0.1f) < 1e-6f)
-        {
-            found_drive_010 = true;
-        }
+        return graph.add_node(SushiDSP::make_node(type, kInfo));
     }
-    EXPECT_TRUE(found_drive_075);
-    EXPECT_TRUE(found_drive_010);
 
-    // The mixer's inputs are handles 2 and 3, in that order. See tests/session/rig_preset/README.md.
-    const std::vector<SushiDSP::NodeHandle> mixer_inputs = graph.upstream_of(4);
-    ASSERT_EQ(mixer_inputs.size(), 2u);
-    EXPECT_EQ(mixer_inputs[0], 2u);
-    EXPECT_EQ(mixer_inputs[1], 3u);
+    /// A tubescreamer into a jcm800.
+    void build_chain(SushiDSP::RigGraph& graph)
+    {
+        const auto source = add(graph, "sushidsp.tubescreamer");
+        const auto amp = add(graph, "sushidsp.jcm800");
+        graph.connect(source, amp);
+        graph.compile(kInfo);
+    }
+
+    /// A tubescreamer, a splitter, an amp and a dry tubescreamer, joined at a mixer with set gains.
+    void build_branching_graph(SushiDSP::RigGraph& graph)
+    {
+        const auto source = add(graph, "sushidsp.tubescreamer");
+        graph.node(source)->set_parameter_for_control_thread("drive", 0.9f);
+        const auto splitter = add(graph, "sushidsp.splitter");
+        const auto amp = add(graph, "sushidsp.jcm800");
+        const auto dry = add(graph, "sushidsp.tubescreamer");
+        const auto mixer = add(graph, "sushidsp.mixer");
+        graph.connect(source, splitter);
+        graph.connect(splitter, amp);
+        graph.connect(splitter, dry);
+        graph.connect(amp, mixer);
+        graph.connect(dry, mixer);
+        graph.node(mixer)->set_parameter_for_control_thread("gain_0", 0.3f);
+        graph.node(mixer)->set_parameter_for_control_thread("gain_1", 0.7f);
+        graph.compile(kInfo);
+    }
+
+    /// A single tubescreamer.
+    void build_single_node(SushiDSP::RigGraph& graph)
+    {
+        add(graph, "sushidsp.tubescreamer");
+        graph.compile(kInfo);
+    }
+
+    /// Every node's upstream handles, in handle order.
+    std::vector<std::vector<SushiDSP::NodeHandle>> upstream_table(const SushiDSP::RigGraph& graph)
+    {
+        std::vector<std::vector<SushiDSP::NodeHandle>> table;
+        for (const SushiDSP::NodeHandle handle : graph.nodes())
+        {
+            table.push_back(graph.upstream_of(handle));
+        }
+        return table;
+    }
+
+    /// The count of inputs of each node entry of the given type.
+    std::vector<std::size_t> input_counts_of_type(const nlohmann::json& root, const std::string& type)
+    {
+        std::vector<std::size_t> counts;
+        for (const auto& node_json : root.at("nodes"))
+        {
+            if (node_json.at("type").get<std::string>() == type)
+            {
+                counts.push_back(node_json.at("inputs").size());
+            }
+        }
+        return counts;
+    }
+
+    /// The value of one field of each node entry, as text.
+    std::vector<std::string> field_of_each(const nlohmann::json& root, const char* field)
+    {
+        std::vector<std::string> values;
+        for (const auto& node_json : root.at("nodes"))
+        {
+            values.push_back(node_json.value(field, std::string("<absent>")));
+        }
+        return values;
+    }
+
+    /// One graph builder, for the rows of the round trip.
+    struct GraphRow
+    {
+            const char* name;
+            void (*build)(SushiDSP::RigGraph&);
+    };
+
+    const GraphRow kGraphRows[] = {
+        {"BranchingGraph", build_branching_graph},
+        {"SingleNode", build_single_node},
+    };
+
+    std::string graph_name(const ::testing::TestParamInfo<GraphRow>& info)
+    {
+        return info.param.name;
+    }
+
+    class Small_RigPresetRoundTrip : public ::testing::TestWithParam<GraphRow>
+    {
+    };
+
+    /// One preset that must be refused.
+    struct MalformedRow
+    {
+            const char* name;
+            const char* json_text;
+    };
+
+    // The first row is the shape of a host_gui-format preset, the likeliest wrong file.
+    const MalformedRow kMalformedRows[] = {
+        {"MissingId", R"({"nodes":[{"type":"sushidsp.tubescreamer","params":{},"inputs":[]}]})"},
+        {"MissingParams", R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","inputs":[]}]})"},
+        {"MissingInputs", R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{}}]})"},
+        {"InputsNotAnArray",
+         R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":3}]})"},
+        {"DuplicateId", R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+                    {"id":0,"type":"sushidsp.jcm800","params":{},"inputs":[]}]})"},
+        // Id 7 is declared by no entry. See tests/session/rig_preset/README.md.
+        {"DanglingInput", R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+                    {"id":1,"type":"sushidsp.jcm800","params":{},"inputs":[7]}]})"},
+        {"ValidEntryThenABrokenOne", R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+                    {"type":"sushidsp.jcm800","params":{},"inputs":[]}]})"},
+        {"ValidEntryThenAnUnknownType", R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
+                    {"id":1,"type":"sushidsp.nonexistent","params":{},"inputs":[]}]})"},
+    };
+
+    std::string malformed_name(const ::testing::TestParamInfo<MalformedRow>& info)
+    {
+        return info.param.name;
+    }
+
+    class Small_RigPresetMalformed : public ::testing::TestWithParam<MalformedRow>
+    {
+    };
+
+    /// One chain of registered types, for the rows of the annotate test.
+    struct ChainRow
+    {
+            const char* name;
+            std::vector<const char*> types;
+    };
+
+    const ChainRow kChainRows[] = {
+        {"OneNode", {"sushidsp.tubescreamer"}},
+        {"TwoNodes", {"sushidsp.tubescreamer", "sushidsp.jcm800"}},
+    };
+
+    std::string chain_name(const ::testing::TestParamInfo<ChainRow>& info)
+    {
+        return info.param.name;
+    }
+
+    class Small_RigPresetAnnotate : public ::testing::TestWithParam<ChainRow>
+    {
+    };
+} // namespace
+
+TEST(Small_RigPreset, SerializeRigToJsonProducesOneEntryPerNodeWithInputs)
+{
+    SushiDSP::RigGraph graph(K_BLOCK, 4);
+    build_chain(graph);
+
+    const nlohmann::json root = nlohmann::json::parse(SushiDSP::serialize_rig_to_json(graph));
+
+    ASSERT_EQ(root.at("nodes").size(), 2u);
+    EXPECT_EQ(input_counts_of_type(root, "sushidsp.jcm800"), std::vector<std::size_t>{1u});
 }
 
-TEST(Small_RigPreset, SerializeThenDeserializeRoundTripsABranchingGraph)
+TEST(Small_RigPreset, DeserializeRigFromJsonRebuildsTheParameters)
 {
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    SushiDSP::RigGraph original(256, 6);
-    auto source_ts = original.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
-    original.node(source_ts)->set_parameter_for_control_thread("drive", 0.9f);
-    auto splitter = original.add_node(SushiDSP::make_node("sushidsp.splitter", info));
-    auto amp = original.add_node(SushiDSP::make_node("sushidsp.jcm800", info));
-    auto dry = original.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
-    auto mixer = original.add_node(SushiDSP::make_node("sushidsp.mixer", info));
-    original.connect(source_ts, splitter);
-    original.connect(splitter, amp);
-    original.connect(splitter, dry);
-    original.connect(amp, mixer);
-    original.connect(dry, mixer);
-    original.node(mixer)->set_parameter_for_control_thread("gain_0", 0.3f);
-    original.node(mixer)->set_parameter_for_control_thread("gain_1", 0.7f);
-    original.compile(info);
+    SushiDSP::RigGraph graph(K_BLOCK, K_CAPACITY);
+    SushiDSP::deserialize_rig_from_json(graph, K_BRANCHING_PRESET, kInfo);
+    graph.compile(kInfo);
 
+    EXPECT_EQ(graph.node(0)->get_parameter("drive"), 0.75f);
+    EXPECT_EQ(graph.node(3)->get_parameter("drive"), 0.1f);
+}
+
+// The mixer's inputs are handles 2 and 3, in that order. See tests/session/rig_preset/README.md.
+TEST(Small_RigPreset, DeserializeRigFromJsonRebuildsBranchingTopology)
+{
+    SushiDSP::RigGraph graph(K_BLOCK, K_CAPACITY);
+    SushiDSP::deserialize_rig_from_json(graph, K_BRANCHING_PRESET, kInfo);
+    graph.compile(kInfo);
+
+    ASSERT_EQ(graph.nodes().size(), 5u);
+    EXPECT_EQ(graph.upstream_of(4), (std::vector<SushiDSP::NodeHandle>{2u, 3u}));
+}
+
+// Rebuilt handles line up 1:1 with the original's. See tests/session/rig_preset/README.md.
+TEST_P(Small_RigPresetRoundTrip, SerializeThenDeserializeRoundTripsTheTopology)
+{
+    SushiDSP::RigGraph original(K_BLOCK, K_CAPACITY);
+    GetParam().build(original);
     const std::string json_text = SushiDSP::serialize_rig_to_json(original);
 
-    SushiDSP::RigGraph rebuilt(256, 6);
-    SushiDSP::deserialize_rig_from_json(rebuilt, json_text, info);
-    rebuilt.compile(info);
+    SushiDSP::RigGraph rebuilt(K_BLOCK, K_CAPACITY);
+    SushiDSP::deserialize_rig_from_json(rebuilt, json_text, kInfo);
+    rebuilt.compile(kInfo);
 
-    ASSERT_EQ(rebuilt.nodes().size(), original.nodes().size());
-    bool found_mixer_with_gains = false;
-    for (SushiDSP::NodeHandle handle : rebuilt.nodes())
-    {
-        SushiDSP::AudioNode* node = rebuilt.node(handle);
-        if (std::abs(node->get_parameter("gain_0") - 0.3f) < 1e-6f &&
-            std::abs(node->get_parameter("gain_1") - 0.7f) < 1e-6f)
-        {
-            found_mixer_with_gains = true;
-        }
-    }
-    EXPECT_TRUE(found_mixer_with_gains);
-
-    // Rebuilt handles line up 1:1 with the original's. See tests/session/rig_preset/README.md.
-    for (SushiDSP::NodeHandle handle : original.nodes())
-    {
-        EXPECT_EQ(rebuilt.upstream_of(handle), original.upstream_of(handle))
-            << "upstream_of mismatch for handle " << handle;
-    }
+    EXPECT_EQ(upstream_table(rebuilt), upstream_table(original));
 }
+
+TEST_P(Small_RigPresetRoundTrip, SerializeThenDeserializeRoundTripsEveryParameter)
+{
+    SushiDSP::RigGraph original(K_BLOCK, K_CAPACITY);
+    GetParam().build(original);
+    const std::string json_text = SushiDSP::serialize_rig_to_json(original);
+
+    SushiDSP::RigGraph rebuilt(K_BLOCK, K_CAPACITY);
+    SushiDSP::deserialize_rig_from_json(rebuilt, json_text, kInfo);
+    rebuilt.compile(kInfo);
+
+    EXPECT_EQ(SushiDSP::serialize_rig_to_json(rebuilt), json_text);
+}
+
+INSTANTIATE_TEST_SUITE_P(Graphs, Small_RigPresetRoundTrip, ::testing::ValuesIn(kGraphRows), graph_name);
 
 TEST(Small_RigPreset, DeserializeRigFromJsonThrowsOnUnknownNodeType)
 {
@@ -190,117 +283,74 @@ TEST(Small_RigPreset, DeserializeRigFromJsonThrowsOnUnknownNodeType)
         ]
     })";
 
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    SushiDSP::RigGraph graph(256, 4);
-    EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, json_text, info), std::runtime_error);
+    SushiDSP::RigGraph graph(K_BLOCK, 4);
+    EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, json_text, kInfo), std::runtime_error);
 }
 
-TEST(Small_RigPreset, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGraph)
+// A rejected preset leaves the graph unmodified. See tests/session/rig_preset/README.md.
+TEST_P(Small_RigPresetMalformed, DeserializeRigFromJsonRejectsMalformedEntriesWithoutTouchingTheGraph)
 {
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
+    SushiDSP::RigGraph graph(K_BLOCK, 4);
 
-    // A rejected preset leaves the graph unmodified. See tests/session/rig_preset/README.md.
-    const std::vector<std::string> malformed = {
-        // Missing "id" — the shape of a host_gui-format preset, the likeliest wrong file.
-        R"({"nodes":[{"type":"sushidsp.tubescreamer","params":{},"inputs":[]}]})",
-        // Missing "params".
-        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","inputs":[]}]})",
-        // Missing "inputs".
-        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{}}]})",
-        // "inputs" is not an array.
-        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":3}]})",
-        // Duplicate id.
-        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
-                    {"id":0,"type":"sushidsp.jcm800","params":{},"inputs":[]}]})",
-        // Id 7 is declared by no entry. See tests/session/rig_preset/README.md.
-        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
-                    {"id":1,"type":"sushidsp.jcm800","params":{},"inputs":[7]}]})",
-        // A valid first entry followed by a broken one: the first must NOT be added.
-        R"({"nodes":[{"id":0,"type":"sushidsp.tubescreamer","params":{},"inputs":[]},
-                    {"type":"sushidsp.jcm800","params":{},"inputs":[]}]})",
-    };
+    EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, GetParam().json_text, kInfo), std::runtime_error);
+    EXPECT_TRUE(graph.nodes().empty());
+}
 
-    for (const std::string& json_text : malformed)
+INSTANTIATE_TEST_SUITE_P(Presets, Small_RigPresetMalformed, ::testing::ValuesIn(kMalformedRows), malformed_name);
+
+TEST(Small_RigPreset, SerializeRigToJsonThrowsWhenNodeTypeIsNotInTheCatalogue)
+{
+    SushiDSP::RigGraph graph(K_BLOCK, 4);
+    build_single_node(graph);
+    const SushiDSP::InMemoryNodeCatalogue empty_catalogue;
+
+    EXPECT_THROW(SushiDSP::serialize_rig_to_json(graph, nullptr, empty_catalogue), std::runtime_error);
+}
+
+TEST_P(Small_RigPresetAnnotate, SerializeRigToJsonCallsAnnotateNodeOncePerNode)
+{
+    SushiDSP::RigGraph graph(K_BLOCK, 4);
+    SushiDSP::NodeHandle previous = 0;
+    for (std::size_t index = 0; index < GetParam().types.size(); ++index)
     {
-        SushiDSP::RigGraph graph(256, 4);
-        EXPECT_THROW(SushiDSP::deserialize_rig_from_json(graph, json_text, info),
-                     std::runtime_error)
-            << "should have thrown std::runtime_error for: " << json_text;
-        EXPECT_TRUE(graph.nodes().empty()) << "graph must be left unmodified for: " << json_text;
+        const SushiDSP::NodeHandle handle = add(graph, GetParam().types[index]);
+        if (index > 0)
+        {
+            graph.connect(previous, handle);
+        }
+        previous = handle;
     }
-}
+    graph.compile(kInfo);
 
-TEST(Small_RigPreset, SerializeRigToJsonThrowsWhenNodeTypeIsNotRegistered)
-{
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(std::make_unique<UnregisteredNode>());
-    graph.compile(info);
-
-    EXPECT_THROW(SushiDSP::serialize_rig_to_json(graph), std::runtime_error);
-}
-
-TEST(Small_RigPreset, SerializeRigToJsonCallsAnnotateNodeOncePerNode)
-{
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    SushiDSP::RigGraph graph(256, 4);
-    auto ts = graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
-    auto amp = graph.add_node(SushiDSP::make_node("sushidsp.jcm800", info));
-    graph.connect(ts, amp);
-    graph.compile(info);
-
-    int call_count = 0;
     const std::string json_text = SushiDSP::serialize_rig_to_json(
         graph,
-        [&call_count](SushiDSP::NodeHandle, nlohmann::json& node_json)
+        [](SushiDSP::NodeHandle, nlohmann::json& node_json)
         {
-            ++call_count;
-            node_json["marker"] = "annotated";
+            node_json["marker"] = node_json.contains("marker") ? "annotated twice" : "annotated";
         });
 
-    EXPECT_EQ(call_count, 2);
-    const nlohmann::json root = nlohmann::json::parse(json_text);
-    for (const auto& node_json : root.at("nodes"))
-    {
-        EXPECT_EQ(node_json.at("marker").get<std::string>(), "annotated");
-    }
+    EXPECT_EQ(field_of_each(nlohmann::json::parse(json_text), "marker"),
+              std::vector<std::string>(GetParam().types.size(), "annotated"));
 }
+
+INSTANTIATE_TEST_SUITE_P(Chains, Small_RigPresetAnnotate, ::testing::ValuesIn(kChainRows), chain_name);
 
 TEST(Small_RigPreset, DeserializeRigFromJsonCallsOnNodeLoadedWithFullEntry)
 {
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
     const std::string json_text = R"({
         "nodes": [
-            { "id": 0, "type": "sushidsp.tubescreamer", "params": {}, "inputs": [], "marker": "hello" }
+            { "id": 0, "type": "sushidsp.tubescreamer", "params": {}, "inputs": [], "drive_override": 0.25 }
         ]
     })";
+    SushiDSP::RigGraph graph(K_BLOCK, 4);
 
-    SushiDSP::RigGraph graph(256, 4);
-    int call_count = 0;
-    std::string seen_marker;
     SushiDSP::deserialize_rig_from_json(
-        graph, json_text, info,
-        [&call_count, &seen_marker](SushiDSP::NodeHandle, const nlohmann::json& node_json)
+        graph, json_text, kInfo,
+        [&graph](SushiDSP::NodeHandle handle, const nlohmann::json& node_json)
         {
-            ++call_count;
-            seen_marker = node_json.value("marker", std::string());
+            graph.node(handle)->set_parameter_for_control_thread("drive", node_json.at("drive_override").get<float>());
         });
+    graph.compile(kInfo);
 
-    EXPECT_EQ(call_count, 1);
-    EXPECT_EQ(seen_marker, "hello");
-}
-
-TEST(Small_RigPreset, SerializeAndDeserializeStillWorkWithNoCallback)
-{
-    // Call sites without a callback behave unchanged. See tests/session/rig_preset/README.md.
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    SushiDSP::RigGraph graph(256, 4);
-    graph.add_node(SushiDSP::make_node("sushidsp.tubescreamer", info));
-    graph.compile(info);
-
-    const std::string json_text = SushiDSP::serialize_rig_to_json(graph);
-    SushiDSP::RigGraph rebuilt(256, 4);
-    SushiDSP::deserialize_rig_from_json(rebuilt, json_text, info);
-
-    EXPECT_EQ(rebuilt.nodes().size(), 1u);
+    EXPECT_EQ(graph.node(0)->get_parameter("drive"), 0.25f);
 }

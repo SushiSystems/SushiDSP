@@ -27,30 +27,40 @@
  * @author Mustafa Garip
  */
 
+#include <cstddef>
+
 #include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/room_scenes/room_fixtures.hpp>
 
+namespace
+{
+    /// Returns an array of the given type with every element set to one value.
+    /// @tparam Array A std::array type.
+    /// @param value The value of every element.
+    template <typename Array>
+    Array filled_with(typename Array::value_type value)
+    {
+        Array array;
+        array.fill(value);
+        return array;
+    }
+} // namespace
+
 TEST(Small_RoomFixtures, GarageIsConcreteAllRoundWithFlatScattering)
 {
     const SushiDSP::room::RoomScene scene = SushiDSP::test::garage_scene();
-    for (const SushiDSP::room::MaterialId material : scene.surfaces)
-    {
-        EXPECT_EQ(material, SushiDSP::room::MaterialId::ConcreteUnpainted);
-    }
-    for (const SushiDSP::room::Scattering scattering : scene.scattering)
-    {
-        EXPECT_EQ(scattering, SushiDSP::room::Scattering::Flat);
-    }
+
+    EXPECT_EQ(scene.surfaces, filled_with<decltype(scene.surfaces)>(SushiDSP::room::MaterialId::ConcreteUnpainted));
+    EXPECT_EQ(scene.scattering, filled_with<decltype(scene.scattering)>(SushiDSP::room::Scattering::Flat));
 }
 
 TEST(Small_RoomFixtures, BlockRoomIsPaintedConcreteBlockAllRound)
 {
     const SushiDSP::room::RoomScene scene = SushiDSP::test::block_room_scene();
-    for (const SushiDSP::room::MaterialId material : scene.surfaces)
-    {
-        EXPECT_EQ(material, SushiDSP::room::MaterialId::ConcreteBlockPainted);
-    }
+
+    EXPECT_EQ(scene.surfaces,
+              filled_with<decltype(scene.surfaces)>(SushiDSP::room::MaterialId::ConcreteBlockPainted));
 }
 
 TEST(Small_RoomFixtures, BedroomFloorIsNotTheGarageConcrete)

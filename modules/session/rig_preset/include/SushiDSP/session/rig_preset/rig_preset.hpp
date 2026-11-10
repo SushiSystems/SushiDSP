@@ -35,6 +35,7 @@
 #include <nlohmann/json.hpp>
 
 #include <SushiDSP/foundation/core/rig_graph.hpp>
+#include <SushiDSP/session/rig_preset/node_catalogue.hpp>
 
 namespace SushiDSP
 {
@@ -56,19 +57,23 @@ namespace SushiDSP
     /// @brief Serializes a compiled RigGraph's topology and every declared parameter to JSON.
     /// @param graph The graph to serialize; it must have been compile()'d.
     /// @param annotate_node Optional; called once per node with the JSON object being built for it.
+    /// @param catalogue Resolves each node's type; the default is node_registry().
     /// @return The JSON text, pretty-printed.
-    /// @throws std::runtime_error if a live node's type is not found in node_registry().
+    /// @throws std::runtime_error if a live node's type is not found in @p catalogue.
     /// @see modules/session/rig_preset/README.md, "What serialization writes"
-    std::string serialize_rig_to_json(const RigGraph& graph,
-                                      AnnotateNodeFn annotate_node = nullptr);
+    std::string serialize_rig_to_json(const RigGraph& graph, AnnotateNodeFn annotate_node = nullptr,
+                                      const NodeCatalogue& catalogue = registry_node_catalogue());
 
     /// @brief Parses JSON in serialize_rig_to_json()'s schema and adds its nodes and edges.
     /// @param graph An empty or existing RigGraph; the caller compiles it afterward.
     /// @param on_node_loaded Optional; called once per constructed node with its parsed JSON entry.
-    /// @throws std::runtime_error if an entry is malformed; graph is then left unmodified.
+    /// @param catalogue Resolves each entry's type; the default is node_registry().
+    /// @throws std::runtime_error if an entry is malformed or its type is not in @p catalogue; graph
+    /// is then left unmodified.
     /// @throws nlohmann::json::parse_error if the text is not valid JSON.
     /// @see modules/session/rig_preset/README.md, "What deserialization accepts"
     void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text,
                                    const PrepareInfo& info,
-                                   OnNodeLoadedFn on_node_loaded = nullptr);
+                                   OnNodeLoadedFn on_node_loaded = nullptr,
+                                   const NodeCatalogue& catalogue = registry_node_catalogue());
 } // namespace SushiDSP

@@ -92,6 +92,7 @@ const BuiltProduct kBuiltProducts[] = {
     {"sushidsp.splitter", 1u, 1u},
     {"sushidsp.mixer", static_cast<std::uint32_t>(SushiDSP::MixerNode::K_MAX_FAN_IN), 1u},
     {"sushidsp.cabinet", 1u, 1u},
+    {"sushidsp.microphone", 1u, 1u},
     {"sushidsp.room", 6u, 2u},
 };
 

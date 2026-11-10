@@ -1,5 +1,5 @@
 /**************************************************************************/
-/* test_room_ports.cpp                                                    */
+/* compile_room_ports.cpp                                                 */
 /**************************************************************************/
 /*                          This file is part of:                         */
 /*                                SushiDSP                                */
@@ -22,26 +22,16 @@
 /**************************************************************************/
 
 /**
- * @file test_room_ports.cpp
- * @brief Tests that the room port table owns its buffers and cannot be copied.
+ * @file compile_room_ports.cpp
+ * @brief Holds that the room port table owns its buffers and cannot be copied, as static assertions.
  * @author Mustafa Garip
  */
-
-#include <gtest/gtest.h>
 
 #include <SushiDSP/nodes/room_scenes/room_ports.hpp>
 
 #include <type_traits>
 
-TEST(Small_RoomPorts, CannotBeCopied)
-{
-    EXPECT_FALSE(std::is_copy_constructible<SushiDSP::test::RoomPorts>::value);
-    EXPECT_FALSE(std::is_copy_assignable<SushiDSP::test::RoomPorts>::value);
-}
-
-TEST(Small_RoomPorts, ConstructsForAGivenBlockSize)
-{
-    const SushiDSP::test::RoomPorts ports(256u);
-    (void)ports;
-    SUCCEED();
-}
+static_assert(!std::is_copy_constructible<SushiDSP::test::RoomPorts>::value,
+              "RoomPorts owns its buffers, so a copy would alias them");
+static_assert(!std::is_copy_assignable<SushiDSP::test::RoomPorts>::value,
+              "RoomPorts owns its buffers, so a copy would alias them");

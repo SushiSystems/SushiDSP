@@ -13,12 +13,19 @@ today. This file records what the code in this directory does.
 | --- | --- |
 | Graph → JSON, one node per array entry with its `id`/`type`/`params`/`inputs` | `serialize_rig_to_json()` |
 | JSON → graph, `add_node()`/`connect()` calls in file order | `deserialize_rig_from_json()` |
-| Looking up a live node's declared parameters by matching `NodeDescriptor::id` | `descriptor_for_type()` (internal) |
+| Looking up a live node's declared parameters by matching `NodeDescriptor::id` | `NodeCatalogue::find()`, by default `RegistryNodeCatalogue` over `node_registry()` |
 
 Each node's `params` come from the node's own declared `ParameterDescriptor`s in
 `node_registry()`, read by string id, this module has no per-product knowledge and adds none
 when a new product registers. `inputs` records, per node, the preset-local ids of its upstream
 `connect()` edges, in the order they were connected.
+
+## The catalogue seam
+
+Both functions take a trailing `const NodeCatalogue&`, `registry_node_catalogue()` by default, so
+every existing call site is unchanged. `InMemoryNodeCatalogue` lists only the descriptors a test
+adds, which lets a test serialize a node whose type is absent from the catalogue without writing a
+node type of its own. Both live in `node_catalogue.hpp`.
 
 ## Extension points
 

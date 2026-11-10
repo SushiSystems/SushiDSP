@@ -29,7 +29,6 @@
 
 #include <SushiDSP/session/rig_preset/rig_preset.hpp>
 
-#include <cstring>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -37,26 +36,10 @@
 
 #include <nlohmann/json.hpp>
 
-#include <SushiDSP/catalog/node_registry/node_registry.hpp>
-
 namespace SushiDSP
 {
-    namespace
-    {
-        const NodeDescriptor* descriptor_for_type(const char* type)
-        {
-            for (const NodeEntry& entry : node_registry())
-            {
-                if (std::strcmp(entry.descriptor->id, type) == 0)
-                {
-                    return entry.descriptor;
-                }
-            }
-            return nullptr;
-        }
-    } // namespace
-
-    std::string serialize_rig_to_json(const RigGraph& graph, AnnotateNodeFn annotate_node)
+    std::string serialize_rig_to_json(const RigGraph& graph, AnnotateNodeFn annotate_node,
+                                      const NodeCatalogue& catalogue)
     {
         nlohmann::json root;
         root["nodes"] = nlohmann::json::array();
@@ -67,7 +50,7 @@ namespace SushiDSP
         {
             AudioNode* node = graph.node(handle);
             const char* type = node->type_id();
-            const NodeDescriptor* descriptor = descriptor_for_type(type);
+            const NodeDescriptor* descriptor = catalogue.find(type);
             if (descriptor == nullptr)
             {
                 throw std::runtime_error("serialize_rig_to_json: node type_id() '" +
@@ -106,7 +89,8 @@ namespace SushiDSP
     }
 
     void deserialize_rig_from_json(RigGraph& graph, const std::string& json_text,
-                                   const PrepareInfo& info, OnNodeLoadedFn on_node_loaded)
+                                   const PrepareInfo& info, OnNodeLoadedFn on_node_loaded,
+                                   const NodeCatalogue& catalogue)
     {
         const nlohmann::json root = nlohmann::json::parse(json_text);
 
@@ -141,7 +125,7 @@ namespace SushiDSP
             }
 
             const std::string type = node_json.at("type").get<std::string>();
-            const NodeDescriptor* descriptor = descriptor_for_type(type.c_str());
+            const NodeDescriptor* descriptor = catalogue.find(type.c_str());
             if (descriptor == nullptr)
             {
                 throw std::runtime_error("deserialize_rig_from_json: unknown node type '" + type +
