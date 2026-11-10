@@ -27,6 +27,8 @@
  * @author Mustafa Garip
  */
 
+#include <cstddef>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -37,135 +39,121 @@
 #include <SushiDSP/nodes/routing/mixer_node.hpp>
 #include <SushiDSP/catalog/node_registry/node_registry.hpp>
 
-TEST(Small_NodeRegistry, NodeRegistryListsTubeScreamerAndJcm800)
+namespace
 {
-    const auto& entries = SushiDSP::node_registry();
-    ASSERT_GE(entries.size(), 2u);
 
-    bool found_tube_screamer = false, found_jcm800 = false;
-    for (const auto& entry : entries)
+const SushiDSP::PrepareInfo kPrepare{48000.0, 256, 1};
+
+/** The category a product is listed under, found by its id. */
+const SushiDSP::NodeEntry* find_entry(const char* id)
+{
+    for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
     {
-        if (std::strcmp(entry.descriptor->id, "sushidsp.tubescreamer") == 0)
+        if (std::strcmp(entry.descriptor->id, id) == 0)
         {
-            found_tube_screamer = true;
-            EXPECT_STREQ(entry.category.name, "Distortion");
-        }
-        if (std::strcmp(entry.descriptor->id, "sushidsp.jcm800") == 0)
-        {
-            found_jcm800 = true;
-            EXPECT_STREQ(entry.category.name, "Amp");
+            return &entry;
         }
     }
-    EXPECT_TRUE(found_tube_screamer);
-    EXPECT_TRUE(found_jcm800);
+    return nullptr;
 }
 
-TEST(Small_NodeRegistry, MakeNodeConstructsTubeScreamerById)
+/** A product the registry lists, with the category it is listed under. */
+struct ListedProduct
 {
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    auto node = SushiDSP::make_node("sushidsp.tubescreamer", info);
+    const char* id;
+    const char* category;
+};
+
+/** A product make_node builds by id, with the ports the built node declares. */
+struct BuiltProduct
+{
+    const char* id;
+    std::uint32_t input_channels;
+    std::uint32_t output_channels;
+};
+
+const ListedProduct kListedProducts[] = {
+    {"sushidsp.tubescreamer", "Distortion"},
+    {"sushidsp.jcm800", "Amp"},
+    {"sushidsp.peavey5150", "Amp"},
+    {"sushidsp.mesa_mark2c", "Amp"},
+    {"sushidsp.diezel_vh4", "Amp"},
+    {"sushidsp.splitter", "Routing"},
+    {"sushidsp.mixer", "Routing"},
+    {"sushidsp.room", "Room"},
+};
+
+const BuiltProduct kBuiltProducts[] = {
+    {"sushidsp.tubescreamer", 1u, 1u},
+    {"sushidsp.jcm800", 1u, 1u},
+    {"sushidsp.peavey5150", 1u, 1u},
+    {"sushidsp.mesa_mark2c", 1u, 1u},
+    {"sushidsp.diezel_vh4", 1u, 1u},
+    {"sushidsp.splitter", 1u, 1u},
+    {"sushidsp.mixer", static_cast<std::uint32_t>(SushiDSP::MixerNode::K_MAX_FAN_IN), 1u},
+    {"sushidsp.cabinet", 1u, 1u},
+    {"sushidsp.room", 6u, 2u},
+};
+
+std::string id_suffix(const char* id)
+{
+    std::string name(id);
+    return name.substr(name.find('.') + 1);
+}
+
+} // namespace
+
+class Small_NodeRegistryListing : public ::testing::TestWithParam<ListedProduct>
+{
+};
+
+TEST_P(Small_NodeRegistryListing, ListsTheProductUnderItsCategory)
+{
+    const SushiDSP::NodeEntry* entry = find_entry(GetParam().id);
+    ASSERT_NE(entry, nullptr);
+    EXPECT_STREQ(entry->category.name, GetParam().category);
+}
+
+INSTANTIATE_TEST_SUITE_P(Products, Small_NodeRegistryListing, ::testing::ValuesIn(kListedProducts),
+                         [](const ::testing::TestParamInfo<ListedProduct>& info) { return id_suffix(info.param.id); });
+
+class Small_NodeRegistryMake : public ::testing::TestWithParam<BuiltProduct>
+{
+};
+
+TEST_P(Small_NodeRegistryMake, BuildsTheProductRegisteredUnderItsId)
+{
+    const BuiltProduct& product = GetParam();
+    std::unique_ptr<SushiDSP::AudioNode> node = SushiDSP::make_node(product.id, kPrepare);
+
     ASSERT_NE(node, nullptr);
-    EXPECT_EQ(node->ports().input_channels, 1u);
-    EXPECT_EQ(node->ports().output_channels, 1u);
-    node->set_parameter_for_control_thread("drive", 0.3f);
-    EXPECT_FLOAT_EQ(node->get_parameter("drive"), 0.3f);
+    EXPECT_STREQ(node->type_id(), product.id);
+    EXPECT_EQ(node->ports().input_channels, product.input_channels);
+    EXPECT_EQ(node->ports().output_channels, product.output_channels);
 }
 
-TEST(Small_NodeRegistry, MakeNodeConstructsJcm800ById)
-{
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    auto node = SushiDSP::make_node("sushidsp.jcm800", info);
-    ASSERT_NE(node, nullptr);
-    node->set_parameter_for_control_thread("preamp", 0.4f);
-    EXPECT_FLOAT_EQ(node->get_parameter("preamp"), 0.4f);
-}
-
-TEST(Small_NodeRegistry, NodeRegistryListsAndBuildsEveryAmplifier)
-{
-    const SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    static const char* K_AMPLIFIER_IDS[] = {"sushidsp.jcm800", "sushidsp.peavey5150",
-                                            "sushidsp.mesa_mark2c", "sushidsp.diezel_vh4"};
-
-    for (const char* id : K_AMPLIFIER_IDS)
-    {
-        bool found = false;
-        for (const auto& entry : SushiDSP::node_registry())
-        {
-            if (std::strcmp(entry.descriptor->id, id) == 0)
-            {
-                found = true;
-                EXPECT_STREQ(entry.category.name, "Amp");
-            }
-        }
-        EXPECT_TRUE(found) << id;
-
-        auto node = SushiDSP::make_node(id, info);
-        ASSERT_NE(node, nullptr) << id;
-        EXPECT_EQ(node->ports().input_channels, 1u);
-        EXPECT_EQ(node->ports().output_channels, 1u);
-    }
-}
+INSTANTIATE_TEST_SUITE_P(Products, Small_NodeRegistryMake, ::testing::ValuesIn(kBuiltProducts),
+                         [](const ::testing::TestParamInfo<BuiltProduct>& info) { return id_suffix(info.param.id); });
 
 TEST(Small_NodeRegistry, MakeNodeReturnsNullForUnknownId)
 {
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    EXPECT_EQ(SushiDSP::make_node("does.not.exist", info), nullptr);
+    EXPECT_EQ(SushiDSP::make_node("does.not.exist", kPrepare), nullptr);
 }
 
-TEST(Small_NodeRegistry, NodeRegistryIncludesRoutingNodes)
+TEST(Small_NodeRegistry, RoomBuiltByIdIsARoomHost)
 {
-    const SushiDSP::PrepareInfo info{48000.0, 64, 1};
+    std::unique_ptr<SushiDSP::AudioNode> node = SushiDSP::make_node("sushidsp.room", kPrepare);
 
-    auto splitter = SushiDSP::make_node("sushidsp.splitter", info);
-    ASSERT_NE(splitter, nullptr);
-    EXPECT_EQ(splitter->ports().output_channels, 1u);
-
-    auto mixer = SushiDSP::make_node("sushidsp.mixer", info);
-    ASSERT_NE(mixer, nullptr);
-    EXPECT_EQ(mixer->ports().input_channels, SushiDSP::MixerNode::K_MAX_FAN_IN);
-
-    bool found_routing_category = false;
-    for (const auto& entry : SushiDSP::node_registry())
-    {
-        if (std::string(entry.category.name) == "Routing")
-        {
-            found_routing_category = true;
-        }
-    }
-    EXPECT_TRUE(found_routing_category);
-}
-
-TEST(Small_NodeRegistry, NodeRegistryBuildsTheCabinet)
-{
-    SushiDSP::PrepareInfo info{48000.0, 256, 1};
-    auto node = SushiDSP::make_node("sushidsp.cabinet", info);
     ASSERT_NE(node, nullptr);
-    EXPECT_STREQ(node->type_id(), "sushidsp.cabinet");
-}
-
-TEST(Small_NodeRegistry, NodeRegistryListsTheRoomUnderRoomAndBuildsIt)
-{
-    bool found = false;
-    for (const SushiDSP::NodeEntry& entry : SushiDSP::node_registry())
-    {
-        if (std::strcmp(entry.descriptor->id, "sushidsp.room") == 0)
-        {
-            found = true;
-            EXPECT_STREQ(entry.category.name, "Room");
-            EXPECT_EQ(entry.descriptor->parameter_count, 1u);
-            EXPECT_STREQ(entry.descriptor->parameters[0].id, "direct_delay");
-            EXPECT_FLOAT_EQ(entry.descriptor->parameters[0].default_value, 0.0f);
-        }
-    }
-    EXPECT_TRUE(found);
-
-    std::unique_ptr<SushiDSP::AudioNode> node =
-        SushiDSP::make_node("sushidsp.room", SushiDSP::PrepareInfo{48000.0, 256, 1});
-    ASSERT_NE(node, nullptr);
-    EXPECT_EQ(node->ports().input_channels, 6u);
-    EXPECT_EQ(node->ports().output_channels, 2u);
-    EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), 0.0f);
-    node->set_parameter_for_control_thread("direct_delay", 1.0f);
-    EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), 1.0f);
     EXPECT_NE(dynamic_cast<SushiDSP::room::RoomHost*>(node.get()), nullptr);
+}
+
+TEST(Small_NodeRegistry, RoomBuiltByIdReadsBackTheDirectDelayItWasSet)
+{
+    std::unique_ptr<SushiDSP::AudioNode> node = SushiDSP::make_node("sushidsp.room", kPrepare);
+    ASSERT_NE(node, nullptr);
+
+    node->set_parameter_for_control_thread("direct_delay", 1.0f);
+
+    EXPECT_FLOAT_EQ(node->get_parameter("direct_delay"), 1.0f);
 }
