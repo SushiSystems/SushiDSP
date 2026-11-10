@@ -34,6 +34,8 @@
 #include <cstdint>
 #include <string>
 
+#include <SushiDSP/foundation/io/audio_file_writer.hpp>
+#include <SushiDSP/foundation/io/wav_writer.hpp>
 #include <SushiDSP/nodes/capture/track_recorder.hpp>
 
 namespace SushiDSP
@@ -55,9 +57,11 @@ namespace SushiDSP
             /// @param sample_rate The files' sample rate in Hz.
             /// @param processed_ring_frames Frames the processed recorder's rings hold.
             /// @param dry_ring_frames Frames the dry recorder's ring holds.
+            /// @param opener Opens both take files in arm(); the default writes Float32 WAV files.
             RecordingBus(std::uint32_t processed_channels, double sample_rate,
                          std::size_t processed_ring_frames = K_RING_CAPACITY_FRAMES,
-                         std::size_t dry_ring_frames = K_RING_CAPACITY_FRAMES);
+                         std::size_t dry_ring_frames = K_RING_CAPACITY_FRAMES,
+                         AudioFileWriterOpener opener = open_float32_wav_writer);
 
             RecordingBus(const RecordingBus&) = delete;
             RecordingBus& operator=(const RecordingBus&) = delete;

@@ -86,6 +86,9 @@ guarantee.
 is what makes them sample-aligned: they begin on the same block. Which transport frame they began
 at is the session's fact rather than the recorder's, so `RigController::arm_recording` reads the
 position before the bus opens and `stop_recording` places the dry file as a clip at that frame.
+`RecordingBus` takes the `AudioFileWriterOpener` its two recorders open their files with, as its
+last constructor argument; the default writes 32-bit float WAV files, and the host gives it the
+opener of its `AudioFiles` port.
 
 Files are 32-bit IEEE float, so a recorded ramp reads back bit-identical;
 `tests/nodes/capture/test_track_recorder/test_behaviour.cpp` asserts exactly that, and

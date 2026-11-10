@@ -125,6 +125,13 @@ namespace SushiDSP
                 refused_.insert(path);
             }
 
+            /// @brief Forgets the recording at `path`, as deleting its file does.
+            /// @return True when a recording was held there.
+            bool erase(const std::string& path)
+            {
+                return recordings_.erase(path) != 0u;
+            }
+
             /// @brief Returns the recording opened at `path`, or nullptr if none was.
             const InMemoryRecording* recording(const std::string& path) const
             {

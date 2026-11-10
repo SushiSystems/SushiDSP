@@ -53,9 +53,10 @@ namespace SushiDSP
     } // namespace
 
     RecordingBus::RecordingBus(std::uint32_t processed_channels, double sample_rate,
-                               std::size_t processed_ring_frames, std::size_t dry_ring_frames)
-        : processed_(processed_channels, sample_rate, processed_ring_frames),
-          dry_(1u, sample_rate, dry_ring_frames)
+                               std::size_t processed_ring_frames, std::size_t dry_ring_frames,
+                               AudioFileWriterOpener opener)
+        : processed_(processed_channels, sample_rate, processed_ring_frames, opener),
+          dry_(1u, sample_rate, dry_ring_frames, opener)
     {
     }
 
