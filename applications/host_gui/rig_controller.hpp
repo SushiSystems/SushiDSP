@@ -78,19 +78,20 @@ class RigController
                                const SushiDSP::NodeCatalogue& catalogue =
                                    SushiDSP::registry_node_catalogue());
 
-        /// @brief Builds a rig on a timeline another owner shares with it, so several rigs read
-        /// one arrangement, one transport and one set of recorders.
+        /// @brief Builds a rig on a timeline another owner shares with it.
         /// @param info The sample rate, block size and channel count the rig is prepared at.
         /// @param session The shared timeline; never null.
         /// @param clock Returns the present time for the room publish interval; empty reads the
         /// steady clock.
         /// @param catalogue Resolves each slot's descriptor id; it outlives the rig.
         /// @param files Reads the cabinets' impulse responses; it outlives the rig.
+        /// @param hrtf_files Reads the HRTF asset; it outlives the rig.
         RigController(const SushiDSP::PrepareInfo& info, std::shared_ptr<SessionTimeline> session,
                       ClockSource clock = {},
                       const SushiDSP::NodeCatalogue& catalogue =
                           SushiDSP::registry_node_catalogue(),
-                      SushiDSP::host::AudioFiles& files = SushiDSP::host::disk_audio_files());
+                      SushiDSP::host::AudioFiles& files = SushiDSP::host::disk_audio_files(),
+                      SushiDSP::host::HrtfFiles& hrtf_files = SushiDSP::host::disk_hrtf_files());
 
         /// @brief Returns the timeline this rig reads, shared or its own.
         const std::shared_ptr<SessionTimeline>& session() const noexcept

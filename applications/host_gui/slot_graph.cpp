@@ -79,8 +79,9 @@ namespace
 } // namespace
 
 SlotGraph::SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock,
-                     const SushiDSP::NodeCatalogue& catalogue, SushiDSP::host::AudioFiles& files)
-    : info_(info), catalogue_(catalogue), files_(files), clock_(std::move(clock))
+                     const SushiDSP::NodeCatalogue& catalogue, SushiDSP::host::AudioFiles& files,
+                     SushiDSP::host::HrtfFiles& hrtf_files)
+    : info_(info), catalogue_(catalogue), files_(files), hrtf_files_(hrtf_files), clock_(std::move(clock))
 {
     publish();
 }
@@ -796,7 +797,16 @@ bool SlotGraph::set_hrtf_path(const std::string& path, std::string& error_out)
 {
     error_out.clear();
     SushiDSP::room::HrtfSet set;
-    if (!SushiDSP::room::HrtfSetLoader::load(path, info_.sample_rate, set, error_out))
+    std::vector<unsigned char> bytes;
+    std::string read_error;
+    const bool read_ok = hrtf_files_.read(path, bytes, read_error);
+    if (!read_ok)
+    {
+        error_out = "HrtfSetLoader: " + read_error;
+        SD_LOG_ERROR(K_HOST_GUI_LOG_CATEGORY, "{}; the HRTF set is not loaded", error_out);
+    }
+    if (!read_ok ||
+        !SushiDSP::room::HrtfSetLoader::decode(bytes, path, info_.sample_rate, set, error_out))
     {
         hrtf_ = SushiDSP::room::HrtfSet{};
         hrtf_path_.clear();

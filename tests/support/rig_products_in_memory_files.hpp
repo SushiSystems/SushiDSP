@@ -38,19 +38,42 @@
 #include <SushiDSP/nodes/capture/take.hpp>
 
 #include "audio_files.hpp"
+#include "hrtf_files.hpp"
 #include "rig_controller.hpp"
 #include "session.hpp"
 #include "session_timeline.hpp"
+#include "support/in_memory_room.hpp"
 #include "support/rig_products.hpp"
 #include "text_files.hpp"
 
 namespace TestSupport
 {
     /// @brief RigProducts whose rigs read takes from, and record into, an InMemoryAudioFiles the
-    /// fixture owns, so no case of it touches a file. A case adds its takes with add_wav().
+    /// fixture owns, so no case of it touches a file. A case adds its takes with add_wav() and its
+    /// HRTF assets with add_hrtf().
     class RigProductsInMemoryFiles : public RigProducts
     {
+        public:
+            RigProductsInMemoryFiles() = default;
+
         protected:
+            /// @param room The descriptor listed under the room's id.
+            explicit RigProductsInMemoryFiles(const SushiDSP::NodeDescriptor& room)
+                : RigProducts(room)
+            {
+            }
+
+            /// @brief Adds an HRTF asset under a name.
+            /// @param name The asset's name; it is the last part of the path returned.
+            /// @param bytes The asset's content.
+            /// @return The path the rigs read the asset from.
+            std::string add_hrtf(const std::string& name, std::vector<unsigned char> bytes)
+            {
+                const std::string path = "memory/" + name;
+                hrtf_files_.add(path, std::move(bytes));
+                return path;
+            }
+
             /// @brief Adds a mono take under a name.
             /// @param name The file's name; it is the last part of the path returned.
             /// @param samples The audio.
@@ -74,7 +97,7 @@ namespace TestSupport
                               RigController::ClockSource clock = {})
             {
                 return RigController(info, std::make_shared<SessionTimeline>(info, files_),
-                                     std::move(clock), catalogue(), files_);
+                                     std::move(clock), catalogue(), files_, hrtf_files_);
             }
 
             /// @brief Returns the files the rigs of this fixture read and write.
@@ -92,6 +115,17 @@ namespace TestSupport
 
         private:
             SushiDSP::host::InMemoryAudioFiles files_;
+            SushiDSP::host::InMemoryHrtfFiles hrtf_files_;
             SushiDSP::host::InMemoryTextFiles text_files_;
+    };
+
+    /// @brief RigProductsInMemoryFiles with the room swapped for its in-memory adapter, for a test
+    /// that reads the files a rig loads and nothing the room renders.
+    class RigProductsInMemoryRoomFiles : public RigProductsInMemoryFiles
+    {
+        public:
+            RigProductsInMemoryRoomFiles() : RigProductsInMemoryFiles(in_memory_room_descriptor())
+            {
+            }
     };
 } // namespace TestSupport

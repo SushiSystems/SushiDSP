@@ -50,6 +50,7 @@
 #include <SushiDSP/nodes/room/room_host.hpp>
 #include <SushiDSP/nodes/room/room_arrangement.hpp>
 #include "audio_files.hpp"
+#include "hrtf_files.hpp"
 #include "rig_shape.hpp"
 #include <SushiDSP/nodes/room/room_scene.hpp>
 #include <SushiDSP/session/rig_preset/node_catalogue.hpp>
@@ -95,15 +96,15 @@ class SlotGraph
         /// @brief Builds a graph prepared at @p info.
         /// @param clock Returns the present time for the room publish interval; empty reads the
         /// steady clock.
-        /// @param catalogue Resolves each slot's descriptor id to the descriptor that declares its
-        /// parameters and builds its node; it outlives the graph. The default is the node
-        /// registry.
-        /// @param files Reads the impulse-response files a cabinet installs; it outlives the
-        /// graph. The default is the filesystem.
+        /// @param catalogue Resolves each slot's descriptor id; it outlives the graph.
+        /// @param files Reads the cabinets' impulse responses; it outlives the graph.
+        /// @param hrtf_files Reads the HRTF asset; it outlives the graph.
         explicit SlotGraph(const SushiDSP::PrepareInfo& info, ClockSource clock = {},
                            const SushiDSP::NodeCatalogue& catalogue =
                                SushiDSP::registry_node_catalogue(),
-                           SushiDSP::host::AudioFiles& files = SushiDSP::host::disk_audio_files());
+                           SushiDSP::host::AudioFiles& files = SushiDSP::host::disk_audio_files(),
+                           SushiDSP::host::HrtfFiles& hrtf_files =
+                               SushiDSP::host::disk_hrtf_files());
 
         /// @brief Adds a new, unconnected slot and republishes.
         /// @param descriptor_id The NodeDescriptor id to construct.
@@ -497,6 +498,9 @@ class SlotGraph
 
         /// @brief Reads the impulse-response files; the disk unless a caller injected another.
         SushiDSP::host::AudioFiles& files_;
+
+        /// @brief Reads the HRTF asset; the disk unless a caller injected another.
+        SushiDSP::host::HrtfFiles& hrtf_files_;
 
         /// @brief Finds the upstream port the stored edge from `from` to `to` reads.
         /// @return The port, or 0 when no stored edge joins the pair.

@@ -41,8 +41,9 @@ RigController::RigController(const SushiDSP::PrepareInfo& info, ClockSource cloc
 RigController::RigController(const SushiDSP::PrepareInfo& info,
                              std::shared_ptr<SessionTimeline> session, ClockSource clock,
                              const SushiDSP::NodeCatalogue& catalogue,
-                             SushiDSP::host::AudioFiles& files)
-    : info_(info), graph_(info, std::move(clock), catalogue, files), session_owner_(std::move(session)),
+                             SushiDSP::host::AudioFiles& files,
+                             SushiDSP::host::HrtfFiles& hrtf_files)
+    : info_(info), graph_(info, std::move(clock), catalogue, files, hrtf_files), session_owner_(std::move(session)),
       session_(*session_owner_),
       persistence_(info, graph_, session_, catalogue)
 {

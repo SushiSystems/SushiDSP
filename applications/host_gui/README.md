@@ -214,7 +214,7 @@ The entry name reads the source's size and write time through the `SourceStatRea
 `source_stat.hpp`. The cache reads the filesystem unless it is given a reader, and a test gives it an
 `InMemorySourceStatReader`.
 
-### `audio_files.hpp` and `text_files.hpp`
+### `audio_files.hpp`, `hrtf_files.hpp` and `text_files.hpp`
 
 `AudioFiles` is the port to the session's audio files: `read` returns a take, `writer_opener` hands a
 recorder or the export the opener of a 16-bit or a 32-bit float WAV, and `remove` deletes a file.
@@ -230,6 +230,13 @@ through it, downmixes it to mono and conditions it with `IrLoader::prepare`.
 `write_text_file`, `load_track_rig` and `save_track_rig` take it as a last argument that defaults to
 `DiskTextFiles`; `InMemoryTextFiles` is the adapter a test gives them. The refusal is logged by the
 free function, so both adapters report it the same way.
+
+`HrtfFiles` is the port to the HRTF asset, a sibling of `AudioFiles` because the asset is not a WAV:
+`read` returns its bytes, and `SlotGraph::set_hrtf_path` decodes them with `HrtfSetLoader::decode`.
+`SlotGraph` takes it after the audio port and `RigController` passes it on; each defaults to
+`DiskHrtfFiles`, and `InMemoryHrtfFiles` is what a test gives a rig. A file that cannot be read is
+logged at ERROR under `host_gui` by `set_hrtf_path`, and the live rooms fall back to the spherical
+head as they do for a set that does not decode.
 
 ### `audio_import_queue.hpp`
 

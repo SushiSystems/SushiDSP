@@ -46,6 +46,12 @@ case. The cases the contract cannot state, such as refusing a path or an unreada
 `Small_InMemoryAudioFiles` and `Small_InMemoryTextFiles`. The expected samples are exact: 0.5, 0.25 and
 0.125 are dyadic, and the 16-bit file holds a sample as lround(x * 32767) / 32768, which is 16384, 8192
 and 32767 over 32768 for 0.5, 0.25 and a clamped 2.0.
+## `test_hrtf_files.cpp`
+
+The contract of the `HrtfFiles` port (`applications/host_gui/hrtf_files.hpp`): an asset reads back byte
+for byte, and a missing one fails and names its path. Each runs on the in-memory adapter as
+`Small_HrtfFilesContract` and on the disk adapter as `Medium_HrtfFilesContract`.
+
 ## `test_rig_controller/test_chain.cpp`
 
 ### `BatchedEditsBuildASplitterTwoBranchMixerShapeThatDoublesABlock`
@@ -131,10 +137,14 @@ furnishings, the format of the edges, the publish interval and the HRTF set it h
 holds. None reads a rendered sample. Appending a real room to a rig prepared it and solved every
 pair, which took 5 s for a bare room and 13 s for the arrangement round trip in the Debug run of
 2026-11-10, against a limit of 5 s. Nineteen cases now run on `RigProductsInMemoryRoom` as
-`Small_RigControllerRoom` (they read no file), and the five cases that read an HRTF file run on it as
-`Medium_RigControllerRoomHrtf`. `InstallsAMeasuredHrtfIntoTheRoomsItHolds` stays on the real room as
-`Medium_RigControllerRoom`, so one case still hands a measured set to a real room node, which
-checks the decoder and the render set the adapter does not build. The adapter does not refuse a set at
+`Small_RigControllerRoom` (they read no file), and the five cases that load an HRTF set run on it as
+`Small_RigControllerRoomHrtf`, with the six-direction asset of `support/hrtf_asset.hpp` in the
+in-memory `HrtfFiles` adapter of `RigProductsInMemoryRoomFiles`. A failed load logs its ERROR under
+`host_gui`, where the loader's own open failure was logged under `room`.
+`InstallsAMeasuredHrtfIntoTheRoomsItHolds` stays on the real room as `Medium_RigControllerRoom`
+and reads the fixture file through the disk adapter: the real room prepares and solves every pair
+when appended (seconds), and the case checks the decoder and the render set the adapter does not
+build, so it keeps the one real path through `DiskHrtfFiles`. The adapter does not refuse a set at
 another sample rate; that refusal is `RoomNode::set_hrtf`'s, tested in `tests/nodes/room/`.
 
 ### `LoadsAPresetWithNoRoomAsTheStarterScene`

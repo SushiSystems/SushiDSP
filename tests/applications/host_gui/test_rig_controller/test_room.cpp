@@ -40,7 +40,9 @@
 #include <nlohmann/json.hpp>
 
 #include "rig_controller.hpp"
+#include "support/hrtf_asset.hpp"
 #include "support/rig_products.hpp"
+#include "support/rig_products_in_memory_files.hpp"
 #include <SushiDSP/foundation/log_capture/log_capture.hpp>
 #include <SushiDSP/nodes/room/room_host.hpp>
 #include <SushiDSP/nodes/room/room_scene.hpp>
@@ -54,10 +56,18 @@ namespace
     {
     };
 
-    /// @brief Holds the rigs the HRTF cases build, on the in-memory room: they read which set the rig
-    /// hands to the rooms it holds, and the set is read from a file.
-    class Medium_RigControllerRoomHrtf : public TestSupport::RigProductsInMemoryRoom
+    /// @brief Holds the rigs the HRTF cases build, on the in-memory room and the in-memory HRTF
+    /// files: they read which set the rig hands to the rooms it holds, and the set is read through
+    /// the HrtfFiles port.
+    class Small_RigControllerRoomHrtf : public TestSupport::RigProductsInMemoryRoomFiles
     {
+        protected:
+            /// @brief Adds the six-direction asset at 48 kHz.
+            /// @return The path the rig reads it from.
+            std::string measured_hrtf()
+            {
+                return add_hrtf("six_directions.hrtf", SushiDSP::test::axis_hrtf_asset(48000));
+            }
     };
 
     /// @brief Holds the rig of the one case that installs a measured set into the real room.
@@ -349,12 +359,12 @@ TEST_F(Medium_RigControllerRoom, InstallsAMeasuredHrtfIntoTheRoomsItHolds)
     EXPECT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
 }
 
-TEST_F(Medium_RigControllerRoomHrtf, KeepsTheMeasuredHrtfAcrossARebuild)
+TEST_F(Small_RigControllerRoomHrtf, KeepsTheMeasuredHrtfAcrossARebuild)
 {
     RigController controller = rig({48000.0, 64, 2});
     const RigController::SlotId first = controller.append("sushidsp.room");
     std::string error;
-    ASSERT_TRUE(controller.set_hrtf_path(hrtf_fixture_path(), error)) << error;
+    ASSERT_TRUE(controller.set_hrtf_path(measured_hrtf(), error)) << error;
 
     const RigController::SlotId second = controller.append("sushidsp.room");
 
@@ -364,11 +374,11 @@ TEST_F(Medium_RigControllerRoomHrtf, KeepsTheMeasuredHrtfAcrossARebuild)
     EXPECT_EQ(controller.room_host(second)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
 }
 
-TEST_F(Medium_RigControllerRoomHrtf, ReportsAMissingHrtfByItsFileName)
+TEST_F(Small_RigControllerRoomHrtf, ReportsAMissingHrtfByItsFileName)
 {
     RigController controller = rig({48000.0, 64, 2});
     controller.append("sushidsp.room");
-    const std::string missing = std::string(SUSHIDSP_FIXTURE_DIR) + "/no_such_set.hrtf";
+    const std::string missing = "memory/no_such_set.hrtf";
 
     std::string error;
     EXPECT_FALSE(controller.set_hrtf_path(missing, error));
@@ -377,28 +387,28 @@ TEST_F(Medium_RigControllerRoomHrtf, ReportsAMissingHrtfByItsFileName)
     EXPECT_EQ(controller.hrtf_path(), "");
 }
 
-TEST_F(Medium_RigControllerRoomHrtf, ALoadedHrtfFallsBackWhenTheNextOneIsMissing)
+TEST_F(Small_RigControllerRoomHrtf, ALoadedHrtfFallsBackWhenTheNextOneIsMissing)
 {
     RigController controller = rig({48000.0, 64, 2});
     const RigController::SlotId room = controller.append("sushidsp.room");
     std::string error;
-    ASSERT_TRUE(controller.set_hrtf_path(hrtf_fixture_path(), error)) << error;
+    ASSERT_TRUE(controller.set_hrtf_path(measured_hrtf(), error)) << error;
     ASSERT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::Measured);
 
     EXPECT_FALSE(controller.set_hrtf_path(
-        std::string(SUSHIDSP_FIXTURE_DIR) + "/no_such_set.hrtf", error));
+        "memory/no_such_set.hrtf", error));
 
     EXPECT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 }
 
-TEST_F(Medium_RigControllerRoomHrtf, ARebuildAfterAMissingHrtfLeavesTheFreshNodeOnItsOwnFallback)
+TEST_F(Small_RigControllerRoomHrtf, ARebuildAfterAMissingHrtfLeavesTheFreshNodeOnItsOwnFallback)
 {
     RigController controller = rig({48000.0, 64, 2});
     const RigController::SlotId room = controller.append("sushidsp.room");
     std::string error;
-    ASSERT_TRUE(controller.set_hrtf_path(hrtf_fixture_path(), error)) << error;
+    ASSERT_TRUE(controller.set_hrtf_path(measured_hrtf(), error)) << error;
     ASSERT_FALSE(controller.set_hrtf_path(
-        std::string(SUSHIDSP_FIXTURE_DIR) + "/no_such_set.hrtf", error));
+        "memory/no_such_set.hrtf", error));
 
     controller.append("sushidsp.tubescreamer");
 
@@ -406,7 +416,7 @@ TEST_F(Medium_RigControllerRoomHrtf, ARebuildAfterAMissingHrtfLeavesTheFreshNode
     EXPECT_EQ(controller.room_host(room)->hrtf_source(), SushiDSP::room::HrtfSource::SphericalHead);
 }
 
-TEST_F(Medium_RigControllerRoomHrtf, AFailedHrtfLoadNamesWhatChangedAndTheLiveRoomsItReset)
+TEST_F(Small_RigControllerRoomHrtf, AFailedHrtfLoadNamesWhatChangedAndTheLiveRoomsItReset)
 {
     RigController controller = rig({48000.0, 64, 2});
     controller.append("sushidsp.room");
@@ -417,7 +427,8 @@ TEST_F(Medium_RigControllerRoomHrtf, AFailedHrtfLoadNamesWhatChangedAndTheLiveRo
 
     const std::vector<SushiDSP::CapturedLogLine> lines = capture.lines();
     ASSERT_EQ(lines.size(), 2u);
-    EXPECT_EQ(lines[0].category, "room");
+    EXPECT_EQ(lines[0].level, SushiLog::LogLevel::Error);
+    EXPECT_EQ(lines[0].category, "host_gui");
     EXPECT_EQ(lines[1].level, SushiLog::LogLevel::Warn);
     EXPECT_EQ(lines[1].category, "host_gui");
     EXPECT_NE(lines[1].message.find("1 live room(s)"), std::string::npos) << lines[1].message;

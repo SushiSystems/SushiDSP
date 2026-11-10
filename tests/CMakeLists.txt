@@ -399,6 +399,7 @@ add_executable(sushidsp_tests
     applications/host_gui/test_source_stat.cpp
     applications/host_gui/test_audio_files.cpp
     applications/host_gui/test_text_files.cpp
+    applications/host_gui/test_hrtf_files.cpp
     applications/host_gui/test_audio_import_queue.cpp
     applications/host_gui/test_audio_importer.cpp
     applications/host_gui/ui/test_arrangement_layout.cpp
