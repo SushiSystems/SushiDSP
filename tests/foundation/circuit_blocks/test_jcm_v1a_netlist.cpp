@@ -27,27 +27,82 @@
  * @author Mustafa Garip
  */
 
+#include <cstddef>
+#include <string>
+
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/circuit_blocks/jcm_v1a_netlist.hpp>
 #include <SushiDSP/foundation/math/dk/dk_netlist.hpp>
 
-TEST(Small_JcmV1aNetlist, SupplyAndGridLeakAreTheSchematicValues)
+namespace
 {
-    EXPECT_DOUBLE_EQ(SushiDSP::test_circuits::K_SUPPLY_VOLTS, 360.0);
-    EXPECT_DOUBLE_EQ(SushiDSP::test_circuits::K_GRID_LEAK_OHMS, 1.0e6);
+    using SushiDSP::dk::DkNetlist;
+    using SushiDSP::test_circuits::build_jcm_v1a;
+
+    /// @brief Describes one shape of the block: with or without its RC tail.
+    struct BlockShape
+    {
+            const char* name;
+            bool with_rc_tail;
+            std::size_t reactive_count;
+            std::size_t node_count;
+            std::size_t output_node;
+    };
+
+    const BlockShape kShapes[] = {
+        {"SixStateBlock", false, 6, SushiDSP::test_circuits::kNodeSupply, SushiDSP::test_circuits::kNodeOut},
+        {"SevenStateBlockWithItsRcTail", true, 7, SushiDSP::test_circuits::kNodeTail,
+         SushiDSP::test_circuits::kNodeTail},
+    };
+
+    /// @brief Builds the shape's netlist and returns the index build_jcm_v1a gave its potentiometer.
+    std::size_t build(DkNetlist<7, 2, 2, 1>& netlist, const BlockShape& shape)
+    {
+        return build_jcm_v1a(netlist, shape.with_rc_tail);
+    }
+} // namespace
+
+class Small_JcmV1aNetlist : public ::testing::TestWithParam<BlockShape>
+{
+};
+
+TEST_P(Small_JcmV1aNetlist, NamesThePreampPotentiometerAsTheFirstOne)
+{
+    DkNetlist<7, 2, 2, 1> netlist;
+    EXPECT_EQ(build(netlist, GetParam()), 0u);
+    EXPECT_EQ(netlist.potentiometer_count_, 1u);
 }
 
-TEST(Small_JcmV1aNetlist, SixStateBlockBuildsAndNamesAPotentiometer)
+TEST_P(Small_JcmV1aNetlist, WiresThePotentiometerBetweenThePotTopAndGroundWithItsWiperAtTheOutput)
 {
-    SushiDSP::dk::DkNetlist<7, 2, 2, 1> netlist;
-    const std::size_t pot = SushiDSP::test_circuits::build_jcm_v1a(netlist);
-    EXPECT_LT(pot, SushiDSP::dk::K_MAXIMUM_POTENTIOMETERS);
+    DkNetlist<7, 2, 2, 1> netlist;
+    const std::size_t pot = build(netlist, GetParam());
+    const SushiDSP::dk::PotentiometerEntry& entry = netlist.potentiometers_[pot];
+    const SushiDSP::dk::Branch& upper = netlist.resistors_[entry.first_section_index];
+    const SushiDSP::dk::Branch& lower = netlist.resistors_[entry.second_section_index];
+
+    EXPECT_EQ(entry.total_ohms, SushiDSP::test_circuits::K_PREAMP_POT_OHMS);
+    EXPECT_EQ(upper.positive_node, static_cast<std::size_t>(SushiDSP::test_circuits::kNodePotTop));
+    EXPECT_EQ(upper.negative_node, static_cast<std::size_t>(SushiDSP::test_circuits::kNodeOut));
+    EXPECT_EQ(lower.positive_node, static_cast<std::size_t>(SushiDSP::test_circuits::kNodeOut));
+    EXPECT_EQ(lower.negative_node, 0u);
 }
 
-TEST(Small_JcmV1aNetlist, SevenStateBlockWithItsRcTailBuildsAndNamesAPotentiometer)
+TEST_P(Small_JcmV1aNetlist, CountsTheReactiveElementsOfItsShape)
 {
-    SushiDSP::dk::DkNetlist<7, 2, 2, 1> netlist;
-    const std::size_t pot = SushiDSP::test_circuits::build_jcm_v1a(netlist, true);
-    EXPECT_LT(pot, SushiDSP::dk::K_MAXIMUM_POTENTIOMETERS);
+    DkNetlist<7, 2, 2, 1> netlist;
+    build(netlist, GetParam());
+    EXPECT_EQ(netlist.reactive_count_, GetParam().reactive_count);
 }
+
+TEST_P(Small_JcmV1aNetlist, NumbersTheNodesAndProbesTheOutputOfItsShape)
+{
+    DkNetlist<7, 2, 2, 1> netlist;
+    build(netlist, GetParam());
+    EXPECT_EQ(netlist.node_count, GetParam().node_count);
+    EXPECT_EQ(netlist.outputs_[0].positive_node, GetParam().output_node);
+}
+
+INSTANTIATE_TEST_SUITE_P(Shapes, Small_JcmV1aNetlist, ::testing::ValuesIn(kShapes),
+                         [](const ::testing::TestParamInfo<BlockShape>& info) { return std::string(info.param.name); });

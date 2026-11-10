@@ -29,6 +29,8 @@
 
 #include <gtest/gtest.h>
 
+#include "support/tolerance.hpp"
+
 #include <SushiDSP/foundation/circuit_blocks/dk_block_node.hpp>
 #include <SushiDSP/foundation/core/audio_node.hpp>
 #include <SushiDSP/foundation/math/dk/dk_circuit.hpp>
@@ -37,7 +39,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace
@@ -86,76 +90,113 @@ namespace
     {
         node.prepare(SushiDSP::PrepareInfo{K_SAMPLE_RATE, static_cast<std::uint32_t>(frames), 1u});
     }
+
+    /// @brief Holds the block length every settling and tail case runs at: 1000 time constants of the low-pass.
+    constexpr std::size_t K_FRAMES = 4800;
+
+    /// @brief Holds the steady input level of the settling cases.
+    constexpr float K_DC_LEVEL = 0.5f;
+
+    /// @brief Holds the length of the tail the Nyquist case inspects: the last 480 samples.
+    constexpr std::size_t K_TAIL_FRAMES = 480;
+
+    /// @brief Builds a stimulus that alternates between +1 and -1 on every sample: a tone at Nyquist.
+    /// @param frames The stimulus length.
+    std::vector<float> nyquist_tone(std::size_t frames)
+    {
+        std::vector<float> tone(frames);
+        for (std::size_t i = 0; i < frames; ++i)
+        {
+            tone[i] = (i % 2 == 0) ? 1.0f : -1.0f;
+        }
+        return tone;
+    }
+
+    /// @brief Returns the largest magnitude among the last @p tail samples.
+    /// @param signal The signal to inspect; at least @p tail long.
+    /// @param tail How many samples at the end to inspect.
+    float tail_peak(const std::vector<float>& signal, std::size_t tail)
+    {
+        float peak = 0.0f;
+        for (std::size_t i = signal.size() - tail; i < signal.size(); ++i)
+        {
+            peak = std::max(peak, std::fabs(signal[i]));
+        }
+        return peak;
+    }
+
+    /// @brief Describes one node setup and whether prepare() accepts it.
+    struct PrepareCase
+    {
+            const char* name;
+            bool builds_netlist;
+            bool expected_prepared;
+    };
+
+    const PrepareCase kPrepareCases[] = {
+        {"WellFormedBlock", true, true},
+        {"EmptyNetlist", false, false},
+    };
 } // namespace
 
-TEST(Small_DkBlockNode, ReportsOneInputAndOneOutput)
+class Small_DkBlockNodePrepares : public ::testing::TestWithParam<PrepareCase>
+{
+};
+
+TEST_P(Small_DkBlockNodePrepares, ReportsWhetherTheNetlistIsUsable)
 {
     RcNode node;
-    const SushiDSP::PortLayout ports = node.ports();
-    EXPECT_EQ(ports.input_channels, 1u);
-    EXPECT_EQ(ports.output_channels, 1u);
+    if (GetParam().builds_netlist)
+    {
+        build_rc_low_pass(node);
+    }
+    prepare(node, K_FRAMES);
+    EXPECT_EQ(node.prepared(), GetParam().expected_prepared);
 }
 
-TEST(Small_DkBlockNode, PreparesAWellFormedBlock)
-{
-    RcNode node;
-    build_rc_low_pass(node);
-    prepare(node, 4800);
-    EXPECT_TRUE(node.prepared());
-}
+INSTANTIATE_TEST_SUITE_P(Netlists, Small_DkBlockNodePrepares, ::testing::ValuesIn(kPrepareCases),
+                         [](const ::testing::TestParamInfo<PrepareCase>& info) { return std::string(info.param.name); });
 
-TEST(Small_DkBlockNode, EmptyNetlistIsNotPrepared)
-{
-    RcNode node;
-    prepare(node, 64);
-    EXPECT_FALSE(node.prepared());
-}
-
+// The settled value is 0.5 up to the division by the input scale and the cast to float: two rounded operations.
 TEST(Small_DkBlockNode, LowPassSettlesOnADcInput)
 {
     RcNode node;
     build_rc_low_pass(node);
-    prepare(node, 4800);
-    const std::vector<float> output = run(node, std::vector<float>(4800, 0.5f));
-    EXPECT_NEAR(output.back(), 0.5f, 1e-4f);
+    prepare(node, K_FRAMES);
+    const std::vector<float> output = run(node, std::vector<float>(K_FRAMES, K_DC_LEVEL));
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<float>(output.back(), K_DC_LEVEL, 2)));
 }
 
+// A scale of 10 multiplies the drive and divides the output; both are exact in double for 0.5, so the same two roundings remain.
 TEST(Small_DkBlockNode, InputScaleCancelsAcrossTheBoundary)
 {
     RcNode node;
     build_rc_low_pass(node);
     node.input_scale_volts = 10.0;
-    prepare(node, 4800);
-    const std::vector<float> output = run(node, std::vector<float>(4800, 0.5f));
-    EXPECT_NEAR(output.back(), 0.5f, 1e-4f);
+    prepare(node, K_FRAMES);
+    const std::vector<float> output = run(node, std::vector<float>(K_FRAMES, K_DC_LEVEL));
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_relative_error<float>(output.back(), K_DC_LEVEL, 2)));
 }
 
+// The trapezoidal rule puts a zero at z = -1 and the transient decays by 0.81 per sample (a = T / (2RC) = 0.104), so only rounding stays: one double addition per sample.
 TEST(Small_DkBlockNode, LowPassRemovesANyquistInput)
 {
     RcNode node;
     build_rc_low_pass(node);
-    prepare(node, 4800);
-    std::vector<float> input(4800);
-    for (std::size_t i = 0; i < input.size(); ++i)
-    {
-        input[i] = (i % 2 == 0) ? 1.0f : -1.0f;
-    }
-    const std::vector<float> output = run(node, input);
-    float tail_peak = 0.0f;
-    for (std::size_t i = output.size() - 480; i < output.size(); ++i)
-    {
-        tail_peak = std::max(tail_peak, std::fabs(output[i]));
-    }
-    EXPECT_LT(tail_peak, 0.01f);
+    prepare(node, K_FRAMES);
+    const std::vector<float> output = run(node, nyquist_tone(K_FRAMES));
+    const double rounding_bound = static_cast<double>(K_FRAMES) * TestSupport::unit_roundoff<double>();
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(tail_peak(output, K_TAIL_FRAMES), 0.0, rounding_bound)));
 }
 
+// A zero state driven by a zero input gives a zero output exactly.
 TEST(Small_DkBlockNode, ResetReturnsTheBlockToRest)
 {
     RcNode node;
     build_rc_low_pass(node);
-    prepare(node, 4800);
-    run(node, std::vector<float>(4800, 0.5f));
+    prepare(node, K_FRAMES);
+    run(node, std::vector<float>(K_FRAMES, K_DC_LEVEL));
     node.reset();
     const std::vector<float> output = run(node, std::vector<float>(1, 0.0f));
-    EXPECT_NEAR(output[0], 0.0f, 1e-6f);
+    EXPECT_TRUE(TestSupport::is_within(TestSupport::measure_error(output[0], 0.0, 0.0)));
 }

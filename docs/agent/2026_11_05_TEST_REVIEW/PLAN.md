@@ -1,6 +1,6 @@
 # Test review: plan
 
-**Status:** Open — in progress, run in parallel; T1 to T7, M2, M4, M5 and M6 are done, the other M jobs follow in table order
+**Status:** Open — in progress, run in parallel; T1 to T7, M2, M4, M5, M6 and M7 are done, the other M jobs follow in table order
 
 Applies the verdicts of `REPORT.md`, in hierarchy order: the shared helpers, adapters and seams the
 rewrites need come first, then the defects the review found, then each module's tests. A module job
@@ -24,7 +24,7 @@ writes each add. Nothing in a module job changes production code except a seam a
 | M4 | the tests of `foundation/allocation_trap` (1 file): 1 rewrite, 1 merge | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M5 | the tests of `foundation/audio_format` (2 files): 5 rewrite, 1 split, 2 merge, 1 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M6 | the tests of `foundation/benchmark_harness` (6 files): 11 rewrite, 1 resize, 3 split | T1, T2, T3, T4, T5, T6, T7 | done |
-| M7 | the tests of `foundation/circuit_blocks` (2 files): 6 rewrite, 2 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
+| M7 | the tests of `foundation/circuit_blocks` (2 files): 6 rewrite, 2 merge, 2 delete | T1, T2, T3, T4, T5, T6, T7 | done |
 | M8 | the tests of `foundation/circuits` (26 files): 81 rewrite, 2 resize, 5 split, 3 merge, 11 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M9 | the tests of `foundation/core` (23 files): 68 rewrite, 14 resize, 7 split, 5 merge, 25 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
 | M10 | the tests of `foundation/device` (5 files): 10 rewrite, 3 resize, 2 delete | T1, T2, T3, T4, T5, T6, T7 | todo |
@@ -69,6 +69,6 @@ The owner chooses inline or parallel mode.
 
 ## Resume note
 
-M2, M4, M5 and M6 are applied, all syntax-checked (`clang -fsyntax-only` through
+M2, M4, M5, M6 and M7 are applied, all syntax-checked (`clang -fsyntax-only` through
 `build/compile_commands.json`, with `-I tests`), not built or run. M6 used the owner's seams of
-2026-11-10 (REPORT decision 10). Resume at M7 and onward in table order; the other M jobs are untouched.
+2026-11-10 (REPORT decision 10). Resume at M8 and onward in table order; the other M jobs are untouched.
