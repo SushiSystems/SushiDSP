@@ -132,3 +132,11 @@ a solver would allocate if it were going to. This is the D6c instance of the tra
 DkCircuitPotentiometerUpdatePerformsNoHeapAllocation established, now on a shipping node rather
 than on a bare circuit. Both knobs sweep their full travel so every derivation sees a genuinely
 new matrix.
+
+## Sizes, 2026-11-10
+
+Four behaviour cases took 0.17 to 0.9 s in the Debug run and are `Medium_TubeScreamer`: `TubeScreamerSmoothingTimeIsBlockSizeIndependent`,
+`TubeScreamerDriveSweepStepsNoMoreThanTwiceTheLoudestStillRender`,
+`TubeScreamerInputResponseIsFlatBetweenTenAndThirtyHertz` and
+`TubeScreamerDefaultSettingsPeakNearMinusTwelveDbfsForAMinusTwelveDbfsInput`.
+`TubeScreamerOutputStaysFiniteForTheRow/DcAtHighDrive` (0.122 s) stays `Small_` and over its limit.

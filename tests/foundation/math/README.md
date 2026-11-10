@@ -346,3 +346,10 @@ The case prices the resampler pair in isolation at that clock. It does not decom
 own number. The node pushes 256 single frames per block where this case pushes one block of
 256, and the node's clock follows D.TIME instead of sitting at 20 kHz, so the kernel span
 differs as well. That is why the 0.10 ms the case prints against is advisory.
+
+## Sizes, 2026-11-10
+
+In the Debug run `ResamplerRoundTripNulls` took 0.38 to 0.45 s a row, `SincResampler` 0.2 to 0.4 s a
+case, and two `Resampler` cases 0.12 and 0.16 s, against 0.1 s for a `Small_` case. They are
+`Medium_ResamplerRoundTrip`,
+`Medium_SincResampler` and `Medium_Resampler`.

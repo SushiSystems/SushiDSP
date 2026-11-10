@@ -336,7 +336,7 @@ INSTANTIATE_TEST_SUITE_P(
                       DipRow{"OfAGarageWall", {-0.05f, -0.19f, -0.76f, -3.11f, -11.50f, -3.49f}}),
     row_name<DipRow>);
 
-TEST(Small_BandResponseFit, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
+TEST(Medium_BandResponseFit, BandResponseFitMovesCoefficientsContinuouslyWithTheTarget)
 {
     for_every_target(expect_fit_moves_continuously);
 }

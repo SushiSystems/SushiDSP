@@ -312,3 +312,11 @@ block's procedure, for the same reason.
 Both signals are low-passed at 10 kHz by the same 4th-order Butterworth before comparison, so
 the band-limiting cannot flatter either one. The block is linear, so a residual anywhere near
 the -60 dB gate means a component value or a node index is wrong, not that a solver drifted.
+
+## Sizes of the clip cases, 2026-11-10
+
+`DkTsClipBlockAdaaPortKeepsTheNewtonMissShareUnderTwiceThePlainBound` (0.96 s),
+`DkTsClipBlockNewtonConvergesOnNinetyNinePointNineNinePercentOfSamples` (0.92 s),
+`DkTsClipBlockBothPortsNullAgainstTheConvergedModelOnTheToneThatAliases` (0.29 s) and the two
+`DkTsClipBlockSmallSignalResponseMatchesItsClosedForm` rows (0.12 s) are `Medium_TubeScreamerCircuits` and
+`Medium_TubeScreamerCircuitsClipSmallSignal`.

@@ -21,6 +21,8 @@ targets are one band cut with its neighbours flat; the third is the reference ga
 path through the 4x12, whose 2 kHz octave the array null pulls down. Measured: 0.20, 0.45 and
 0.10 dB.
 
+`BandResponseFitMovesCoefficientsContinuouslyWithTheTarget` took 0.43 s (Debug, 2026-11-10): `Medium_BandResponseFit`.
+
 ## `test_cabinet_directivity.cpp`
 
 ### `CabinetDirectivityBeamsAtTwoKilohertz`
@@ -721,9 +723,7 @@ read cos(0.9 pi) = -0.9510565 along x, cos(pi 3.485 / 4) = -0.9193071 and cos(pi
 
 ## `test_receiver_output.cpp`
 
-The two `HeadHolder` cases that build the fallback head (`Medium_ReceiverOutputHead`) take 2.1 s in
-a debug build, the cost of `SphericalHeadHrtf::build`, so they are `Medium_`. The cases that only move
-a set in and out hold the six-axis set of `six_axis_set()`, which builds in no time.
+The two `HeadHolder` cases that build the fallback head are `Medium_ReceiverOutputHead`; the others hold `six_axis_set()`.
 
 ## `test_spherical_head_hrtf.cpp`
 

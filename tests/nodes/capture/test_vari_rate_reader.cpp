@@ -329,11 +329,11 @@ TEST(Small_VariRateReader, VariRateReaderResetStartsFromSilence)
         0.0, 0.0)));
 }
 
-class Small_VariRateReaderRatio : public ::testing::TestWithParam<RatioRow>
+class Medium_VariRateReaderRatio : public ::testing::TestWithParam<RatioRow>
 {
 };
 
-TEST_P(Small_VariRateReaderRatio, VariRateReaderHoldsItsRatioAtEveryLegalSpeed)
+TEST_P(Medium_VariRateReaderRatio, VariRateReaderHoldsItsRatioAtEveryLegalSpeed)
 {
     // At half speed 256 outputs cost 128 take frames. See tests/nodes/capture/README.md.
     const SushiDSP::Take take = sine_take(440.0, 4096u, 48000.0);
@@ -344,7 +344,7 @@ TEST_P(Small_VariRateReaderRatio, VariRateReaderHoldsItsRatioAtEveryLegalSpeed)
     EXPECT_EQ(consumed, GetParam().frames_consumed);
 }
 
-INSTANTIATE_TEST_SUITE_P(Rows, Small_VariRateReaderRatio,
+INSTANTIATE_TEST_SUITE_P(Rows, Medium_VariRateReaderRatio,
                          ::testing::Values(RatioRow{"Half", 0.5, 499200ull},
                                            RatioRow{"ThreeQuarters", 0.75, 748800ull},
                                            RatioRow{"Unity", 1.0, 998400ull},

@@ -57,3 +57,8 @@ The rows are a noise copy at delay 3 and a tone copy at delay 37 with gain 0.25 
 the last row b is inverted as well as delayed and scaled, as it would be after an odd number of
 inverting stages. The lag search has to match on correlation magnitude to find 37 here; matching on the
 signed correlation picks whatever lag is least negative and the residual never nulls.
+
+## Sizes, 2026-11-10
+
+The four `frequency_response` cases took 0.22 to 0.97 s in the Debug run and are `Medium_FrequencyResponse`. `UnoversampledTanhIsPoor` took 0.115 s (20 tones of one
+second and a frame) and is `Medium_AliasFloor`.

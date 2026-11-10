@@ -256,7 +256,7 @@ namespace
     }
 } // namespace
 
-TEST(Small_FrequencyResponse, IdentityIsFlat)
+TEST(Medium_FrequencyResponse, IdentityIsFlat)
 {
     GainNode node(1.0f);
 
@@ -267,7 +267,7 @@ TEST(Small_FrequencyResponse, IdentityIsFlat)
     EXPECT_LE(worst_deviation_db(response, [](double) { return 0.0; }), K_SWEEP_ERROR_DB);
 }
 
-TEST(Small_FrequencyResponse, HalfGainReadsAsMinusSixDecibels)
+TEST(Medium_FrequencyResponse, HalfGainReadsAsMinusSixDecibels)
 {
     GainNode node(0.5f);
 
@@ -279,7 +279,7 @@ TEST(Small_FrequencyResponse, HalfGainReadsAsMinusSixDecibels)
 }
 
 // The expectations are the difference equation's own |H|. See tests/foundation/signal_measure/README.md.
-TEST(Small_FrequencyResponse, TracksAOnePoleLowpass)
+TEST(Medium_FrequencyResponse, TracksAOnePoleLowpass)
 {
     OnePoleNode node;
 
@@ -293,7 +293,7 @@ TEST(Small_FrequencyResponse, TracksAOnePoleLowpass)
 }
 
 // The sweep starts at 5 Hz, two octaves below the band. See tests/foundation/signal_measure/README.md.
-TEST(Small_FrequencyResponse, IsAccurateAtTheBottomOfTheAudioBand)
+TEST(Medium_FrequencyResponse, IsAccurateAtTheBottomOfTheAudioBand)
 {
     OnePoleHighPassNode node;
 

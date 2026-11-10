@@ -90,21 +90,21 @@ namespace
     }
 } // namespace
 
-TEST(Small_SincResampler, OutputLengthIsTheRatioRoundedToTheNearestSample)
+TEST(Medium_SincResampler, OutputLengthIsTheRatioRoundedToTheNearestSample)
 {
     const std::vector<float> output = SushiDSP::SincResampler::resample(sine(1000.0, 44100.0, 44100), 44100.0, 48000.0);
 
     EXPECT_EQ(output.size(), 48000u);
 }
 
-TEST(Small_SincResampler, PreservesAOneKilohertzToneBelowThePreservationLevel)
+TEST(Medium_SincResampler, PreservesAOneKilohertzToneBelowThePreservationLevel)
 {
     const std::vector<float> output = SushiDSP::SincResampler::resample(sine(1000.0, 44100.0, 44100), 44100.0, 48000.0);
 
     EXPECT_LT(error_energy_db(output, 1000.0, 48000.0), K_PRESERVATION_LEVEL_DB);
 }
 
-TEST(Small_SincResampler, LowpassesAboveTheNewNyquistWhenDownsampling)
+TEST(Medium_SincResampler, LowpassesAboveTheNewNyquistWhenDownsampling)
 {
     const double passband_energy = mean_energy_after_halving_the_rate(1000.0);
     const double aliased_energy = mean_energy_after_halving_the_rate(30000.0);

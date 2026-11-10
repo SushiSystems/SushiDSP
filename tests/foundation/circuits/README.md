@@ -31,3 +31,8 @@ perturbation a 44 k source is: 33 k on the JCM against 100 k on the IIC+. So a m
 carry one loading figure for every amplifier, and terminating one deck says nothing about
 another. An independent nodal solve of the same network predicts 3.89 dB of tilt for the JCM's
 values and 0.87 dB for the IIC+'s.
+
+## Sizes, 2026-11-10
+
+`FmvToneStackLoadingTiltIsTheDecksOwn` took 0.235 s a deck in the Debug run and its
+suite is `Medium_FmvToneStackLoadingDeck`; the other case of the suite moves with it.
