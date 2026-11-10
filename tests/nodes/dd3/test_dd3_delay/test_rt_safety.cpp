@@ -27,40 +27,48 @@
  * @author Mustafa Garip
  */
 
-// _USE_MATH_DEFINES precedes every include so that MSVC's <cmath> declares M_PI.
-#define _USE_MATH_DEFINES
-
-#include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include <SushiDSP/foundation/allocation_trap/allocation_trap.hpp>
+#include <SushiDSP/foundation/signal_measure/render.hpp>
 #include <SushiDSP/nodes/dd3/dd3_delay.hpp>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+namespace
+{
+    constexpr std::uint32_t K_BLOCK = 256u;
+
+    /// @brief Returns whether every sample is a finite number.
+    bool all_finite(const std::vector<float>& samples)
+    {
+        for (const float sample : samples)
+        {
+            if (!std::isfinite(sample))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+} // namespace
 
 TEST(Medium_Dd3Delay, ProcessPerformsNoHeapAllocation)
 {
     // Both MODE changes below move N and pay the std::fill. See tests/nodes/dd3/test_dd3_delay/README.md.
     SushiDSP::Dd3Delay node;
-    node.prepare(SushiDSP::PrepareInfo{48000.0, 256, 1});
+    node.prepare(SushiDSP::PrepareInfo{48000.0, K_BLOCK, 1});
     node.set_time(0.4f);
     node.set_feedback(0.45f);
     node.set_level(0.5f);
 
-    std::vector<float> input(256);
-    for (std::size_t i = 0; i < input.size(); ++i)
-    {
-        input[i] = 0.3f * std::sin(2.0f * static_cast<float>(M_PI) * 220.0f * i / 48000.0f);
-    }
-    std::vector<float> output(256, 0.0f);
+    const std::vector<float> input = SushiDSP::measure::sine_stimulus(220.0, 48000.0, K_BLOCK, 0.3f);
+    std::vector<float> output(K_BLOCK, 0.0f);
     const float* input_channels[1] = {input.data()};
     float* output_channels[1] = {output.data()};
-    SushiDSP::ProcessContext context{output_channels, input_channels, 256, 0.0};
+    SushiDSP::ProcessContext context{output_channels, input_channels, K_BLOCK, 0.0};
 
     const std::uint16_t mode_index = 3u;
     const float long_mode_value =
@@ -78,8 +86,5 @@ TEST(Medium_Dd3Delay, ProcessPerformsNoHeapAllocation)
     trap.disarm();
 
     EXPECT_EQ(trap.count(), 0);
-    for (std::size_t i = 0; i < output.size(); ++i)
-    {
-        EXPECT_TRUE(std::isfinite(output[i]));
-    }
+    EXPECT_TRUE(all_finite(output));
 }

@@ -31,27 +31,29 @@
 #define _USE_MATH_DEFINES
 
 #include <gtest/gtest.h>
-#include <SushiDSP/foundation/regression_test/regression_test.hpp>
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
+#include <string>
 #include <vector>
 
 #include <SushiDSP/nodes/dd3/dd3_delay.hpp>
 #include <SushiDSP/foundation/signal_measure/alias_floor.hpp>
 #include <SushiDSP/foundation/signal_measure/render.hpp>
 
+#include "support/tolerance.hpp"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-// Every case renders seconds, hence SUSHIDSP_REGRESSION_TEST. See tests/nodes/dd3/test_dd3_delay/README.md.
-
 namespace
 {
+    using Clock = SushiDSP::dd3::Dd3Clock;
+    using Mode = SushiDSP::dd3::Dd3Mode;
+
     constexpr double K_SAMPLE_RATE = 48000.0;
     constexpr std::uint32_t K_BLOCK = 256u;
 
@@ -67,8 +69,43 @@ namespace
     ///
     /// The literal restates what Resampler::latency_seconds() documents rather than calling it,
     /// so that a prototype whose half width moves without this file moving fails here instead
-    /// of agreeing with itself. Reading the number off the node would make the row an identity.
+    /// of agreeing with itself.
     constexpr double K_RESAMPLER_HALF_WIDTH = 34.0;
+
+    /// @brief Unit roundoff of the float that carries the clock's control in the log domain.
+    constexpr double K_FLOAT_ROUNDOFF = TestSupport::unit_roundoff<float>();
+
+    /// @brief How far the argmax of an echo may sit from the centre of its prediction, in host
+    /// samples. Characterized, not derived: the two 7 kHz cascades land the peak about 13 samples
+    /// late, and the resampler kernels spread it over 34 / min(clock, host) seconds, 40 samples at
+    /// TIME 0.5. Backlog entry to follow from the orchestrator.
+    constexpr double K_ECHO_PEAK_SLACK_SAMPLES = 48.0;
+
+    /// @brief The worst alias line the node may show at the service-note stimulus, in dB below the
+    /// fundamental. Characterized: the loose bound the node was accepted at; the measured floor
+    /// is -55.32 dB and the revisit threshold of Ruling 7 is -60 dB, which it misses.
+    constexpr double K_ALIAS_FLOOR_BOUND_DB = -40.0;
+
+    /// @brief The largest output magnitude the stimulus battery may reach, in full-scale units.
+    /// Characterized: a tripwire for divergence. The converter's rails hold the loop near 1.15
+    /// full scale, so the bound is far above anything the model approaches.
+    constexpr float K_DIVERGENCE_TRIPWIRE = 32.0f;
+
+    /// @brief Render length that holds the short ring and the start of its echo at TIME 0:
+    /// the echo is predicted at 672 samples.
+    constexpr double K_WET_WINDOW_SECONDS = 760.0 / K_SAMPLE_RATE;
+
+    /// @brief Names a delay mode and the ring length the published times assume of it.
+    struct ModeRow
+    {
+            const char* name;
+            Mode mode;
+            double ring_length;
+    };
+
+    const ModeRow K_RING_MODES[] = {{"S", Mode::Short, 1024.0},
+                                    {"M", Mode::Middle, 4096.0},
+                                    {"L", Mode::Long, 16384.0}};
 
     /// @brief The wet path's delay from the plan's N2 arithmetic, recomputed here rather than
     /// read off the node, so a wrong N or a wrong clock has nothing to hide behind.
@@ -148,6 +185,157 @@ namespace
         return periods;
     }
 
+    /// @brief Renders a unit impulse through a mono node with no feedback and full level.
+    /// @param node The node; its latency is read by the caller afterwards.
+    /// @param mode The delay range.
+    /// @param time D.TIME in [0, 1].
+    /// @param seconds Length of the render.
+    /// @return The output, seconds long.
+    std::vector<float> impulse_response(SushiDSP::Dd3Delay& node, Mode mode, float time, double seconds)
+    {
+        node.set_mode(mode);
+        node.set_time(time);
+        node.set_feedback(0.0f);
+        node.set_level(1.0f);
+        std::vector<float> input(static_cast<std::size_t>(seconds * K_SAMPLE_RATE), 0.0f);
+        input[0] = 1.0f;
+        return SushiDSP::measure::render(node, input, K_SAMPLE_RATE, K_BLOCK);
+    }
+
+    /// @brief Returns whether every sample of a half-open range is exactly zero.
+    bool is_silent_between(const std::vector<float>& samples, std::size_t begin, std::size_t end)
+    {
+        return std::all_of(samples.begin() + static_cast<std::ptrdiff_t>(begin),
+                           samples.begin() + static_cast<std::ptrdiff_t>(end),
+                           [](float sample) { return sample == 0.0f; });
+    }
+
+    /// @brief The largest magnitude in a half-open range.
+    float peak_magnitude(const std::vector<float>& samples, std::size_t begin, std::size_t end)
+    {
+        float largest = 0.0f;
+        for (std::size_t n = begin; n < end; ++n)
+        {
+            largest = std::max(largest, std::abs(samples[n]));
+        }
+        return largest;
+    }
+
+    /// @brief The frequency of the HOLD probe tone: 397 cycles per pass of the long ring at the
+    /// fast clock, so the frozen loop joins its own tail without a phase step.
+    constexpr double K_RING_CYCLES = 397.0;
+    constexpr double K_PROBE_HZ = K_RING_CYCLES * Clock::K_FAST_RATE_HZ /
+                                  static_cast<double>(SushiDSP::dd3::Dd3Converter::K_LONG_LENGTH);
+    constexpr std::uint32_t K_SUB_BLOCK = SushiDSP::Dd3Delay::K_CLOCK_UPDATE_FRAMES;
+    constexpr double K_FILL_SECONDS = 0.6;
+    constexpr double K_SETTLE_SECONDS = 0.02;
+    constexpr double K_SWEEP_SECONDS = 0.35;
+
+    /// @brief The probe tone at the service-note level.
+    /// @param samples Length of the tone.
+    /// @return The tone at K_PROBE_HZ.
+    std::vector<float> probe_tone(std::size_t samples)
+    {
+        std::vector<float> tone(samples, 0.0f);
+        for (std::size_t n = 0; n < samples; ++n)
+        {
+            tone[n] = static_cast<float>(
+                K_SERVICE_NOTE_STIMULUS *
+                std::sin(2.0 * M_PI * K_PROBE_HZ * static_cast<double>(n) / K_SAMPLE_RATE));
+        }
+        return tone;
+    }
+
+    /// @brief Fills the long ring with the probe tone, freezes it with HOLD, then turns D.TIME
+    /// from 0 to 1 across the sweep and returns the wet signal of the sweep alone.
+    std::vector<float> held_trace_under_a_time_sweep()
+    {
+        SushiDSP::Dd3Delay node;
+        node.set_mode(Mode::Long);
+        node.set_time(0.0f);
+        node.set_feedback(0.0f);
+        node.set_level(1.0f);
+        node.prepare({K_SAMPLE_RATE, K_SUB_BLOCK, 1u});
+
+        const std::size_t fill_samples = static_cast<std::size_t>(K_FILL_SECONDS * K_SAMPLE_RATE);
+        std::vector<float> filled(fill_samples, 0.0f);
+        stream_range(node, probe_tone(fill_samples), 0u, fill_samples, K_SUB_BLOCK, filled);
+
+        // Long and Hold share N, so the switch keeps what the ring holds instead of clearing it.
+        node.set_mode(Mode::Hold);
+
+        const std::size_t settle_samples = static_cast<std::size_t>(K_SETTLE_SECONDS * K_SAMPLE_RATE);
+        const std::size_t sweep_samples = static_cast<std::size_t>(K_SWEEP_SECONDS * K_SAMPLE_RATE);
+        const std::vector<float> silence(settle_samples + sweep_samples, 0.0f);
+        std::vector<float> held(silence.size(), 0.0f);
+        stream_range(node, silence, 0u, settle_samples, K_SUB_BLOCK, held);
+        for (std::size_t offset = settle_samples; offset < held.size(); offset += K_SUB_BLOCK)
+        {
+            node.set_time(static_cast<float>(static_cast<double>(offset - settle_samples) /
+                                             static_cast<double>(sweep_samples)));
+            stream_range(node, silence, offset, std::min(offset + K_SUB_BLOCK, held.size()),
+                         K_SUB_BLOCK, held);
+        }
+        return std::vector<float>(held.begin() + static_cast<std::ptrdiff_t>(settle_samples), held.end());
+    }
+
+    /// @brief Smallest period of the trace, in whole samples: the probe at the fast clock.
+    const double K_FIRST_PERIOD = std::floor(K_SAMPLE_RATE / K_PROBE_HZ);
+
+    /// @brief The knob's range of clock, 82.5 kHz to 20 kHz, as the ratio of the periods it makes.
+    constexpr double K_PERIOD_RANGE = Clock::K_FAST_RATE_HZ / Clock::K_SLOW_RATE_HZ;
+
+    /// @brief The lowest ratio of one measured period to the one before it.
+    ///
+    /// The true period never shrinks while the clock only falls. A reading is a difference of two
+    /// crossing indices, each at most one sample past the true crossing, so it lies within one sample
+    /// of the true period. The worst ratio of two readings of equal true periods is
+    /// (P - 1) / (P + 1), and it rises with P, so the first period gives the floor.
+    double lowest_period_ratio()
+    {
+        return (K_FIRST_PERIOD - 1.0) / (K_FIRST_PERIOD + 1.0);
+    }
+
+    /// @brief The true growth of the period over one longest period of the sweep: the log of the
+    /// clock is linear in the knob, so the log of the period grows by ln(range) per sweep.
+    double true_period_growth_per_period()
+    {
+        const double longest = std::ceil(K_FIRST_PERIOD * K_PERIOD_RANGE) + 1.0;
+        const double sweep_samples = K_SWEEP_SECONDS * K_SAMPLE_RATE;
+        return std::exp(std::log(K_PERIOD_RANGE) * longest / sweep_samples);
+    }
+
+    /// @brief The highest ratio of one measured period to the one before it: the true growth with
+    /// one sample of quantisation either way, worst at the shortest period.
+    double highest_period_ratio()
+    {
+        return (K_FIRST_PERIOD * true_period_growth_per_period() + 1.0) / (K_FIRST_PERIOD - 1.0);
+    }
+
+    /// @brief The least ratio of the last period to the first that proves the glide travelled.
+    ///
+    /// The clock follows the knob through the R56/C52 pole, so it trails the knob by tau, and the
+    /// last reading is centred about one and a half periods before the end of the trace. Both
+    /// shorten the distance travelled in the log domain; the readings are within one sample.
+    double least_travelled_ratio()
+    {
+        const double last_period = std::ceil(K_FIRST_PERIOD * K_PERIOD_RANGE);
+        const double lag = Clock::K_SLEW_TIME_CONSTANT_SECONDS * K_SAMPLE_RATE + 1.5 * last_period;
+        const double fraction = 1.0 - lag / (K_SWEEP_SECONDS * K_SAMPLE_RATE);
+        const double reached = std::pow(K_PERIOD_RANGE, fraction);
+        return (K_FIRST_PERIOD * reached - 1.0) / (K_FIRST_PERIOD + 1.0);
+    }
+
+    /// @brief Fails for every period that shrinks or grows by more than the bounds allow.
+    void expect_glide_without_a_step(const std::vector<double>& periods)
+    {
+        for (std::size_t i = 1; i < periods.size(); ++i)
+        {
+            EXPECT_GE(periods[i], periods[i - 1] * lowest_period_ratio()) << i;
+            EXPECT_LE(periods[i], periods[i - 1] * highest_period_ratio()) << i;
+        }
+    }
+
     constexpr double K_BATTERY_SWEEP_SECONDS = 2.0;
     constexpr double K_BATTERY_BURST_SECONDS = 0.5;
     constexpr double K_BATTERY_STEP_SECONDS = 0.75;
@@ -157,8 +345,7 @@ namespace
 
     /// @brief The D6b stimulus battery, in full-scale sample units rather than volts.
     ///
-    /// Copied in shape from tests/foundation/circuits/stages/test_triode_stage/test_dk_netlist.cpp's convergence case:
-    /// a 2 s logarithmic 20 Hz to 20 kHz sweep at -12 dBFS, three 1 kHz bursts at 0.05, 0.5 and
+    /// A 2 s logarithmic 20 Hz to 20 kHz sweep at -12 dBFS, three 1 kHz bursts at 0.05, 0.5 and
     /// 1.0 full scale, a DC step, and digital silence.
     /// @param sample_rate Rate the battery is generated at.
     /// @return K_BATTERY_SECONDS seconds of stimulus.
@@ -201,226 +388,144 @@ namespace
         // The tail is left at zero: it is both the step's falling edge and the silence case.
         return stimulus;
     }
-} // namespace
 
-SUSHIDSP_REGRESSION_TEST(Small_Dd3Delay, Dd3AcceptanceClockCurveMatchesThePublishedRange)
-{
-    // Row 1 checks fs, which the service note publishes. See tests/nodes/dd3/test_dd3_delay/README.md.
-    using Clock = SushiDSP::dd3::Dd3Clock;
-    EXPECT_LE(std::abs(Clock::clock_for_time(0.0) - 82500.0) / 82500.0, 0.02);
-    EXPECT_LE(std::abs(Clock::clock_for_time(1.0) - 20000.0) / 20000.0, 0.02);
-
-    struct Mode
+    /// @brief Names one run of the battery: the mode it starts in, the mode it switches to after
+    /// the sweep, and the F.BACK setting.
+    struct BatteryRow
     {
-            const char* name;
-            SushiDSP::dd3::Dd3Mode mode;
-            double ring_length;
+            std::string name;
+            Mode initial;
+            Mode later;
+            float feedback;
     };
-    const Mode modes[3] = {{"S", SushiDSP::dd3::Dd3Mode::Short, 1024.0},
-                           {"M", SushiDSP::dd3::Dd3Mode::Middle, 4096.0},
-                           {"L", SushiDSP::dd3::Dd3Mode::Long, 16384.0}};
-    for (const Mode& item : modes)
-    {
-        for (const float time : {0.0f, 0.5f, 1.0f})
-        {
-            SushiDSP::Dd3Delay node;
-            node.set_mode(item.mode);
-            node.set_time(time);
-            node.set_feedback(0.0f);
-            node.set_level(1.0f);
-            node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
 
-            const double clock_hz = Clock::clock_for_time(static_cast<double>(time));
-            const double predicted =
-                predicted_wet_seconds(item.ring_length, clock_hz, K_SAMPLE_RATE);
-            // The only slack is the float that holds log(fs). See tests/nodes/dd3/test_dd3_delay/README.md.
-            EXPECT_NEAR(node.wet_delay_seconds(), predicted, 1e-4 * predicted)
-                << item.name << " " << time;
-            std::printf("[ measure ] DD-3 mode %s, TIME %.2f: fs %.1f Hz, ring %.3f ms, "
-                        "wet %.3f ms\n",
-                        item.name, static_cast<double>(time), clock_hz,
-                        1000.0 * item.ring_length / clock_hz, 1000.0 * node.wet_delay_seconds());
+    /// @brief HOLD runs twice: from a cold ring and entered halfway. Every mode meets the three
+    /// F.BACK settings 0, 0.5 and 1, the last of which is past self-oscillation.
+    std::vector<BatteryRow> battery_rows()
+    {
+        struct ModePair
+        {
+                const char* name;
+                Mode initial;
+                Mode later;
+        };
+        const ModePair pairs[] = {{"Short", Mode::Short, Mode::Short},
+                                  {"Middle", Mode::Middle, Mode::Middle},
+                                  {"Long", Mode::Long, Mode::Long},
+                                  {"Hold", Mode::Hold, Mode::Hold},
+                                  {"LongToHold", Mode::Long, Mode::Hold}};
+        struct Feedback
+        {
+                const char* name;
+                float value;
+        };
+        const Feedback settings[] = {{"Zero", 0.0f}, {"Half", 0.5f}, {"Full", 1.0f}};
+        std::vector<BatteryRow> rows;
+        for (const ModePair& pair : pairs)
+        {
+            for (const Feedback& setting : settings)
+            {
+                rows.push_back({std::string(pair.name) + "Feedback" + setting.name, pair.initial,
+                                pair.later, setting.value});
+            }
+        }
+        return rows;
+    }
+
+    /// @brief Fails for every sample that is not finite or reaches the divergence tripwire.
+    void expect_finite_and_bounded(const std::vector<float>& output)
+    {
+        for (std::size_t n = 0; n < output.size(); ++n)
+        {
+            ASSERT_TRUE(std::isfinite(output[n])) << n;
+            ASSERT_LT(std::abs(output[n]), K_DIVERGENCE_TRIPWIRE) << n;
         }
     }
-}
+} // namespace
 
-SUSHIDSP_REGRESSION_TEST(Small_Dd3Delay, Dd3AcceptanceMeasuredEchoLandsWhereTheClockCurveSaysItWill)
+TEST(Medium_Dd3Delay, Dd3AcceptanceMeasuredEchoLandsWhereTheClockCurveSaysItWill)
 {
     // An impulse's echo cannot agree with a wrong fs. See tests/nodes/dd3/test_dd3_delay/README.md.
-    struct Mode
-    {
-            const char* name;
-            SushiDSP::dd3::Dd3Mode mode;
-            double ring_length;
-    };
-    const Mode modes[3] = {{"S", SushiDSP::dd3::Dd3Mode::Short, 1024.0},
-                           {"M", SushiDSP::dd3::Dd3Mode::Middle, 4096.0},
-                           {"L", SushiDSP::dd3::Dd3Mode::Long, 16384.0}};
-    const double clock_hz = SushiDSP::dd3::Dd3Clock::clock_for_time(0.5);
-    for (const Mode& item : modes)
+    const double clock_hz = Clock::clock_for_time(0.5);
+    // The clock keeps log(fs) in a float, which moves the delay by u * ln(fs) of itself.
+    const double clock_error = std::expm1(K_FLOAT_ROUNDOFF * std::log(clock_hz));
+    for (const ModeRow& row : K_RING_MODES)
     {
         SushiDSP::Dd3Delay node;
-        node.set_mode(item.mode);
-        node.set_time(0.5f);
-        node.set_feedback(0.0f);
-        node.set_level(1.0f);
-
-        std::vector<float> input(static_cast<std::size_t>(0.6 * K_SAMPLE_RATE), 0.0f);
-        input[0] = 1.0f;
-        const auto output = SushiDSP::measure::render(node, input, K_SAMPLE_RATE, K_BLOCK);
-
-        const double predicted = predicted_wet_seconds(item.ring_length, clock_hz, K_SAMPLE_RATE);
-        const double predicted_samples = predicted * K_SAMPLE_RATE;
+        const std::vector<float> output = impulse_response(node, row.mode, 0.5f, 0.6);
+        const double predicted_samples =
+            predicted_wet_seconds(row.ring_length, clock_hz, K_SAMPLE_RATE) * K_SAMPLE_RATE;
         // The search starts past the dry impulse; with F.BACK down there is only one echo.
         const double measured = static_cast<double>(peak_index(output, 8u, output.size()));
-        std::printf("[ measure ] DD-3 mode %s echo at TIME 0.50: %.0f samples, predicted %.2f\n",
-                    item.name, measured, predicted_samples);
-        // The floor is absolute: 48 samples below 4800. See tests/nodes/dd3/test_dd3_delay/README.md.
-        EXPECT_NEAR(measured, predicted_samples, std::max(48.0, 0.01 * predicted_samples))
-            << item.name;
+        EXPECT_NEAR(measured, predicted_samples,
+                    K_ECHO_PEAK_SLACK_SAMPLES + predicted_samples * clock_error)
+            << row.name;
     }
 }
 
-SUSHIDSP_REGRESSION_TEST(Small_Dd3Delay, Dd3AcceptancePitchSlursRatherThanJumping)
+TEST(Medium_Dd3Delay, Dd3AcceptancePitchSlursRatherThanJumping)
 {
     // HOLD freezes the ring so only the clock moves the pitch. See tests/nodes/dd3/test_dd3_delay/README.md.
-    using Converter = SushiDSP::dd3::Dd3Converter;
-    // 397 cycles per ring pass join the loop without a step. See tests/nodes/dd3/test_dd3_delay/README.md.
-    constexpr double K_RING_CYCLES = 397.0;
-    constexpr double K_PROBE_HZ = K_RING_CYCLES * SushiDSP::dd3::Dd3Clock::K_FAST_RATE_HZ /
-                                  static_cast<double>(Converter::K_LONG_LENGTH);
-    constexpr double K_PROBE_AMPLITUDE = K_SERVICE_NOTE_STIMULUS;
-    constexpr std::uint32_t K_SUB_BLOCK = SushiDSP::Dd3Delay::K_CLOCK_UPDATE_FRAMES;
-    constexpr double K_FILL_SECONDS = 0.6; // over three passes of the 199 ms ring
-    constexpr double K_SETTLE_SECONDS = 0.02;
-    constexpr double K_SWEEP_SECONDS = 0.35; // 15474 clock ticks, one ring pass of sweep
-
-    SushiDSP::Dd3Delay node;
-    node.set_mode(SushiDSP::dd3::Dd3Mode::Long);
-    node.set_time(0.0f);
-    node.set_feedback(0.0f);
-    node.set_level(1.0f);
-    node.prepare({K_SAMPLE_RATE, K_SUB_BLOCK, 1u});
-
-    const std::size_t fill_samples = static_cast<std::size_t>(K_FILL_SECONDS * K_SAMPLE_RATE);
-    std::vector<float> fill(fill_samples, 0.0f);
-    for (std::size_t n = 0; n < fill_samples; ++n)
-    {
-        fill[n] = static_cast<float>(
-            K_PROBE_AMPLITUDE *
-            std::sin(2.0 * M_PI * K_PROBE_HZ * static_cast<double>(n) / K_SAMPLE_RATE));
-    }
-    std::vector<float> filled(fill_samples, 0.0f);
-    stream_range(node, fill, 0u, fill_samples, K_SUB_BLOCK, filled);
-
-    // Long and Hold share N, so the switch keeps what the ring holds instead of clearing it.
-    node.set_mode(SushiDSP::dd3::Dd3Mode::Hold);
-
-    const std::size_t settle_samples = static_cast<std::size_t>(K_SETTLE_SECONDS * K_SAMPLE_RATE);
-    const std::size_t sweep_samples = static_cast<std::size_t>(K_SWEEP_SECONDS * K_SAMPLE_RATE);
-    const std::vector<float> silence(settle_samples + sweep_samples, 0.0f);
-    std::vector<float> held(silence.size(), 0.0f);
-    stream_range(node, silence, 0u, settle_samples, K_SUB_BLOCK, held);
-    for (std::size_t offset = settle_samples; offset < held.size(); offset += K_SUB_BLOCK)
-    {
-        node.set_time(static_cast<float>(static_cast<double>(offset - settle_samples) /
-                                         static_cast<double>(sweep_samples)));
-        stream_range(node, silence, offset, std::min(offset + K_SUB_BLOCK, held.size()),
-                     K_SUB_BLOCK, held);
-    }
-
-    const std::vector<float> swept(held.begin() + static_cast<std::ptrdiff_t>(settle_samples),
-                                   held.end());
-    const std::vector<double> periods = upward_crossing_periods(swept);
+    const std::vector<double> periods = upward_crossing_periods(held_trace_under_a_time_sweep());
     ASSERT_GT(periods.size(), 250u);
-
-    double worst_step = 1.0;
-    for (std::size_t i = 1; i < periods.size(); ++i)
-    {
-        worst_step = std::max(worst_step, periods[i] / periods[i - 1]);
-        // One crossing sample is 4 %, so the bound is 0.90. See tests/nodes/dd3/test_dd3_delay/README.md.
-        EXPECT_GE(periods[i], periods[i - 1] * 0.90) << i;
-        // The glide's own largest step is 1.042, an ungliding clock's would be 4.125.
-        EXPECT_LE(periods[i] / periods[i - 1], 1.20) << i;
-    }
-    std::printf("[ measure ] DD-3 pitch slur: period %.0f -> %.0f samples over %zu crossings, "
-                "worst step %.4f (a jump would be 4.125)\n",
-                periods.front(), periods.back(), periods.size(), worst_step);
+    expect_glide_without_a_step(periods);
     // The glide really did travel: the knob's own range is 4.125 to 1.
-    EXPECT_GT(periods.back(), 3.5 * periods.front());
+    EXPECT_GT(periods.back(), least_travelled_ratio() * periods.front());
 }
 
-SUSHIDSP_REGRESSION_TEST(Small_Dd3Delay, Dd3AcceptanceProducesNoNonFiniteSampleUnderTheStimulusBattery)
+class Medium_Dd3DelayBattery : public ::testing::TestWithParam<BatteryRow>
 {
-    // HOLD runs twice: from a cold ring and entered halfway. See tests/nodes/dd3/test_dd3_delay/README.md.
-    struct Case
-    {
-            const char* name;
-            SushiDSP::dd3::Dd3Mode initial;
-            SushiDSP::dd3::Dd3Mode later;
-    };
-    const Case cases[5] = {
-        {"S", SushiDSP::dd3::Dd3Mode::Short, SushiDSP::dd3::Dd3Mode::Short},
-        {"M", SushiDSP::dd3::Dd3Mode::Middle, SushiDSP::dd3::Dd3Mode::Middle},
-        {"L", SushiDSP::dd3::Dd3Mode::Long, SushiDSP::dd3::Dd3Mode::Long},
-        {"H", SushiDSP::dd3::Dd3Mode::Hold, SushiDSP::dd3::Dd3Mode::Hold},
-        {"L to H", SushiDSP::dd3::Dd3Mode::Long, SushiDSP::dd3::Dd3Mode::Hold},
-    };
+};
+
+TEST_P(Medium_Dd3DelayBattery, ProducesNoNonFiniteSampleUnderTheStimulusBattery)
+{
+    const BatteryRow& row = GetParam();
     const std::vector<float> stimulus = battery_stimulus(K_SAMPLE_RATE);
     const std::size_t switch_at = static_cast<std::size_t>(K_BATTERY_SWEEP_SECONDS * K_SAMPLE_RATE);
 
-    double loudest = 0.0;
-    for (const Case& item : cases)
-    {
-        for (const float feedback : {0.0f, 0.5f, 1.0f})
-        {
-            SushiDSP::Dd3Delay node;
-            node.set_mode(item.initial);
-            node.set_feedback(feedback);
-            node.set_level(1.0f);
-            node.set_time(0.35f);
-            node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
+    SushiDSP::Dd3Delay node;
+    node.set_mode(row.initial);
+    node.set_feedback(row.feedback);
+    node.set_level(1.0f);
+    node.set_time(0.35f);
+    node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
 
-            std::vector<float> output(stimulus.size(), 0.0f);
-            stream_range(node, stimulus, 0u, switch_at, K_BLOCK, output);
-            node.set_mode(item.later);
-            stream_range(node, stimulus, switch_at, stimulus.size(), K_BLOCK, output);
+    std::vector<float> output(stimulus.size(), 0.0f);
+    stream_range(node, stimulus, 0u, switch_at, K_BLOCK, output);
+    node.set_mode(row.later);
+    stream_range(node, stimulus, switch_at, stimulus.size(), K_BLOCK, output);
 
-            for (std::size_t n = 0; n < output.size(); ++n)
-            {
-                ASSERT_TRUE(std::isfinite(output[n])) << item.name << " " << feedback << " " << n;
-                // The bound is a tripwire for divergence. See tests/nodes/dd3/test_dd3_delay/README.md.
-                ASSERT_LT(std::abs(output[n]), 32.0f) << item.name << " " << feedback << " " << n;
-                loudest = std::max(loudest, static_cast<double>(std::abs(output[n])));
-            }
-        }
-    }
-    std::printf("[ measure ] DD-3 battery: %zu samples over 5 mode cases x 3 F.BACK settings, "
-                "0 non-finite, loudest %.4f full scale\n",
-                stimulus.size() * 15u, loudest);
+    expect_finite_and_bounded(output);
 }
 
-SUSHIDSP_REGRESSION_TEST(Small_Dd3Delay, Dd3AcceptanceReportsZeroLatencyAndDelaysOnlyItsWetPath)
+INSTANTIATE_TEST_SUITE_P(Rows, Medium_Dd3DelayBattery, ::testing::ValuesIn(battery_rows()),
+                         [](const ::testing::TestParamInfo<BatteryRow>& info)
+                         { return info.param.name; });
+
+TEST(Small_Dd3Delay, Dd3AcceptanceKeepsTheDryPathAtFrameZeroAndDelaysOnlyTheWetPath)
 {
     // The dry path is sample-aligned; only the wet one delays. See tests/nodes/dd3/test_dd3_delay/README.md.
     SushiDSP::Dd3Delay node;
-    node.prepare({K_SAMPLE_RATE, K_BLOCK, 1u});
+    const std::vector<float> output = impulse_response(node, Mode::Short, 0.0f, K_WET_WINDOW_SECONDS);
+    // Every stage after the ring is causal. See tests/nodes/dd3/test_dd3_delay/README.md.
+    const std::size_t silent_until = static_cast<std::size_t>(
+        std::floor(1024.0 / Clock::K_FAST_RATE_HZ * K_SAMPLE_RATE)) - 1u;
+
     EXPECT_EQ(node.latency_samples(), 0u);
-    EXPECT_GT(node.wet_delay_seconds(), 0.0);
+    EXPECT_EQ(output[0], 1.0f);
+    EXPECT_TRUE(is_silent_between(output, 1u, silent_until));
+    EXPECT_GT(peak_magnitude(output, silent_until, output.size()), 0.0f);
 }
 
-SUSHIDSP_REGRESSION_TEST(Small_Dd3Delay, Dd3AcceptanceAliasFloorIsMeasuredNotAssumed)
+TEST(Medium_Dd3Delay, Dd3AcceptanceAliasFloorStaysUnderItsBoundAtTheServiceNoteStimulus)
 {
     // The sweep runs at the service note's stimulus level. See tests/nodes/dd3/test_dd3_delay/README.md.
     SushiDSP::Dd3Delay node;
-    node.set_mode(SushiDSP::dd3::Dd3Mode::Middle);
+    node.set_mode(Mode::Middle);
     node.set_time(0.5f);
     node.set_feedback(0.0f);
     node.set_level(1.0f);
     const double floor_db = SushiDSP::measure::alias_floor(
         node, K_SAMPLE_RATE, static_cast<float>(K_SERVICE_NOTE_STIMULUS));
-    std::printf("[ measure ] DD-3 alias floor at %.3f full scale: %.2f dB "
-                "(Ruling 7 revisit threshold -60 dB)\n",
-                K_SERVICE_NOTE_STIMULUS, floor_db);
-    EXPECT_LE(floor_db, -40.0);
+    EXPECT_LE(floor_db, K_ALIAS_FLOOR_BOUND_DB);
 }
