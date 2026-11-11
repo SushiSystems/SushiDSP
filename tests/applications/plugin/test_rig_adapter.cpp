@@ -463,7 +463,7 @@ TEST(Small_RigAdapter, RigAdapterSavesAParameterQueuedOnTheAudioThread)
     EXPECT_FLOAT_EQ(*carried, target);
 }
 
-TEST(Small_RigAdapter, RigAdapterAudioThreadParameterChangesWhatTheRigRenders)
+TEST(Medium_RigAdapter, RigAdapterAudioThreadParameterChangesWhatTheRigRenders)
 {
     SushiDSP::PrepareInfo info{K_SAMPLE_RATE, K_BLOCK, RigAdapter::K_CHANNELS};
     RigController controller(info);

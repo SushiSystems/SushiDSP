@@ -410,7 +410,9 @@ def test(build_type: BuildType | None, sizes: Sequence[TestLabel] = (), clean: b
         build_tree=lambda: build_dir, run=space.runner.run,
         run_ctest=lambda directory, **options: space.driver.ctest_run(
             cfg, directory, env, config=config, **options),
-        run_program=ProgramRunner(build_dir, space.runner.run, env))
+        run_program=ProgramRunner(build_dir, space.runner.run, env),
+        # The build above succeeded just now, so the tree is current whatever its generator.
+        rebuilt=lambda directory: True)
     return run_tests(module, select_labels(sizes, every_size=every_size), name_filter=filter,
                      repeat=repeat, jobs=jobs, every_size=every_size)
 

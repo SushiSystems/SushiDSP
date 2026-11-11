@@ -140,7 +140,7 @@ namespace
     };
 } // namespace
 
-TEST(Small_AliasFloor, IdentityIsAtTheAnalysisFloor)
+TEST(Medium_AliasFloor, IdentityIsAtTheAnalysisFloor)
 {
     GainNode node(1.0f);
     EXPECT_LE(SushiDSP::measure::alias_floor(node, 48000.0), -110.0);

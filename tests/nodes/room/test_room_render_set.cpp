@@ -313,7 +313,7 @@ TEST_F(Small_RoomRenderSetGarage, MicrophoneFirstTapEncodesTheOmnidirectionalCha
     EXPECT_LE(ratio_float(microphone->early.taps[0].encode[0], 1.0, 2), K_LIMIT);
 }
 
-TEST(Small_RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndNamesTheDimension)
+TEST(Medium_RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndNamesTheDimension)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
     scene.dimensions.x = 15.0;
@@ -321,14 +321,14 @@ TEST(Small_RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndNamesTheDimensio
         << refusal_message(scene);
 }
 
-TEST(Small_RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndNamesTheLimit)
+TEST(Medium_RoomRenderSet, BuildRenderSetRefusesAnInvalidSceneAndNamesTheLimit)
 {
     RoomScene scene = SushiDSP::test::garage_scene();
     scene.dimensions.x = 15.0;
     EXPECT_NE(refusal_message(scene).find("12.0"), std::string::npos) << refusal_message(scene);
 }
 
-TEST(Small_RoomRenderSet, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
+TEST(Medium_RoomRenderSet, BuildRenderSetRefusesAnHrtfSetThatDoesNotFit)
 {
     const RoomScene garage = SushiDSP::test::garage_scene();
     EXPECT_THROW(SushiDSP::room::build_render_set(garage, SushiDSP::room::HrtfSet(), K_SAMPLE_RATE,
@@ -385,7 +385,7 @@ TEST_F(Medium_RoomRenderSetDirectPair, RightResponseIsTheHrtfSetsAtTheSourceDire
     EXPECT_EQ(set->direct_right, fallback_hrtf().interpolate(0.5 * K_PI, 0.0).right);
 }
 
-TEST(Small_RoomRenderSet, BuildRenderSetCarriesTheDiffuseFieldPair)
+TEST(Medium_RoomRenderSet, BuildRenderSetCarriesTheDiffuseFieldPair)
 {
     SushiDSP::room::HrtfSet hrtf = fallback_hrtf();
     hrtf.set_diffuse_field(ramp(1.0f), ramp(-1.0f));
@@ -468,7 +468,7 @@ TEST_P(Small_RoomRenderSetStandingWaves, EarsSetAndMicrophoneSetShareTheResonato
 INSTANTIATE_TEST_SUITE_P(Modes, Small_RoomRenderSetStandingWaves, ::testing::ValuesIn(kStandingWaves),
                          wave_name);
 
-TEST(Small_RoomRenderSet, EarsAndMicrophoneSetsHoldTheSameNumberOfModes)
+TEST(Medium_RoomRenderSet, EarsAndMicrophoneSetsHoldTheSameNumberOfModes)
 {
     const RoomScene scene = standing_wave_scene();
     EXPECT_EQ(build(scene, ListenerKind::Ears)->modal.count,

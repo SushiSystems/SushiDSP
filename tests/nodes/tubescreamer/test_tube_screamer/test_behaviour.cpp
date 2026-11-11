@@ -433,11 +433,11 @@ namespace
     }
 } // namespace
 
-class Small_TubeScreamerOutputFinite : public ::testing::TestWithParam<FiniteRow>
+class Medium_TubeScreamerOutputFinite : public ::testing::TestWithParam<FiniteRow>
 {
 };
 
-TEST_P(Small_TubeScreamerOutputFinite, TubeScreamerOutputStaysFiniteForTheRow)
+TEST_P(Medium_TubeScreamerOutputFinite, TubeScreamerOutputStaysFiniteForTheRow)
 {
     const FiniteRow& row = GetParam();
     SushiDSP::TubeScreamer node;
@@ -446,7 +446,7 @@ TEST_P(Small_TubeScreamerOutputFinite, TubeScreamerOutputStaysFiniteForTheRow)
     EXPECT_TRUE(all_finite(render_node(node, finite_row_stimulus(row))));
 }
 
-INSTANTIATE_TEST_SUITE_P(Rows, Small_TubeScreamerOutputFinite,
+INSTANTIATE_TEST_SUITE_P(Rows, Medium_TubeScreamerOutputFinite,
                          ::testing::Values(FiniteRow{"SineAtMidSettings", 0.5f, 0.5f, 0.0f, 0.0f, false, 0.3f, 20},
                                            FiniteRow{"DcAtHighDrive", 1.0f, 0.5f, 0.0f, 0.0f, true, 0.1f, 200},
                                            FiniteRow{"InputTrimAtMinimum", 0.5f, 0.5f, 0.0f, -24.0f, false, 0.3f, 20},
@@ -584,7 +584,7 @@ TEST(Small_TubeScreamer, TubeScreamerThdIncreasesWithDrive)
     EXPECT_LT(thd_proxy_at_drive(0.05f), thd_proxy_at_drive(1.0f));
 }
 
-TEST(Small_TubeScreamer, TubeScreamerToneControlsHighFrequencyBalance)
+TEST(Medium_TubeScreamer, TubeScreamerToneControlsHighFrequencyBalance)
 {
     EXPECT_GT(high_frequency_rms_at_tone(1.0f), high_frequency_rms_at_tone(0.0f) * K_TONE_BRIGHT_TO_DARK_MIN_RATIO);
 }
