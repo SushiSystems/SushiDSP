@@ -1,7 +1,7 @@
 # tools
 
 The checkers every Sushi Systems repository carries, and this repository's own tools beside
-them. The shared files are copied from SushiSkills and changed there first; the section
+them. The shared files are copied from SushiCore and changed there first; the section
 "In SushiDSP" says what this repository keeps of its own.
 
 | Path | Checks | Takes |
@@ -9,7 +9,7 @@ them. The shared files are copied from SushiSkills and changed there first; the 
 | `check_all.py` | Nothing itself; runs the eleven checkers, then the repository's own `<area>/check_<what>.py` files and the tests, and prints only what failed | Repository root |
 | `checking/checker.py` | Nothing itself; runs a checker's rule table and prints findings | |
 | `checking/ignored_paths.py` | Nothing itself; names the files and folders git ignores, which no checker reads | |
-| `checking/copy_shared_tools.py` | Nothing; copies these files, `.github/CODE_OF_CONDUCT.md` and `.github/SECURITY.md` into a repository, keeping its license blocks, `settings.py`, this README and its own tools, or lists the files that differ with `--report` | Repository root, `--from` |
+| `checking/check_shared_tools.py` | The shared tools lock: present, readable, and every locked file present and hashing to its lock | Repository root |
 | `settings.py` | Nothing; holds the settings that differ between repositories | |
 | `testing/check_test_mirror.py` | `tests/` mirrors the source: one `test_<name>` file per header or source file (`<name>.test.ts` in TypeScript), no test without a unit, no folder without a counterpart, no test that includes a header under `source/`; in a Unity repository, `Assets/<Product>/Tests/` with `<Name>Tests.cs` | Repository root |
 | `testing/check_test_sizes.py` | Every test names its size in its source: a `Small_`, `Medium_` or `Large_` C++ suite, a size mark on a pytest file, class or function, a `small:` TypeScript `describe` | Repository root |
@@ -47,20 +47,14 @@ reporting, 2 on a bad path. Python 3.11, standard library only.
 sets `K_CLOSED`.
 
 The constants that differ between repositories are read from `tools/settings.py`, which
-`copy_shared_tools.py` writes only when a repository has none and never overwrites.
+`python -m sushicore.shared_tools sync` never overwrites it.
 
 ## Copying the shared tools
 
-`copy_shared_tools.py` runs from a SushiSkills checkout, never from this repository's copy:
-
-```
-python D:/Projects/sushiskills/tools/checking/copy_shared_tools.py . --from D:/Projects/sushiskills
-python D:/Projects/sushiskills/tools/checking/copy_shared_tools.py . --from D:/Projects/sushiskills --report
-```
-
-The first writes every shared file that differs, under this repository's own licence header; the
-second lists the differences and exits 1 when there are any. `tools/settings.py` and
-`tools/README.md` are kept, and so is every tool that is not shared.
+`python -m sushicore.shared_tools sync . --tag <tag> --from <SushiCore checkout>` copies every shared
+file under this repository's own licence header and writes `tools/shared_tools.lock`;
+`python -m sushicore.shared_tools check .` exits 1 when a locked file differs. `tools/settings.py`
+and `tools/README.md` are kept, and so is every tool that is not shared.
 
 ## In SushiDSP
 
