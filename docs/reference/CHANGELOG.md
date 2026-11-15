@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-16 — tools: Took the shared tools from SushiCore v0.14.1, which leaves out its two own checkers and writes this repository's licence header, through `hub bump` (`tools/shared_tools.lock`).
 - 2026-11-16 — tools: Took the shared tools from SushiCore v0.14.0 into a lock file and moved the SushiCore pin to 0.14 (`tools/shared_tools.lock`).
 - 2026-11-11 — tests: Moved to medium the five `RoomRenderSet` builds and four cases near 0.1 s in a Debug build, which the time gate found over the small limit.
 - 2026-11-11 — cli: Required sushicore 0.13, whose test command fails a run of a current tree that breaks a time limit, and told it whether the tree is current; the large shards each hold the one accelerator slot.
