@@ -26,8 +26,8 @@
 depends_on = ["sushilog", "sushiprofiler"]
 
 [sushisystems.sushilog]
-version = "v0.3.0"
-commit = "30e302383527d8db55403509d244acc6266809f6"
+version = "v0.4.1"
+commit = "851f049c10e9dc58477111aff9a5e9cb4597a8e3"
 
 [sushisystems.sushiprofiler]
 version = "v0.4.1"
