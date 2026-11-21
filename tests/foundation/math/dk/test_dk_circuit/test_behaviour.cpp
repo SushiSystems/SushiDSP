@@ -283,35 +283,46 @@ namespace
         return std::sqrt(real * real + imaginary * imaginary);
     }
 
-    /// @brief Holds the finest step of the peak scan, in hertz.
+    /// @brief Holds the width the peak search narrows to, in hertz.
     constexpr double K_PEAK_SCAN_STEP_HZ = 0.02;
 
-    /// @brief Locates the frequency of the largest magnitude by a two-stage grid scan.
+    /// @brief Locates the frequency of the largest magnitude by a golden-section search.
+    /// The magnitude of a resonance has one maximum between @p low and @p high, so each step discards the part
+    /// of the bracket that cannot hold it. About thirty evaluations narrow it to K_PEAK_SCAN_STEP_HZ.
     /// @param impulse The impulse response.
     /// @param sample_rate Sample rate the response was measured at.
-    /// @param low Lower bound of the coarse search, scanned in 2 Hz steps.
-    /// @param high Upper bound of the coarse search.
-    /// @return The peak frequency in hertz, resolved to K_PEAK_SCAN_STEP_HZ.
+    /// @param low Lower bound of the search; the peak lies above it.
+    /// @param high Upper bound of the search; the peak lies below it.
+    /// @return The middle of the final bracket in hertz, within K_PEAK_SCAN_STEP_HZ of the peak.
     double peak_frequency(const std::vector<double>& impulse, double sample_rate, double low, double high)
     {
-        auto scan = [&](double from, double to, double step)
+        const double ratio = 0.5 * (std::sqrt(5.0) - 1.0);
+        double lower = low;
+        double upper = high;
+        double left = upper - ratio * (upper - lower);
+        double right = lower + ratio * (upper - lower);
+        double left_magnitude = magnitude_at(impulse, left, sample_rate);
+        double right_magnitude = magnitude_at(impulse, right, sample_rate);
+        while (upper - lower > K_PEAK_SCAN_STEP_HZ)
         {
-            double best_frequency = from;
-            double best_magnitude = -1.0;
-            for (double frequency = from; frequency <= to; frequency += step)
+            if (left_magnitude < right_magnitude)
             {
-                const double magnitude = magnitude_at(impulse, frequency, sample_rate);
-                if (magnitude > best_magnitude)
-                {
-                    best_magnitude = magnitude;
-                    best_frequency = frequency;
-                }
+                lower = left;
+                left = right;
+                left_magnitude = right_magnitude;
+                right = lower + ratio * (upper - lower);
+                right_magnitude = magnitude_at(impulse, right, sample_rate);
             }
-            return best_frequency;
-        };
-
-        const double coarse = scan(low, high, 2.0);
-        return scan(coarse - 4.0, coarse + 4.0, K_PEAK_SCAN_STEP_HZ);
+            else
+            {
+                upper = right;
+                right = left;
+                right_magnitude = left_magnitude;
+                left = upper - ratio * (upper - lower);
+                left_magnitude = magnitude_at(impulse, left, sample_rate);
+            }
+        }
+        return 0.5 * (lower + upper);
     }
 
     /// @brief Holds the series RLC probed across its capacitor, and the analytic response it must reproduce.
@@ -762,7 +773,7 @@ TEST(Small_DkCircuit, SeriesRlcPeaksAtTheWarpedAnalogueResonance)
     const SeriesRlc rlc = measure_series_rlc();
     ASSERT_EQ(rlc.impulse.size(), SeriesRlc::K_IMPULSE_LENGTH);
     const double measured = peak_frequency(rlc.impulse, SeriesRlc::K_RLC_SAMPLE_RATE, 4000.0, 6000.0);
-    // The grid has a step of K_PEAK_SCAN_STEP_HZ, so the nearest grid point is within that of the true peak.
+    // The search stops with a bracket of K_PEAK_SCAN_STEP_HZ, so its middle is within that of the true peak.
     EXPECT_TRUE(TestSupport::is_within(
         TestSupport::measure_error(measured, SeriesRlc::expected_peak_hz(), K_PEAK_SCAN_STEP_HZ, 1.0)));
 }
@@ -775,7 +786,7 @@ TEST(Small_DkCircuit, SeriesRlcPeakHasTheAnalogueMagnitude)
     const double peak = magnitude_at(rlc.impulse, measured_hz, SeriesRlc::K_RLC_SAMPLE_RATE);
     const double expected = SeriesRlc::expected_peak_magnitude();
 
-    // Bound: n u sum |h| for the sum, plus the peak times (half step / (2 zeta f))^2 for the grid.
+    // Bound: n u sum |h| for the sum, plus the peak times (half step / (2 zeta f))^2 for the final bracket.
     double magnitude = 0.0;
     for (const double sample : rlc.impulse)
     {
