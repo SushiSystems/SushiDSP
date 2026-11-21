@@ -102,7 +102,8 @@ namespace
         return path;
     }
 
-    /// @brief Returns the mean magnitude in dB over a band by a direct DFT of the samples.
+    /// @brief Returns the mean magnitude in dB over a band by a direct DFT of the samples, with the angles of one
+    /// period tabulated.
     /// @see tests/foundation/io/README.md
     double band_mean_decibels(const std::vector<float>& samples, double sample_rate,
                               std::uint32_t fft_size, double low_hz, double high_hz)
@@ -111,16 +112,31 @@ namespace
         const auto first_bin = static_cast<std::uint32_t>(std::ceil(low_hz / bin_width));
         const auto last_bin = static_cast<std::uint32_t>(std::floor(high_hz / bin_width));
 
+        // The phase of sample i at bin b is 2 pi (b i mod N) / N, so one table of N angles serves every bin.
+        std::vector<double> cosines(fft_size);
+        std::vector<double> sines(fft_size);
+        for (std::uint32_t index = 0; index < fft_size; ++index)
+        {
+            const double angle = 2.0 * PI * static_cast<double>(index) / static_cast<double>(fft_size);
+            cosines[index] = std::cos(angle);
+            sines[index] = std::sin(angle);
+        }
+
         double sum = 0.0;
         std::uint32_t count = 0;
         for (std::uint32_t bin = first_bin; bin <= last_bin; ++bin)
         {
             double real = 0.0, imaginary = 0.0;
+            std::uint32_t index = 0;
             for (std::size_t i = 0; i < samples.size(); ++i)
             {
-                const double phase = 2.0 * PI * bin * static_cast<double>(i) / fft_size;
-                real += samples[i] * std::cos(phase);
-                imaginary -= samples[i] * std::sin(phase);
+                real += samples[i] * cosines[index];
+                imaginary -= samples[i] * sines[index];
+                index += bin;
+                if (index >= fft_size)
+                {
+                    index -= fft_size;
+                }
             }
             sum += 20.0 * std::log10(std::sqrt(real * real + imaginary * imaginary));
             ++count;
