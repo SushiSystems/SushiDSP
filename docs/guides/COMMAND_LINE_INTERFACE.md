@@ -158,11 +158,13 @@ build first; without the tree it names `sd build` and exits 1.
 - `TARGET`, the executable's name. An exact match on the name or its stem wins; otherwise the
   first name containing `TARGET` runs. No match is one error line and exit code 1.
 - `--type` / `-t`, whose tree to look in. Default: `debug`.
-- `--sort`, lists the executables under the tree and prompts for one.
+- `--pick`, lists the built examples with their description and prompts for one; `--all` lists
+  every executable under the tree. `--sort` is the old spelling of `--pick`, removed after
+  2027-03-25.
 - `-- <args>...`, everything after `--` reaches the executable unchanged:
   `sd run sushidsp_tests -- --gtest_filter='Jcm800.*'`.
 
-Until 2026-10-05 `sd run` launched the host GUI. With neither `TARGET` nor `--sort` it still
+Until 2026-10-05 `sd run` launched the host GUI. With neither `TARGET` nor `--pick` it still
 does what `sd host` does, `--type` included, and says so once on a terminal. `sd run -- <args>`
 is the same old spelling: a first argument that starts with `-` cannot name an executable, so
 it and what follows go to the host GUI. Both are removed after 2027-03-25; write

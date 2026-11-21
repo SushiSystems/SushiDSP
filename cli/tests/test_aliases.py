@@ -45,13 +45,21 @@ def test_the_old_spelling_is_absent_from_the_help_screen():
 
 
 @pytest.mark.small
-def test_the_rows_are_the_two_old_spellings():
-    """The table holds `sd doxygen` and `sd run`, and nothing else."""
-    assert [row.old for row in aliases.K_ROWS] == ["sd doxygen", "sd run"]
+def test_the_rows_are_the_three_old_spellings():
+    """The table holds `sd doxygen`, `sd run` and `sd run --sort`, and nothing else."""
+    assert [row.old for row in aliases.K_ROWS] == ["sd doxygen", "sd run", "sd run --sort"]
 
 
 @pytest.mark.small
-@pytest.mark.parametrize("old", ["sd doxygen", "sd run"])
+def test_the_old_sort_flag_names_pick():
+    """The notice of `sd run --sort` tells the user to type `sd run --pick`."""
+    notice = aliases.ALIASES.notice(aliases.ALIASES.alias_for("sd run --sort"))
+
+    assert "`sd run --pick`" in notice
+
+
+@pytest.mark.small
+@pytest.mark.parametrize("old", ["sd doxygen", "sd run", "sd run --sort"])
 def test_a_row_leaves_on_the_shared_day(old):
     """The row carries 2027-03-25, the day the old spellings leave on every CLI."""
     assert aliases.ALIASES.alias_for(old).removed_after == date(2027, 3, 25)
@@ -73,10 +81,11 @@ def terminal(monkeypatch) -> _Terminal:
 
 
 def _run_command(stderr: _Terminal, workspace, target: str | None = None,
-                 sort: bool = False) -> None:
+                 pick: bool = False, sort: bool = False) -> None:
     """Calls the `sd run` callback as Typer would, with *stderr* in place of CliRunner's."""
     with contextlib.redirect_stderr(stderr), pytest.raises(typer.Exit):
-        cli.run(SimpleNamespace(args=[], obj=workspace), target=target, sort=sort, type=None)
+        cli.run(SimpleNamespace(args=[], obj=workspace), target=target, pick=pick, sort=sort,
+                list_all=False, type=None)
 
 
 def _own_table(project):
@@ -85,17 +94,18 @@ def _own_table(project):
 
 
 @pytest.mark.medium
-@pytest.mark.parametrize(("target", "sort", "notices"), [
-    (None, False, 1),
-    ("sushidsp_tests", False, 0),
-    (None, True, 0),
+@pytest.mark.parametrize(("target", "pick", "sort", "notices"), [
+    (None, False, False, 1),
+    ("sushidsp_tests", False, False, 0),
+    (None, True, False, 0),
+    (None, False, True, 0),
 ])
-def test_only_a_bare_run_announces_host_once_to_a_terminal(terminal, project, target, sort,
+def test_only_a_bare_run_announces_host_once_to_a_terminal(terminal, project, target, pick, sort,
                                                            notices):
     """`sd run` with no target names `sd host` and the last day, once per table; a target or a pick, nothing."""
     workspace = _own_table(project)
-    _run_command(terminal, workspace, target=target, sort=sort)
-    _run_command(terminal, workspace, target=target, sort=sort)
+    _run_command(terminal, workspace, target=target, pick=pick, sort=sort)
+    _run_command(terminal, workspace, target=target, pick=pick, sort=sort)
 
     lines = terminal.getvalue().splitlines()
     assert len(lines) == notices
@@ -105,7 +115,7 @@ def test_only_a_bare_run_announces_host_once_to_a_terminal(terminal, project, ta
 @pytest.mark.small
 @pytest.mark.parametrize(("today", "expired"), [
     (date(2027, 3, 25), []),
-    (date(2027, 3, 26), ["sd doxygen", "sd run"]),
+    (date(2027, 3, 26), ["sd doxygen", "sd run", "sd run --sort"]),
 ])
 def test_a_row_expires_the_day_after_its_last_day(today, expired):
     """No row is expired on its last day, and every row is the day after."""

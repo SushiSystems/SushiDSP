@@ -15,6 +15,7 @@ K_REMOVED_AFTER = date(2027, 3, 25)
 K_ROWS: tuple[Alias, ...] = (
     Alias("sd doxygen", "sd docs", K_REMOVED_AFTER),
     Alias("sd run", "sd host", K_REMOVED_AFTER),
+    Alias("sd run --sort", "sd run --pick", K_REMOVED_AFTER),
 )
 
 ALIASES = AliasTable("sd", K_ROWS)

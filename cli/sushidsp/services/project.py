@@ -26,6 +26,7 @@ from sushicore import build_admission, build_report, cmake_cache
 from sushicore.aliases import AliasTable
 from sushicore.build_tree import K_DEFAULT_BUILD_TYPE, refuse_another_build_type, tree_dir
 from sushicore.cmake_driver import CMakeDriver
+from sushicore.example_catalog import ExampleCatalog
 from sushicore.proc import CommandRunner, ConsoleLike, Runner
 from sushicore.provision.sushi_packages import PackageError, PackageSet
 from sushicore.testing import ModuleTests, TestLabel, run_tests, select_labels
@@ -568,13 +569,14 @@ def host(build_type: BuildType | None = None, launch: bool = True,
 
 def run(target: str | None = None, sort: bool = False,
         app_args: Sequence[str] | None = None, build_type: BuildType | None = None,
-        workspace: Workspace | None = None) -> int:
+        workspace: Workspace | None = None, list_all: bool = False) -> int:
     """Runs an executable the tree of *build_type* already holds, without building first.
 
     Args:
         target: The executable's name, matched exactly and then as a substring; None runs
             the configured `target_bin`.
-        sort: Prompts for one executable from a list and ignores *target*.
+        sort: Prompts for one built example from a list and ignores *target*.
+        list_all: Makes the prompt list every executable, not only the examples.
         app_args: Arguments handed to the executable unchanged.
         build_type: Whose tree to look in; none is the default type's.
         workspace: The checkout to run from; none uses the one `sd` runs in.
@@ -592,7 +594,8 @@ def run(target: str | None = None, sort: bool = False,
             f"{build_dir} does not exist. Run `sd build --type {build_type.value}` first.")
         return 1
 
-    exe = discovery.resolve(build_dir, console, target=target, sort=sort, default=cfg.target_bin)
+    exe = discovery.resolve(build_dir, console, examples=ExampleCatalog.in_project(root),
+                            target=target, sort=sort, default=cfg.target_bin, list_all=list_all)
     if exe is None:
         return 1
 

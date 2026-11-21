@@ -144,20 +144,26 @@ def run(
     ctx: typer.Context,
     target: Optional[str] = typer.Argument(
         None, help="Executable name to run (exact, then substring match)."),
+    pick: bool = typer.Option(
+        False, "--pick", help="Interactively pick an example."),
     sort: bool = typer.Option(
-        False, "--sort", help="Interactively pick an executable."),
+        False, "--sort", hidden=True, callback=ALIASES.flag_announcer("sd run --sort"),
+        help="The old spelling of --pick."),
+    list_all: bool = typer.Option(
+        False, "--all", help="With --pick, also list the test and benchmark programs."),
     type: Optional[BuildType] = _type_option(
         "Whose tree to run from: debug | release | relwithdebinfo. Default: debug."),
 ) -> None:
     """Run a built executable. Args after `--` are forwarded to it."""
+    picking = pick or sort
     forwarded_only = target is not None and target.startswith("-")
-    if forwarded_only or (target is None and not sort):
+    if forwarded_only or (target is None and not picking):
         table = ALIASES if ctx.obj is None else ctx.obj.aliases
         table.announce(table.alias_for(K_BARE_RUN))
         app_args = [target, *ctx.args] if forwarded_only else None
         raise typer.Exit(project_svc.host(type, app_args=app_args, workspace=ctx.obj))
-    raise typer.Exit(project_svc.run(target=target, sort=sort, app_args=list(ctx.args),
-                                     build_type=type, workspace=ctx.obj))
+    raise typer.Exit(project_svc.run(target=target, sort=picking, app_args=list(ctx.args),
+                                     build_type=type, workspace=ctx.obj, list_all=list_all))
 
 
 def clean(
@@ -275,7 +281,8 @@ def make_app(console_provider: Callable[[], Any] = console.current) -> typer.Typ
         context_settings=K_FORWARDING,
         rich_help_panel=K_BUILD,
         epilog="sd run sushidsp_tests\n"
-               "sd run --sort  # Pick an executable from a list\n"
+               "sd run --pick  # Pick an example from a list\n"
+               "sd run --pick --all  # Pick from every program, tests and benchmarks included\n"
                "sd run sushidsp_tests -- --gtest_filter='Jcm800.*'  # Flags after -- go to it",
     )(run)
     app.command(
