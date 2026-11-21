@@ -13,7 +13,6 @@
 | RW-10 | P2 | decision | Choose how a track removal stays atomic | a generation counter the callback reads once per block, or a refusal of the removal while the transport runs, is chosen and built |  |  | 2026-10-19 |
 | RW-76 | P2 | decision | Decide whether `Wdf` stays | `Wdf` has a production user, or it leaves the library |  |  | 2026-10-19 |
 | RW-83 | P3 | open | Decide whether the workspace clang label in config.py can be reached | Config._clang_candidates keeps or drops its workspace_home entry, with a test that reaches it |  | `cli/sushidsp/config.py` | 2026-11-06 |
-| RW-102 | P2 | open | Rename sd run --sort to --pick with a hidden alias | sd run --pick picks an example and sd run --sort still works as a hidden alias that names --pick |  | `cli/sushidsp/cli.py` | 2026-11-21 |
 
 ## Known issues
 
