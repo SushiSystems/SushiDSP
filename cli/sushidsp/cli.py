@@ -23,7 +23,7 @@ from sushicore.docs_bundle import ApiSource, register_docs_commands
 from sushicore.design import register_design_commands
 from sushicore.entry import run as run_app
 from sushicore.provision.commands import ModuleProvision, register_provision_commands
-from sushicore.provision.steps import MachineActions
+from sushicore.provision.machine_actions import MachineActions
 from sushicore.root_options import register_root_options
 from sushicore.testing import (TestLabel, all_option, filter_option, jobs_option, label_option,
                                repeat_option)

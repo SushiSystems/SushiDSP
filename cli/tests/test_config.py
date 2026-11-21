@@ -7,14 +7,15 @@
 from __future__ import annotations
 
 import pytest
+from sushicore.errors import ProjectRootNotFoundError
 
 from sushidsp import config
 
 
 @pytest.mark.medium
 def test_find_project_root_raises_outside_checkout(tmp_path):
-    """No CMakeLists.txt anywhere above -> a clear SystemExit, not a crash."""
-    with pytest.raises(SystemExit):
+    """No CMakeLists.txt anywhere above -> ProjectRootNotFoundError, not a crash."""
+    with pytest.raises(ProjectRootNotFoundError):
         config.find_project_root(tmp_path)
 
 

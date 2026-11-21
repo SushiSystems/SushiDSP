@@ -16,6 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from sushicore.errors import ProjectRootNotFoundError
 from sushicore.errors import ConfigError
 from sushicore.proc_memory import RecordingRunner
 from typer.testing import CliRunner
@@ -388,9 +389,8 @@ def test_check_outside_a_checkout_fails_like_every_other_command(tmp_path, monke
     """check has no fallback root: outside a checkout it ends with the shared message."""
     monkeypatch.chdir(tmp_path)
 
-    with pytest.raises(SystemExit) as caught:
+    with pytest.raises(ProjectRootNotFoundError, match="SushiDSP"):
         project_svc.check()
-    assert "SushiDSP" in str(caught.value.code)
 
 
 def test_docs_runs_doxygen_on_the_doxyfile_and_exits_with_its_code(project):

@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 
 from sushicore.provision.commands import register_provision_commands
 from sushicore.provision.config import ProvisionSettings
-from sushicore.provision.steps import MachineActions
+from sushicore.provision.machine_actions import MachineActions
 from sushidsp.cli import app, module_provision
 from sushidsp.config import Config
 from sushidsp.host_memory import MemoryHost

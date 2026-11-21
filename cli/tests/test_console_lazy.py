@@ -18,6 +18,7 @@ import pytest
 import sushicore
 from rich.console import Console as RichConsole
 from sushicore.cli_console import LazyConsole
+from sushicore.errors import ProjectRootNotFoundError
 
 from sushidsp import console as console_module
 
@@ -28,7 +29,7 @@ K_IMPORT_PATH = os.pathsep.join([str(Path(console_module.__file__).resolve().par
 
 def _outside_a_checkout() -> Path:
     """Returns a folder with no CMakeLists.txt above it."""
-    raise SystemExit("Not inside a SushiDSP project")
+    raise ProjectRootNotFoundError("Not inside a SushiDSP project")
 
 
 @pytest.mark.small
@@ -59,7 +60,7 @@ def test_a_console_not_yet_used_is_not_built():
 
 @pytest.mark.small
 def test_a_console_outside_a_checkout_has_no_config_sources():
-    """A config folder that raises SystemExit leaves the sources empty instead of failing."""
+    """A config folder that raises ProjectRootNotFoundError leaves the sources empty instead of failing."""
     assert list(LazyConsole(_outside_a_checkout).sources()) == []
 
 
