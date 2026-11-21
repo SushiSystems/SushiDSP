@@ -26,12 +26,12 @@
 depends_on = ["sushilog", "sushiprofiler"]
 
 [sushisystems.sushilog]
-version = "v0.4.1"
-commit = "851f049c10e9dc58477111aff9a5e9cb4597a8e3"
+version = "v0.5.0"
+commit = "af61821a0986c169feb0f9cbac5188d62ef8a74a"
 
 [sushisystems.sushiprofiler]
-version = "v0.4.1"
-commit = "fa97fde6d8b495a1856159c9929a000a817e5450"
+version = "v0.5.0"
+commit = "c5afed01ad276370216a937e9a66ba89da929063"
 
 [intel-llvm]
 description = "intel/llvm clang++ (the workspace's shared toolchain). Optional: when present `sd` builds with it, otherwise with the platform compiler. SushiDSP compiles no SYCL; this is a C++ compiler preference."
