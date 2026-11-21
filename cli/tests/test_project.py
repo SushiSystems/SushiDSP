@@ -16,6 +16,7 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from sushicore.errors import ConfigError
 from sushicore.proc_memory import RecordingRunner
 from typer.testing import CliRunner
 
@@ -67,6 +68,22 @@ def test_build_leaves_a_configured_tree_alone_without_a_define(project):
     assert project_svc.build(None, workspace=project.workspace) == 0
 
     assert [_is_compile(command) for command in project.commands] == [True]
+
+
+def test_build_refuses_a_tree_of_another_generator_and_keeps_it(project):
+    """A tree CMake cannot reuse stops the build, names `sd clean` and stays on disk."""
+    tree = project.configure_tree("Debug")
+    cache = tree / "CMakeCache.txt"
+    cache.write_text(cache.read_text(encoding="utf-8").replace("=Ninja", "=Another Generator"),
+                     encoding="utf-8")
+    (tree / "object.o").write_text("", encoding="utf-8")
+
+    with pytest.raises(ConfigError) as refused:
+        project_svc.build(None, workspace=project.workspace)
+
+    assert "`sd clean`" in str(refused.value)
+    assert project.commands == []
+    assert (tree / "object.o").is_file()
 
 
 def test_build_configures_the_tree_of_another_type_and_leaves_the_first_alone(project):

@@ -97,9 +97,9 @@ sd clean --type release --yes
 sd clean --all --yes      # remove build/ whole
 ```
 
-`sd build`, `sd test` and `sd bench` take no `--clean`: a build never removes the tree it
-configures, except one that was configured with another generator, which CMake cannot change in
-place.
+`sd build`, `sd test` and `sd bench` take no `--clean`: a build never removes a tree. One that was
+configured with another generator, or for another source folder, is refused with a message that
+names `sd clean`, because CMake cannot change either in place.
 
 ## `sd config`
 

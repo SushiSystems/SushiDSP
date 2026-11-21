@@ -22,7 +22,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Protocol
 
-from sushicore import build_admission, build_report, cmake_cache
+from sushicore import build_admission, build_report
 from sushicore.aliases import AliasTable
 from sushicore.build_tree import K_DEFAULT_BUILD_TYPE, refuse_another_build_type, tree_dir
 from sushicore.cmake_driver import CleanTreeError, CMakeDriver
@@ -32,6 +32,7 @@ from sushicore.provision.sushi_packages import PackageError, PackageSet
 from sushicore.testing import ModuleTests, TestLabel, run_tests, select_labels
 from sushicore.testing.program_runner import ProgramRunner
 from sushicore.toolchain_args import c_compiler_for
+from sushicore.tree_reuse import refuse_unreusable_tree
 
 from .. import console
 from ..aliases import ALIASES
@@ -213,17 +214,6 @@ def resolve_build_type(requested: BuildType | None,
     return requested if requested is not None else default
 
 
-def _generator_changed(cfg: Config, build_dir: Path) -> bool:
-    """Tells whether the tree was configured with a generator other than the one resolved now."""
-    cached = cmake_cache.cached_value(build_dir, "CMAKE_GENERATOR")
-    if cached is None:
-        return False
-    wanted = cfg.resolved_generator()
-    if wanted == "":
-        return not cached.startswith(("Visual Studio", "Unix Makefiles", "Xcode"))
-    return cached != wanted
-
-
 def _rmtree(space: "Workspace", build_dir: Path) -> None:
     """Removes the build tree, read-only files included; raises OSError when a file stays."""
     def make_writable_and_retry(func, target, _exc_info) -> None:
@@ -238,22 +228,6 @@ def _partly_removed(error: OSError, build_dir: Path) -> str:
     """Returns the one line that names the file that stayed and the tree left partly removed."""
     return (f"Could not remove {error.filename or build_dir} ({error.strerror}); {build_dir} "
             "is left partly removed. Close the program that holds the file and run again.")
-
-
-def _remove_tree(space: "Workspace", build_dir: Path) -> bool:
-    """Removes the build tree, read-only files included, and reports a failure in one line.
-
-    Returns:
-        False when a file in the tree could not be removed.
-    """
-    console = space.console
-    console.info(f"Removing {build_dir} ...")
-    try:
-        _rmtree(space, build_dir)
-    except OSError as error:
-        console.error(_partly_removed(error, build_dir))
-        return False
-    return True
 
 
 def _needs_configure(space: Workspace, build_dir: Path) -> bool:
@@ -345,8 +319,8 @@ def build(build_type: BuildType | None,
           workspace: Workspace | None = None) -> int:
     """Configures when the tree needs it or *defines* are given, then compiles every target.
 
-    A tree configured with another generator is removed and configured again, because CMake
-    cannot change a generator in place; nothing else removes a tree but `sd clean`.
+    A tree configured with another generator, or for another source folder, is refused, because
+    CMake cannot change either in place; nothing removes a tree but `sd clean`.
 
     Args:
         defines: `VAR=VALUE` cache variables; any of them reconfigures a configured tree.
@@ -366,11 +340,8 @@ def build(build_type: BuildType | None,
     build_dir = _build_dir(root, build_type, sanitizer)
     _refuse_a_wrong_start(build_dir, build_type, defines)
 
-    if build_dir.exists() and _generator_changed(cfg, build_dir):
-        console.warn(
-            "Build tree was configured with a different generator; rebuilding from scratch.")
-        if not _remove_tree(space, build_dir):
-            return 1
+    refuse_unreusable_tree(space.driver, build_dir, generator=cfg.resolved_generator(), root=root,
+                           program="sd")
 
     # The packages are chosen on every build, so a changed library reaches the link and the path.
     packages = _link_packages(space, build_dir, build_type)
