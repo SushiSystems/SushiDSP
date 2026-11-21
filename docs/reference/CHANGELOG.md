@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-21 — cli: Breaking change: `sd build` no longer removes a tree of another generator; it refuses that tree, or one for another source folder, and names `sd clean` (RW-104, `ebeacdf6`).
 - 2026-11-21 — cli: Breaking change: Removed `--clean` from build, test and bench, and made `sd clean` the shared command, which removes trees only with `--yes` (RW-103, `eb1b1ec5`).
 - 2026-11-21 — cli: Renamed `sd run --sort` to `sd run --pick`, which lists the built examples, each with its description; `--all` lists every program, and `--sort` stays a hidden alias until 2027-03-25 (RW-102, `48e3cbe2`).
 - 2026-11-16 — dependencies: Moved the SushiLog pin to v0.4.1 with `hub bump`, so every module pins one SushiLog; the build and the tests pass on it (`cli/sushistack.deps.toml`).
