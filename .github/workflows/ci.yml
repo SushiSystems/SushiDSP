@@ -114,6 +114,10 @@ jobs:
       - name: Install the library CLIs setup fetched
         shell: bash
         run: python -m pip install ~/.sushisystems/sources/*/*/cli
+      # The runner's MSVC library asks for Clang 22 or newer; the LLVM it ships is 20.
+      - name: Install LLVM 22
+        shell: pwsh
+        run: choco upgrade llvm --version 22.1.8 -y --no-progress
       - name: Build
         shell: pwsh
         run: sd build --type release -D SUSHIDSP_BUILD_SDL2=OFF
