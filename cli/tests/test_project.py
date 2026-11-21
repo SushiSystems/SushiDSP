@@ -17,7 +17,9 @@ from pathlib import Path
 
 import pytest
 from sushicore.proc_memory import RecordingRunner
+from typer.testing import CliRunner
 
+from sushidsp.cli import app
 from sushidsp.services import project as project_svc
 from sushicore.testing import TestLabel
 from sushidsp.files_memory import MemoryFiles
@@ -154,7 +156,7 @@ def test_clean_removes_the_build_tree_with_its_read_only_files(project):
     locked.write_text("", encoding="utf-8")
     os.chmod(locked, stat.S_IREAD)
 
-    assert project_svc.clean(workspace=project.workspace) == 0
+    assert CliRunner().invoke(app, ["clean", "--yes"], obj=project.workspace).exit_code == 0
 
     assert not project.build_dir.exists()
     assert project.commands == []
@@ -162,7 +164,7 @@ def test_clean_removes_the_build_tree_with_its_read_only_files(project):
 
 def test_clean_succeeds_when_there_is_no_build_tree(project):
     """clean on a checkout that was never built reports that and exits zero."""
-    assert project_svc.clean(workspace=project.workspace) == 0
+    assert CliRunner().invoke(app, ["clean"], obj=project.workspace).exit_code == 0
     assert project.console.texts("error") == []
 
 
@@ -172,20 +174,12 @@ def _with_a_locked_tree(project) -> Workspace:
     return replace(project.workspace, files=MemoryFiles(locked=frozenset({project.build_dir})))
 
 
-def test_clean_reports_a_locked_tree_as_one_error(project):
-    """A file held open ends clean with one error line and exit code 1."""
-    assert project_svc.clean(workspace=_with_a_locked_tree(project)) == 1
+def test_clean_reports_a_locked_tree_and_exits_one(project):
+    """A file held open ends clean with exit code 1, and the message names the tree."""
+    result = CliRunner().invoke(app, ["clean", "--yes"], obj=_with_a_locked_tree(project))
 
-    (line,) = project.console.texts("error")
-    assert str(project.build_dir) in line
-
-
-def test_build_clean_stops_on_a_locked_tree(project):
-    """build --clean on a locked tree returns 1 and runs neither configure nor compile."""
-    assert project_svc.build(None, clean=True, workspace=_with_a_locked_tree(project)) == 1
-
-    assert project.commands == []
-    assert len(project.console.texts("error")) == 1
+    assert result.exit_code == 1
+    assert str(project.build_dir) in str(result.exception)
 
 
 def test_host_builds_the_requested_type_then_launches_its_binary(project):

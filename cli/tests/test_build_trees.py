@@ -10,12 +10,14 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
+from typer.testing import CliRunner
 from sushicore import build_admission
 from sushicore.build_admission import BuildStoppedError
 from sushicore.console_memory import RecordingConsole
 from sushicore.errors import ConfigError
 from sushicore.proc_memory import RecordingRunner
 
+from sushidsp.cli import app
 from sushidsp.config import Config
 from sushidsp.services import project as project_svc
 from sushidsp.services.project import BuildType, Sanitizer, Workspace
@@ -144,44 +146,49 @@ def test_a_report_is_printed_and_saved_only_with_the_flag(project, report):
     assert all(Path(line.removeprefix("Report: ")).is_file() for line in lines)
 
 
+def _clean(project, *arguments: str):
+    """Runs `sd clean` with *arguments* on the workspace of *project*."""
+    return CliRunner().invoke(app, ["clean", *arguments], obj=project.workspace)
+
+
 @pytest.mark.medium
-def test_clean_removes_the_tree_of_the_type(project):
+def test_clean_with_a_type_and_yes_removes_that_tree(project):
     """A clean of a type removes that tree and leaves the others."""
     debug = project.configure_tree("Debug")
     release = project.configure_tree("Release")
 
-    assert project_svc.clean(BuildType.release, workspace=project.workspace) == 0
+    assert _clean(project, "--type", "release", "--yes").exit_code == 0
 
     assert not release.exists() and debug.exists()
 
 
 @pytest.mark.medium
-def test_clean_removes_the_tree_of_the_sanitizer(project):
+def test_clean_with_a_sanitizer_and_yes_removes_its_tree(project):
     """A clean of a sanitizer removes its tree and leaves the default one."""
     debug = project.configure_tree("Debug")
     address = project.configure_tree("Debug", name="asan")
 
-    assert project_svc.clean(None, Sanitizer.address, workspace=project.workspace) == 0
+    assert _clean(project, "--sanitize", "address", "--yes").exit_code == 0
 
     assert not address.exists() and debug.exists()
 
 
 @pytest.mark.medium
-def test_clean_without_a_type_removes_the_default_debug_tree(project):
-    """A clean with no argument removes build/default-debug."""
+def test_clean_without_yes_lists_the_trees_and_removes_none(project):
+    """A clean with no --yes exits 2 and every tree stays."""
     debug = project.configure_tree("Debug")
 
-    assert project_svc.clean(workspace=project.workspace) == 0
+    assert _clean(project).exit_code == 2
 
-    assert not debug.exists()
+    assert debug.exists()
 
 
 @pytest.mark.medium
 def test_clean_all_removes_the_whole_build_folder(project):
-    """Clean --all removes build/ with every tree in it."""
+    """Clean --all --yes removes build/ with every tree in it."""
     project.configure_tree("Debug")
     project.configure_tree("Release")
 
-    assert project_svc.clean(everything=True, workspace=project.workspace) == 0
+    assert _clean(project, "--all", "--yes").exit_code == 0
 
     assert not (project.root / "build").exists()

@@ -35,7 +35,6 @@ gate refuse every edge. When `ccache` is on `PATH`, or `ccache_exe` in `config.l
 Configures the tree if it isn't already, then builds every CMake target.
 
 - `--type` / `-t`, same values and default as `sd configure`.
-- `--clean`, deletes the tree of the type before configuring.
 - `--define` / `-D VAR=VALUE`, passes a CMake cache variable to configure. On a tree that is
   already configured it runs configure again with the variable, then builds. Repeatable.
 - `--sanitize address | thread`, builds the tree of that sanitizer with AddressSanitizer and
@@ -47,7 +46,7 @@ Configures the tree if it isn't already, then builds every CMake target.
   and saves the report in the tree.
 
 A variable set with `-D` stays in that tree's cache, so a later `sd build` of the same tree
-without the flag keeps it. `-D VAR=` clears one; `--clean` starts over.
+without the flag keeps it. `-D VAR=` clears one; `sd clean --yes` starts over.
 
 ## `sd test`
 
@@ -62,7 +61,6 @@ Builds the tree if it isn't already, then runs `ctest`.
   ctest decides and honours `CTEST_PARALLEL_LEVEL`.
 - `--sanitize address | thread`, builds and tests the tree of that sanitizer, as
   `sd build --sanitize` does.
-- `--clean`, deletes the tree of the type before configuring.
 
 ## `sd bench`
 
@@ -76,18 +74,32 @@ maximum and the jitter beside it. A verdict never changes the exit code.
   every group runs.
 - `--type` / `-t`, same values as `sd configure`. Default: `release`, because a timing is a
   Release figure.
-- `--clean`, deletes the tree of the type before configuring.
 
 ## `sd clean`
 
-Removes one build tree, `build/default-debug` by default, including the read-only files
-FetchContent's git checkouts leave under `_deps`. When a file is held open, by a running
-`sushidsp_host_gui` for example, it prints one line naming the file and exits 1;
-`sd build --clean` and `sd test --clean` stop the same way.
+Says which build trees it would remove, with their sizes, and removes them only with `--yes`.
+Without it nothing is removed and the exit code is 2, so a script that expected the trees gone
+sees that they are not. The removal includes the read-only files FetchContent's git checkouts
+leave under `_deps`. When a file is held open, by a running `sushidsp_host_gui` for example,
+it prints one line naming the file and exits 1.
 
-- `--type` / `-t`, the tree's build type. Default: `debug`.
-- `--sanitize address | thread`, removes the tree of that sanitizer instead.
-- `--all`, removes `build/` whole: every tree, the gate's state and its cache.
+- `--type` / `-t`, the build type of the tree, repeatable. Without it and without `--sanitize`
+  every tree is selected.
+- `--sanitize address | thread`, selects the trees of that sanitizer instead.
+- `--all`, selects `build/` whole: every tree, the gate's state and its cache. It takes no
+  `--type` or `--sanitize`.
+- `--yes` / `-y`, removes what the command listed.
+
+```bash
+sd clean                  # list every tree, remove none
+sd clean --yes            # remove every tree
+sd clean --type release --yes
+sd clean --all --yes      # remove build/ whole
+```
+
+`sd build`, `sd test` and `sd bench` take no `--clean`: a build never removes the tree it
+configures, except one that was configured with another generator, which CMake cannot change in
+place.
 
 ## `sd config`
 

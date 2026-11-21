@@ -25,7 +25,7 @@ from typing import Protocol
 from sushicore import build_admission, build_report, cmake_cache
 from sushicore.aliases import AliasTable
 from sushicore.build_tree import K_DEFAULT_BUILD_TYPE, refuse_another_build_type, tree_dir
-from sushicore.cmake_driver import CMakeDriver
+from sushicore.cmake_driver import CleanTreeError, CMakeDriver
 from sushicore.example_catalog import ExampleCatalog
 from sushicore.proc import CommandRunner, ConsoleLike, Runner
 from sushicore.provision.sushi_packages import PackageError, PackageSet
@@ -224,25 +224,34 @@ def _generator_changed(cfg: Config, build_dir: Path) -> bool:
     return cached != wanted
 
 
+def _rmtree(space: "Workspace", build_dir: Path) -> None:
+    """Removes the build tree, read-only files included; raises OSError when a file stays."""
+    def make_writable_and_retry(func, target, _exc_info) -> None:
+        """Clears the read-only bit FetchContent's git objects carry and retries once."""
+        os.chmod(target, stat.S_IWRITE)
+        func(target)
+
+    space.files.rmtree(build_dir, make_writable_and_retry)
+
+
+def _partly_removed(error: OSError, build_dir: Path) -> str:
+    """Returns the one line that names the file that stayed and the tree left partly removed."""
+    return (f"Could not remove {error.filename or build_dir} ({error.strerror}); {build_dir} "
+            "is left partly removed. Close the program that holds the file and run again.")
+
+
 def _remove_tree(space: "Workspace", build_dir: Path) -> bool:
     """Removes the build tree, read-only files included, and reports a failure in one line.
 
     Returns:
         False when a file in the tree could not be removed.
     """
-    def make_writable_and_retry(func, target, _exc_info) -> None:
-        """Clears the read-only bit FetchContent's git objects carry and retries once."""
-        os.chmod(target, stat.S_IWRITE)
-        func(target)
-
     console = space.console
     console.info(f"Removing {build_dir} ...")
     try:
-        space.files.rmtree(build_dir, make_writable_and_retry)
+        _rmtree(space, build_dir)
     except OSError as error:
-        console.error(
-            f"Could not remove {error.filename or build_dir} ({error.strerror}); {build_dir} "
-            "is left partly removed. Close the program that holds the file and run again.")
+        console.error(_partly_removed(error, build_dir))
         return False
     return True
 
@@ -330,14 +339,16 @@ def configure(build_type: BuildType | None, defines: Sequence[str] | None = None
     return space.driver.configure(cmd, cwd=root, env=space.build_env(build_dir))
 
 
-def build(build_type: BuildType | None, clean: bool = False,
+def build(build_type: BuildType | None,
           defines: Sequence[str] | None = None, sanitizer: Sanitizer | None = None,
           jobs: int | None = None, report: bool = False,
           workspace: Workspace | None = None) -> int:
     """Configures when the tree needs it or *defines* are given, then compiles every target.
 
+    A tree configured with another generator is removed and configured again, because CMake
+    cannot change a generator in place; nothing else removes a tree but `sd clean`.
+
     Args:
-        clean: Removes the build tree first.
         defines: `VAR=VALUE` cache variables; any of them reconfigures a configured tree.
         sanitizer: Builds the tree that sanitizer owns.
         jobs: Compile jobs; none uses the hardware threads.
@@ -355,10 +366,9 @@ def build(build_type: BuildType | None, clean: bool = False,
     build_dir = _build_dir(root, build_type, sanitizer)
     _refuse_a_wrong_start(build_dir, build_type, defines)
 
-    if build_dir.exists() and (clean or _generator_changed(cfg, build_dir)):
-        if not clean:
-            console.warn(
-                "Build tree was configured with a different generator; rebuilding from scratch.")
+    if build_dir.exists() and _generator_changed(cfg, build_dir):
+        console.warn(
+            "Build tree was configured with a different generator; rebuilding from scratch.")
         if not _remove_tree(space, build_dir):
             return 1
 
@@ -381,7 +391,7 @@ def build(build_type: BuildType | None, clean: bool = False,
     return rc
 
 
-def test(build_type: BuildType | None, sizes: Sequence[TestLabel] = (), clean: bool = False,
+def test(build_type: BuildType | None, sizes: Sequence[TestLabel] = (),
          filter: str | None = None, sanitizer: Sanitizer | None = None,
          jobs: int | None = None, repeat: int = 0, every_size: bool = False,
          workspace: Workspace | None = None) -> int:
@@ -398,7 +408,7 @@ def test(build_type: BuildType | None, sizes: Sequence[TestLabel] = (), clean: b
     """
     space = workspace or current_workspace()
     build_type = resolve_build_type(build_type)
-    rc = build(build_type, clean=clean, sanitizer=sanitizer, workspace=space)
+    rc = build(build_type, sanitizer=sanitizer, workspace=space)
     if rc != 0:
         return rc
 
@@ -418,7 +428,7 @@ def test(build_type: BuildType | None, sizes: Sequence[TestLabel] = (), clean: b
                      repeat=repeat, jobs=jobs, every_size=every_size)
 
 
-def bench(build_type: BuildType | None, groups: Sequence[str] = (), clean: bool = False,
+def bench(build_type: BuildType | None, groups: Sequence[str] = (),
           workspace: Workspace | None = None) -> int:
     """Builds when needed, then runs the benchmark program over the groups *groups* name.
 
@@ -432,7 +442,7 @@ def bench(build_type: BuildType | None, groups: Sequence[str] = (), clean: bool 
     """
     space = workspace or current_workspace()
     build_type = resolve_build_type(build_type, K_BENCHMARK_TYPE)
-    rc = build(build_type, clean=clean, workspace=space)
+    rc = build(build_type, workspace=space)
     if rc != 0:
         return rc
 
@@ -444,32 +454,46 @@ def bench(build_type: BuildType | None, groups: Sequence[str] = (), clean: bool 
     space.console.header(f"Benchmark ({_CMAKE_BUILD_TYPE[build_type]})")
     return space.runner.run([str(exe), *groups], root, space.build_env(build_dir))
 
-def clean(build_type: BuildType | None = None, sanitizer: Sanitizer | None = None,
-          everything: bool = False, workspace: Workspace | None = None) -> int:
-    """Removes one build tree, or build/ whole, and reports what happened.
+#: The tree name of each sanitizer value, ``None`` for the plain tree, as `sd clean` reads them.
+K_CLEAN_TREE_NAMES = {None: _TREE_NAME[None],
+                      **{sanitizer.value: name for sanitizer, name in _TREE_NAME.items()
+                         if sanitizer is not None}}
 
-    Args:
-        build_type: The tree's type; none removes the default type's tree.
-        sanitizer: Removes the tree that sanitizer owns.
-        everything: Removes build/ with every tree, the gate's state and its cache.
-        workspace: The checkout to clean; none cleans the one `sd` runs in.
 
-    Returns:
-        1 when a file in the tree could not be removed, else 0.
-    """
+class _TreeRemover:
+    """Removes a build tree through the workspace's files, as `sd build` does."""
+
+    def __init__(self, space: Workspace) -> None:
+        self._space = space
+
+    def clean_tree(self, build_dir: Path) -> None:
+        """Removes *build_dir*.
+
+        Raises:
+            CleanTreeError: A file in the tree could not be removed; the message names it.
+        """
+        console = self._space.console
+        console.info(f"Removing {build_dir} ...")
+        try:
+            _rmtree(self._space, build_dir)
+        except OSError as error:
+            raise CleanTreeError(_partly_removed(error, build_dir)) from error
+        console.success(f"{build_dir} removed.")
+
+
+@dataclass(frozen=True)
+class CleanTarget:
+    """What the shared `clean` command acts on: the checkout, where it prints and what removes."""
+
+    root: Path
+    console: ServiceConsole
+    driver: _TreeRemover
+
+
+def clean_target(workspace: Workspace | None = None) -> CleanTarget:
+    """Returns the checkout *workspace* holds, or the one `sd` runs in, for the clean command."""
     space = workspace or current_workspace()
-    console = space.console
-    console.header("Project Clean")
-    root = space.root
-    build_dir = (root / "build" if everything
-                 else _build_dir(root, resolve_build_type(build_type), sanitizer))
-    if not build_dir.exists():
-        console.info(f"{build_dir} does not exist, nothing to clean.")
-        return 0
-    if not _remove_tree(space, build_dir):
-        return 1
-    console.success(f"{build_dir} removed.")
-    return 0
+    return CleanTarget(space.root, space.console, _TreeRemover(space))
 
 
 def docs(workspace: Workspace | None = None) -> int:

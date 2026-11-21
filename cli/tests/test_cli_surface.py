@@ -138,19 +138,33 @@ def test_config_and_env_come_from_the_shared_declarations():
 
 
 @pytest.mark.medium
-def test_clean_removes_the_tree_it_names(project):
-    """sd clean removes the tree of the type and the sanitizer, or build/ whole with --all."""
+def test_clean_removes_the_tree_it_names_only_with_yes(project):
+    """sd clean lists the trees and removes none; --yes removes what --type and --sanitize name."""
     default = project.configure_tree("Debug")
     tsan = project.configure_tree("Release", name="tsan")
     runner = CliRunner()
 
-    assert runner.invoke(app, ["clean"], obj=project.workspace).exit_code == 0
+    assert runner.invoke(app, ["clean"], obj=project.workspace).exit_code == 2
+    assert default.exists() and tsan.exists()
+    assert runner.invoke(app, ["clean", "--type", "debug", "--yes"],
+                         obj=project.workspace).exit_code == 0
     assert not default.exists() and tsan.exists()
-    result = runner.invoke(app, ["clean", "-t", "release", "--sanitize", "thread"],
+    result = runner.invoke(app, ["clean", "-t", "release", "--sanitize", "thread", "--yes"],
                            obj=project.workspace)
     assert result.exit_code == 0 and not tsan.exists()
-    assert runner.invoke(app, ["clean", "--all"], obj=project.workspace).exit_code == 0
+    assert runner.invoke(app, ["clean", "--all", "--yes"], obj=project.workspace).exit_code == 0
     assert not (project.root / "build").exists()
+
+
+@pytest.mark.medium
+def test_build_test_and_bench_no_longer_take_clean(project):
+    """sd build, test and bench refuse --clean: a build never removes the tree it configures."""
+    tree = project.configure_tree("Debug")
+    runner = CliRunner()
+
+    for command in ("build", "test", "bench"):
+        assert runner.invoke(app, [command, "--clean"], obj=project.workspace).exit_code == 2
+    assert tree.exists()
 
 
 @pytest.mark.medium

@@ -16,6 +16,7 @@ from collections.abc import Callable, Sequence
 from typing import Any, NoReturn, Optional, Protocol
 
 import typer
+from sushicore.clean_command import register_clean_command
 from sushicore.diag_commands import register_diagnostic_commands
 from sushicore.backlog import register_backlog_commands
 from sushicore.docs_bundle import ApiSource, register_docs_commands
@@ -48,7 +49,6 @@ K_BENCH_TYPE_HELP = ("Build type: debug | release | relwithdebinfo. Default: rel
                      "a timing is taken on.")
 K_DEFINE_HELP = ("Pass a CMake cache variable to configure; on a configured tree it "
                  "reconfigures. Repeatable.")
-K_CLEAN_HELP = "Delete the build tree before configuring."
 
 K_API_XML = "build/docs/api-site/xml"
 
@@ -73,11 +73,6 @@ def _sanitize_option() -> Any:
                              "thread (TSan, build/tsan-<type>).")
 
 
-def _clean_option() -> Any:
-    """Returns the default of a `--clean` parameter."""
-    return typer.Option(False, "--clean", help=K_CLEAN_HELP)
-
-
 def configure(
     ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
@@ -92,7 +87,6 @@ def configure(
 def build(
     ctx: typer.Context,
     type: Optional[BuildType] = _type_option(),
-    clean: bool = _clean_option(),
     define: Optional[list[str]] = _define_option(),
     sanitize: Optional[Sanitizer] = _sanitize_option(),
     jobs: Optional[int] = typer.Option(
@@ -105,9 +99,9 @@ def build(
     """Configure if needed, then build every CMake target behind the memory gate.
 
     A cache variable set with -D stays in the build tree, so a later run without the
-    flag keeps it; pass VAR= to clear one, or --clean to start over.
+    flag keeps it; pass VAR= to clear one, or remove the tree with `sd clean --yes` to start over.
     """
-    raise typer.Exit(project_svc.build(type, clean=clean, defines=define, sanitizer=sanitize,
+    raise typer.Exit(project_svc.build(type, defines=define, sanitizer=sanitize,
                                        jobs=jobs, report=report, workspace=ctx.obj))
 
 
@@ -119,11 +113,10 @@ def test(
     repeat: int = repeat_option(),
     jobs: Optional[int] = jobs_option(),
     all_sizes: bool = all_option(),
-    clean: bool = _clean_option(),
     sanitize: Optional[Sanitizer] = _sanitize_option(),
 ) -> None:
     """Build if needed, then run the tests of the sizes and the filter, then print the budget line."""
-    raise typer.Exit(project_svc.test(type, label or (), clean=clean, filter=filter,
+    raise typer.Exit(project_svc.test(type, label or (), filter=filter,
                                       sanitizer=sanitize, jobs=jobs, repeat=repeat,
                                       every_size=all_sizes, workspace=ctx.obj))
 
@@ -133,11 +126,9 @@ def bench(
     group: Optional[list[str]] = typer.Argument(
         None, help="Substrings of the case groups to run. Default: every group."),
     type: Optional[BuildType] = _type_option(K_BENCH_TYPE_HELP),
-    clean: bool = _clean_option(),
 ) -> None:
     """Build if needed, then run the benchmark program and print its table."""
-    raise typer.Exit(project_svc.bench(type, group or (), clean=clean,
-                                      workspace=ctx.obj))
+    raise typer.Exit(project_svc.bench(type, group or (), workspace=ctx.obj))
 
 
 def run(
@@ -164,18 +155,6 @@ def run(
         raise typer.Exit(project_svc.host(type, app_args=app_args, workspace=ctx.obj))
     raise typer.Exit(project_svc.run(target=target, sort=picking, app_args=list(ctx.args),
                                      build_type=type, workspace=ctx.obj, list_all=list_all))
-
-
-def clean(
-    ctx: typer.Context,
-    type: Optional[BuildType] = _type_option(
-        "Which tree to remove: debug | release | relwithdebinfo. Default: debug."),
-    sanitize: Optional[Sanitizer] = _sanitize_option(),
-    everything: bool = typer.Option(
-        False, "--all", help="Remove build/ with every tree, the gate's state and its cache."),
-) -> None:
-    """Remove one build tree, build/default-debug by default."""
-    raise typer.Exit(project_svc.clean(type, sanitize, everything, workspace=ctx.obj))
 
 
 def _api_source() -> ApiSource:
@@ -256,7 +235,6 @@ def make_app(console_provider: Callable[[], Any] = console.current) -> typer.Typ
         rich_help_panel=K_BUILD,
         epilog="sd build\n"
                "sd build --type release\n"
-               "sd build --clean  # Delete the build tree before configuring\n"
                "sd build -D FOO=1  # Reconfigure with a CMake cache variable, then build\n"
                "sd build --sanitize address  # ASan and UBSan in build/asan-debug; thread for TSan\n"
                "sd build --report  # Print the build's edges by kind and save the report",
@@ -285,14 +263,10 @@ def make_app(console_provider: Callable[[], Any] = console.current) -> typer.Typ
                "sd run --pick --all  # Pick from every program, tests and benchmarks included\n"
                "sd run sushidsp_tests -- --gtest_filter='Jcm800.*'  # Flags after -- go to it",
     )(run)
-    app.command(
-        "clean",
-        rich_help_panel=K_BUILD,
-        epilog="sd clean  # build/default-debug\n"
-               "sd clean --type release\n"
-               "sd clean --sanitize address  # build/asan-debug\n"
-               "sd clean --all  # The whole build/ directory",
-    )(clean)
+    register_clean_command(
+        app, lambda ctx: project_svc.clean_target(ctx.obj), program=K_PROGRAM, panel=K_BUILD,
+        names=project_svc.K_CLEAN_TREE_NAMES,
+        build_types=[build_type.value for build_type in BuildType], whole_build=True)
     register_docs_commands(
         app,
         program=K_PROGRAM,
