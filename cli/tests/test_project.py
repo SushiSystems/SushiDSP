@@ -157,7 +157,7 @@ def test_test_without_jobs_lets_sushicore_choose_at_least_one_parallel_test(proj
 
 def test_a_sanitizer_reconfigures_with_its_cache_variable(project):
     """--sanitize reaches cmake as SUSHIDSP_SANITIZE before the tests run."""
-    project.configure_tree("Debug", "asan")
+    project.tree_of("Debug", "asan").mkdir(parents=True)
 
     assert project_svc.test(None, (TestLabel.SMALL,), sanitizer=Sanitizer.address,
         workspace=project.workspace) == 0

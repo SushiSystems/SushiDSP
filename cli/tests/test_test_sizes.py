@@ -27,7 +27,7 @@ def test_the_suite_option_is_gone():
 
 @pytest.mark.medium
 def test_test_command_passes_each_label(project):
-    project.configure_tree("Debug", "asan")
+    project.tree_of("Debug", "asan").mkdir(parents=True)
 
     result = CliRunner().invoke(
         app, ["test", "--label", "small", "-l", "medium", "--sanitize", "address"],
