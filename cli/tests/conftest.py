@@ -90,8 +90,12 @@ class Project:
 
     @property
     def commands(self) -> list[list[str]]:
-        """Returns the argv of every command the runner was handed, in order."""
-        return [list(command.argv) for command in self.runner.commands]
+        """Returns the argv of every command the runner was handed to run, in order.
+
+        The queries sushicore only captures, such as its question to the compiler for ld.lld,
+        are left out.
+        """
+        return [list(command.argv) for command in self.runner.commands if not command.captured]
 
     def __post_init__(self) -> None:
         """Derives the default tree's path, build/default-debug, from the root."""
