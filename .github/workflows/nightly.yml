@@ -44,6 +44,11 @@ jobs:
           path: ~/.cache/ccache
           key: ccache-linux-gcc-bench-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-${{ github.sha }}
           restore-keys: ccache-linux-gcc-bench-${{ hashFiles('**/CMakeLists.txt', 'cmake/**') }}-
+      - name: Fetch SushiLog and SushiProfiler
+        run: sd setup --yes --no-gpu
+      - name: Install the library CLIs setup fetched
+        shell: bash
+        run: python -m pip install ~/.sushisystems/sources/*/*/cli
       - name: Build
         run: sd build --type release -D SUSHIDSP_BUILD_SDL2=OFF
       - name: Run the benchmarks and report the table
