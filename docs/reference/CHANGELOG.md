@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-22 — cli: Fixed `sd test --sanitize`, which judged the time limits; it hands the sanitizer to the shared test command, which judges none under a sanitizer (`cli/sushidsp/services/project.py`).
 - 2026-11-21 — cli: Breaking change: `sd build` no longer removes a tree of another generator; it refuses that tree, or one for another source folder, and names `sd clean` (RW-104, `ebeacdf6`).
 - 2026-11-21 — cli: Breaking change: Removed `--clean` from build, test and bench, and made `sd clean` the shared command, which removes trees only with `--yes` (RW-103, `eb1b1ec5`).
 - 2026-11-21 — cli: Renamed `sd run --sort` to `sd run --pick`, which lists the built examples, each with its description; `--all` lists every program, and `--sort` stays a hidden alias until 2027-03-25 (RW-102, `48e3cbe2`).

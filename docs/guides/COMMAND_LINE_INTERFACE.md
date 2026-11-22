@@ -60,7 +60,8 @@ Builds the tree if it isn't already, then runs `ctest`.
 - `--jobs` / `-j <count>`, how many tests run at once, passed to `ctest --parallel`. Without it
   ctest decides and honours `CTEST_PARALLEL_LEVEL`.
 - `--sanitize address | thread`, builds and tests the tree of that sanitizer, as
-  `sd build --sanitize` does.
+  `sd build --sanitize` does. Such a run judges no time limit, since the sanitizer slows every
+  test; its oracle is the sanitizer's report.
 
 ## `sd bench`
 

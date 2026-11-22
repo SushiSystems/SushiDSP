@@ -29,7 +29,7 @@ from sushicore.cmake_driver import CleanTreeError, CMakeDriver
 from sushicore.example_catalog import ExampleCatalog
 from sushicore.proc import CommandRunner, ConsoleLike, Runner
 from sushicore.provision.sushi_packages import PackageError, PackageSet
-from sushicore.testing import ModuleTests, TestLabel, run_tests, select_labels
+from sushicore.testing import ModuleTests, SanitizedTests, TestLabel, run_tests, select_labels
 from sushicore.testing.program_runner import ProgramRunner
 from sushicore.toolchain_args import c_compiler_for
 from sushicore.tree_reuse import refuse_unreusable_tree
@@ -379,9 +379,11 @@ def test(build_type: BuildType | None, sizes: Sequence[TestLabel] = (),
     """
     space = workspace or current_workspace()
     build_type = resolve_build_type(build_type)
-    rc = build(build_type, sanitizer=sanitizer, workspace=space)
-    if rc != 0:
-        return rc
+    # The shared command builds a sanitizer's tree itself, and judges no time limit under it.
+    if sanitizer is None:
+        rc = build(build_type, workspace=space)
+        if rc != 0:
+            return rc
 
     root, cfg = space.root, space.config
     build_dir = _build_dir(root, build_type, sanitizer)
@@ -394,9 +396,19 @@ def test(build_type: BuildType | None, sizes: Sequence[TestLabel] = (),
             cfg, directory, env, config=config, **options),
         run_program=ProgramRunner(build_dir, space.runner.run, env),
         # The build above succeeded just now, so the tree is current whatever its generator.
-        rebuilt=lambda directory: True)
+        rebuilt=lambda directory: True,
+        sanitized=_sanitized_tests(space, build_type))
     return run_tests(module, select_labels(sizes, every_size=every_size), name_filter=filter,
-                     repeat=repeat, jobs=jobs, every_size=every_size)
+                     repeat=repeat, jobs=jobs, every_size=every_size,
+                     sanitizer=sanitizer.value if sanitizer else None)
+
+
+def _sanitized_tests(space: Workspace, build_type: BuildType) -> SanitizedTests:
+    """Returns the sanitizer trees of *build_type* the shared test command builds and tests."""
+    return SanitizedTests(
+        names=tuple(item.value for item in Sanitizer),
+        build=lambda name: build(build_type, sanitizer=Sanitizer(name), workspace=space),
+        tree=lambda name: _build_dir(space.root, build_type, Sanitizer(name)))
 
 
 def bench(build_type: BuildType | None, groups: Sequence[str] = (),

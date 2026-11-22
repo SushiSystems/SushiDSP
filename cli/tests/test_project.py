@@ -24,6 +24,7 @@ from typer.testing import CliRunner
 from sushidsp.cli import app
 from sushidsp.services import project as project_svc
 from sushicore.testing import TestLabel
+from sushicore.testing.session import K_UNJUDGED_TEXT
 from sushidsp.files_memory import MemoryFiles
 from sushidsp.processes_memory import MemoryProcesses
 from sushidsp.services.project import BuildType, Sanitizer, Workspace
@@ -156,7 +157,7 @@ def test_test_without_jobs_lets_sushicore_choose_at_least_one_parallel_test(proj
 
 def test_a_sanitizer_reconfigures_with_its_cache_variable(project):
     """--sanitize reaches cmake as SUSHIDSP_SANITIZE before the tests run."""
-    project.configure_tree("Debug")
+    project.configure_tree("Debug", "asan")
 
     assert project_svc.test(None, (TestLabel.SMALL,), sanitizer=Sanitizer.address,
         workspace=project.workspace) == 0
@@ -165,6 +166,19 @@ def test_a_sanitizer_reconfigures_with_its_cache_variable(project):
     assert _is_configure(configure)
     assert configure[configure.index("SUSHIDSP_SANITIZE=address") - 1] == "-D"
     assert configure[configure.index("-B") + 1] == str(project.tree_of("Debug", "asan"))
+
+
+def test_a_sanitizer_run_tests_its_tree_and_judges_no_time_limit(project):
+    """--sanitize hands the shared command its sanitizer, which runs ctest there and judges no limit."""
+    project.configure_tree("Debug", "asan")
+
+    assert project_svc.test(None, (TestLabel.SMALL,), sanitizer=Sanitizer.address,
+        workspace=project.workspace) == 0
+
+    ctest = project.commands[-1]
+    assert ctest[ctest.index("--test-dir") + 1] == str(project.tree_of("Debug", "asan"))
+    assert K_UNJUDGED_TEXT in project.console.texts("info")
+
 
 def test_clean_removes_the_build_tree_with_its_read_only_files(project):
     """clean deletes build/, read-only files included, and starts no process."""
