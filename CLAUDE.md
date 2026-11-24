@@ -75,7 +75,7 @@ For every implementation, create tasks up front and update the task list as work
 3. Before changing a module: `sd design owner <path>`.
 4. Finishing: `sd backlog close <ID>` in the same commit, and the changelog line it prints.
    The commit message ends with `Backlog: <ID>`, or `Backlog: none (<reason>)`.
-5. Once per clone: `python tools/hooks/install_hooks.py`.
+5. Once per clone: `python -m sushicore.tools install-hooks .`.
 
 State is read with these commands. It is never read from a markdown file or the git log.
 

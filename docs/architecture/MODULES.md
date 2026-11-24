@@ -6,7 +6,7 @@ where it departs from the design spec. This page links to those READMEs and stat
 else about a module.
 
 The tiers, lowest first, are `nodes`, `catalog` and `session`. A module may include its own
-tier and the ones below it; `tools/layering/check_layering.py` holds the order in
+tier and the ones below it; `sushicore.tools.layering.check_layering` holds the order in
 `K_TIER_ORDER` and checks it.
 
 ## `nodes`

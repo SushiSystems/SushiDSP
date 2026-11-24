@@ -14,7 +14,7 @@ from pathlib import Path
 REPOSITORY = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY / "tools"))
 
-from layering.check_layering import K_TIER_ORDER  # noqa: E402
+from sushicore.tools.layering.check_layering import K_TIER_ORDER  # noqa: E402
 
 K_CMAKE_LAYERS = REPOSITORY / "cmake" / "SushiDSPLayers.cmake"
 K_TIER_LIST = re.compile(r"set\(SUSHIDSP_TIER_ORDER([^)]*)\)")

@@ -37,11 +37,11 @@ A change is finished when these land in the same commit as the code:
 Before a commit that touches `docs/`, both of these print nothing:
 
 ```bash
-python tools/documentation/check_docs_layout.py .
-python tools/documentation/check_changelog.py .
+python -m sushicore.tools.documentation.check_docs_layout .
+python -m sushicore.tools.documentation.check_changelog .
 ```
 
-`sd check` runs the eight shared checkers under `tools/`; `python tools/check_all.py .` runs them
+`sd check` runs the eight shared checkers under `tools/`; `python -m sushicore.tools check .` runs them
 too, with the checker unit tests. [`tools/README.md`](../tools/README.md) describes them.
 
 ## 3. Before you start coding
@@ -52,7 +52,7 @@ too, with the checker unit tests. [`tools/README.md`](../tools/README.md) descri
   C++17 standard library and SIMD intrinsics only, plus the same-tier edges listed in
   `cmake/SushiDSPLayers.cmake`; an edge that table does not list fails to configure. A module
   under `modules/nodes/` depends on the foundation and on no other node, device or host.
-  `tools/layering/check_layering.py` checks the order of the four tiers under `modules/`.
+  `sushicore.tools.layering.check_layering` checks the order of the four tiers under `modules/`.
 - A decision that narrows scope is written down in the design document or the work folder's
   plan. The WDF adaptor tree, deferred until a circuit needs it, is the pattern.
 
@@ -73,7 +73,7 @@ both at once. The rules below are the tree today.
 | Interfaces | No `I` prefix: `AudioNode`, `AudioDevice`, `CabinetHost`, `RoomHost` |
 | Constants | `K_` and upper snake case, such as `RigGraph::K_MAX_CHANNELS` |
 | Files | `snake_case`, named after the one primary symbol, `rig_graph.hpp` |
-| License block | Written by `tools/licensing/write_license_block.py`, never typed by hand |
+| License block | Written by `sushicore.tools.licensing.write_license_block`, never typed by hand |
 | Comments | Doxygen, as `source-comments` states: what a thing does, never why |
 | Real-time path | `AudioNode::process()` and everything it calls allocates nothing, locks nothing, makes no system call and throws nothing |
 
@@ -115,7 +115,7 @@ All tests build into one binary, `sushidsp_tests`, from `tests/CMakeLists.txt`.
   the audio path lands.
 - A change to the audio path is timed before and after with `sd bench --type release`, and
   the figures go in the commit message.
-- CI runs the sizes by stage. A pull request runs `python tools/check_all.py .`, the build on
+- CI runs the sizes by stage. A pull request runs `python -m sushicore.tools check .`, the build on
   Linux and Windows, `small` and `medium` tests on both, and `small` again under
   `--sanitize address`; `gate` is the check `main` requires. A push to `main` adds the
   ThreadSanitizer lane. `nightly.yml` adds `sd bench`, and `release.yml` runs nightly before it

@@ -1,7 +1,7 @@
 # Design map
 
 One document per topic: a module or a subject that spans modules. The table below is written from each
-topic's `About` line and status by `tools/documentation/generate_design_views.py`; nobody edits it by hand.
+topic's `About` line and status by `sushicore.tools.documentation.generate_design_views`; nobody edits it by hand.
 A new idea about an existing topic is a page and a phase in that topic, not a new document.
 
 ## Topics

@@ -218,7 +218,7 @@
 - 2026-10-12 — naming: Renamed sources and headers to snake_case, dropped the I prefix from five interfaces and renamed constants to `K_UPPER_SNAKE` (`audio_node.hpp`, `log_sink.hpp`).
 - 2026-10-12 — format: Added `.clang-format` and `.editorconfig` and formatted every C++ source with them, comment reflow off (`.clang-format`).
 - 2026-10-12 — config: Moved `Doxyfile` to `.config/doxygen/`, pointed the Doxygen input at the foundation modules and wrote `.config/README.md` (`.config/doxygen/Doxyfile`).
-- 2026-10-12 — checks: Vendored `check_docs_truth.py` with its allow-list, and made `sd check` run all five checkers (`tools/documentation/check_docs_truth.py`).
+- 2026-10-12 — checks: Vendored `check_docs_truth.py` with its allow-list, and made `sd check` run all five checkers (`sushicore.tools.documentation.check_docs_truth`).
 - 2026-10-12 — layering: Declared the tier order and the same-tier edges in `cmake/SushiDSPLayers.cmake`, refused undeclared edges at configure time and pinned the table against the checker.
 
 - 2026-10-07 — cli: Pinned with tests that `sd docs bundle` writes the archive of the checkout and reads the XML folder of the Doxyfile (`cli/tests/test_cli_surface.py`).
@@ -228,7 +228,7 @@
 - 2026-10-07 — docs: Added the frequently asked questions page (`docs/guides/FAQ.md`).
 - 2026-10-07 — log: Added the logger and logged the handled failures that were dropped (`modules/foundation/log/include/SushiDSP/log/`, `track_recorder.cpp`, `room_node.cpp`, `slot_graph.cpp`, `directory_listing.cpp`).
 - 2026-10-07 — licence: Named Mustafa Garip and Sushi Systems as the copyright holders in the licence and notice files (`LICENSE`, `NOTICE.md`).
-- 2026-10-06 — licence: Restored the three-section license box and named both holders in the copyright line of every source file (`tools/licensing/write_license_block.py`, `tools/documentation/check_source_comments.py`).
+- 2026-10-06 — licence: Restored the three-section license box and named both holders in the copyright line of every source file (`sushicore.tools.licensing.write_license_block`, `sushicore.tools.documentation.check_source_comments`).
 - 2026-10-05 — build: Skipped the GUI when the SDL2 backend is off and linked OpenGL through `OpenGL::GL`, so a configure with `SUSHIDSP_BUILD_SDL2=OFF` no longer fails (`CMakeLists.txt`, `applications/host_gui/CMakeLists.txt`).
 - 2026-10-05 — docs: Moved design reasoning out of source comments into module and folder READMEs and gave every source file its file block (`modules/`, `applications/`, `include/`, `src/`, `tests/`).
 - 2026-10-05 — docs: Indexed every manual page, repointed the module READMEs' links, archived the standards phase 1 work folder and copied the SushiSkills tools (`docs/README.md`, `modules/`, `tools/`).
@@ -282,7 +282,7 @@
 - 2026-09-21 — host_gui: Split the rig controller into a slot graph, a session timeline and a preset codec it forwards to (`slot_graph.cpp`, `session_timeline.cpp`, `rig_persistence.cpp`).
 - 2026-09-21 — core: Renamed both `set_parameter` overloads to name the thread they belong to (`modules/foundation/core/include/SushiDSP/core/audio_node.hpp`).
 - 2026-09-21 — math: Moved the generated resampler kernel table out of the public headers (`modules/foundation/math/include/SushiDSP/math/resampler_design.hpp`, `modules/foundation/math/source/resampler_kernel.hpp`).
-- 2026-09-21 — modules: Grouped the twelve modules into the nodes, catalog and session tiers (`modules/`, `tools/layering/check_layering.py`).
+- 2026-09-21 — modules: Grouped the twelve modules into the nodes, catalog and session tiers (`modules/`, `sushicore.tools.layering.check_layering`).
 - 2026-09-21 — docs: Rewrote the front door around what the models rest on (`README.md`).
 - 2026-09-21 — docs: Moved the code of conduct and the security policy where GitHub reads them (`.github/`).
 - 2026-09-21 — docs: Added issue templates for a defect and for a model disagreeing with its circuit (`.github/ISSUE_TEMPLATE/`).
@@ -307,7 +307,7 @@
 - 2026-09-20 — math: Added the shared empty nonlinear port for linear DK blocks (`modules/foundation/math/include/SushiDSP/math/dk/linear_port.hpp`).
 - 2026-09-20 — mesa_mark2c: Terminated the tone stack with V1A's plate impedance and Volume 1 (`modules/nodes/mesa_mark2c/source/mesa_mark2c_tone_stack.cpp`).
 - 2026-09-20 — tests: Regenerated the Mark IIC+ golden files after the tone stack was terminated (`tests/golden/mesa_mark2c_48k.f32`, `tests/golden/README.md`).
-- 2026-09-20 — tools: Fixed module discovery to read modules as the folders carrying a build (`tools/documentation/check_docs_layout.py`, `tools/layering/check_layering.py`).
+- 2026-09-20 — tools: Fixed module discovery to read modules as the folders carrying a build (`sushicore.tools.documentation.check_docs_layout`, `sushicore.tools.layering.check_layering`).
 - 2026-09-20 — docs: Listed every Mark IIC+ constant that is not read off the schematic (`modules/nodes/mesa_mark2c/README.md`, `docs/backlog/README.md`).
 - 2026-09-20 — mesa_mark2c: Corrected two graphic-equaliser band centres against the traced schematic (`modules/nodes/mesa_mark2c/source/mesa_mark2c.cpp`).
 - 2026-09-20 — docs: Recorded what jrb32's traced schematic settles about the Mark IIC+ (`docs/agent/2026_09_20_V0_1_0_RELEASE/REPORT.md`).

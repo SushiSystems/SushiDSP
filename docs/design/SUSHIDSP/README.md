@@ -46,7 +46,7 @@ SushiDSP has no consumer beyond its own standalone host and its own VST3/CLAP pl
 
 C++17 (no C++20/23), Allman braces (opening brace on its own line; trivial one-line accessors may stay compact), types `PascalCase`, functions and variables `snake_case`, members with a trailing underscore (`impl_`), constants `UPPER_SNAKE`, spelled-out names, the license block of the `source-comments` skill on every source file, a Doxygen `@brief`/`@param`/`@return` on every public function, and no comments unless the why is non-obvious. The developer CLI is `sd` (Python Typer, `cli/sushidsp/`, built on the shared `sushicore` presentation layer, see "CLI membership").
 
-Every source file opens with the license block of the `source-comments` skill. `tools/licensing/write_license_block.py` in SushiSkills writes it with the project line `SushiDSP - https://github.com/SushiSystems/SushiDSP`; nobody types it by hand. `tests/main.cpp` is a live example.
+Every source file opens with the license block of the `source-comments` skill. `sushicore.tools.licensing.write_license_block` in SushiSkills writes it with the project line `SushiDSP - https://github.com/SushiSystems/SushiDSP`; nobody types it by hand. `tests/main.cpp` is a live example.
 
 ### Survey conclusions, what we adopt and why
 
@@ -261,5 +261,5 @@ from the status text of each phase, not verified against the tree; the owner con
 
 ## Open questions
 
-- **The comment-shape check is outside the gate.** `tools/documentation/check_source_comments.py` exists and `sd check` does not run it; its `--report` finding count is listed by rule in `docs/backlog/README.md`.
+- **The comment-shape check is outside the gate.** `sushicore.tools.documentation.check_source_comments` exists and `sd check` does not run it; its `--report` finding count is listed by rule in `docs/backlog/README.md`.
 - **DR2 shipped without a single measured number.** The build was locked while the DD-3 was written, so the 0.15 ms benchmark budget is unjudged, every acceptance row is unrun, and the pinned `dd3_48k.f32` and `dd3_96k.f32` were not yet committed, which failed the two regression cases. The changelog's DR2 "Not yet measured" paragraph names the three commands that close this.

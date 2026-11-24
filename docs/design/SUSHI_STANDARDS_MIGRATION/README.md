@@ -23,11 +23,11 @@ lands with its tests green.
 
 The canonical checkers of SushiSkills are vendored into `tools/`:
 
-- `tools/checking/checker.py`: shared checker framework and finding reporter.
-- `tools/documentation/check_source_comments.py`: source comment and Doxygen block checker.
-- `tools/documentation/check_docs_layout.py`: documentation tree and naming validator.
-- `tools/documentation/check_changelog.py`: changelog entry formatting and line validator.
-- `tools/layering/check_layering.py`: layer dependency validator.
+- `sushicore.tools.checking.checker`: shared checker framework and finding reporter.
+- `sushicore.tools.documentation.check_source_comments`: source comment and Doxygen block checker.
+- `sushicore.tools.documentation.check_docs_layout`: documentation tree and naming validator.
+- `sushicore.tools.documentation.check_changelog`: changelog entry formatting and line validator.
+- `sushicore.tools.layering.check_layering`: layer dependency validator.
 - `tools/README.md`: guide describing checker execution, options and contract.
 
 The `sd` developer CLI (`cli/sushidsp/cli.py`) has a `check` subcommand:
@@ -84,7 +84,7 @@ docs/
 ### Module tier restructuring
 
 - Reorganise `src/` and `include/SushiDSP/` into `modules/<tier>/<module>/`.
-- Configure `K_TIER_ORDER` in `tools/layering/check_layering.py` and `cmake/`. The checker's half
+- Configure `K_TIER_ORDER` in `sushicore.tools.layering.check_layering` and `cmake/`. The checker's half
   has the `nodes`, `catalog` and `session` tiers.
 
 ### Code style and comment compliance
