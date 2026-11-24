@@ -66,7 +66,7 @@ namespace SushiDSP
                 const std::uint64_t generation =
                     publish_generation_.load(std::memory_order_relaxed) + 1;
                 retired_.emplace_back(generation, std::move(new_object));
-                active_.store(retired_.back().second.get(), std::memory_order_release);
+                active_.store(retired_.back().second.get(), std::memory_order_seq_cst);
                 publish_generation_.store(generation, std::memory_order_release);
             }
 
@@ -82,8 +82,8 @@ namespace SushiDSP
                 // The generation is read before active_ (modules/foundation/core/README.md).
                 const std::uint64_t generation =
                     publish_generation_.load(std::memory_order_acquire);
-                audio_thread_generation_.store(generation, std::memory_order_release);
-                return active_.load(std::memory_order_acquire);
+                audio_thread_generation_.store(generation, std::memory_order_seq_cst);
+                return active_.load(std::memory_order_seq_cst);
             }
 
             /// @brief Reports whether anything has been published yet. Real-time safe: one atomic
@@ -114,7 +114,7 @@ namespace SushiDSP
             void reclaim()
             {
                 const std::uint64_t safe_generation =
-                    audio_thread_generation_.load(std::memory_order_acquire);
+                    audio_thread_generation_.load(std::memory_order_seq_cst);
                 // A zero watermark means the audio thread holds no retired entry.
                 const bool nothing_acquired = safe_generation == 0;
                 retired_.erase(
