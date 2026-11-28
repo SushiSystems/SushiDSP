@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- 2026-11-28 — backlog: Closed the five entries a reading of the code found finished (`docs/backlog/`, RW-65, RW-66, RW-68, RW-78, KI-37).
 - 2026-11-24 — core: Fixed `RtSwapSlot`, whose reclaim could free the object the audio thread had just taken; the acquire and the reclaim now order their atomics sequentially.
 - 2026-11-22 — cli: Fixed `sd test --sanitize`, which judged the time limits; it hands the sanitizer to the shared test command, which judges none under a sanitizer (`cli/sushidsp/services/project.py`).
 - 2026-11-21 — cli: Breaking change: `sd build` no longer removes a tree of another generator; it refuses that tree, or one for another source folder, and names `sd clean` (RW-104, `ebeacdf6`).
