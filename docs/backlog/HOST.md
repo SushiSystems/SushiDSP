@@ -10,7 +10,7 @@
 | RW-30 | P2 | open | Carry surviving nodes across a rebuild | `SlotGraph::publish()` keeps the nodes a structural edit leaves in place, so the room's tail survives the edit and the node set is built once per edit |  |  | 2026-10-19 |
 | RW-31 | P2 | open | Keep a stereo branch stereo through a mixer | a `PortLayout` can say eight slots of two channels and `MixerNode` keeps its inputs' width |  |  | 2026-10-19 |
 | RW-32 | P2 | open | Export OGG, DS5 | a take leaves the host as OGG; a five-minute stereo take is 115 MB of float today |  |  | 2026-10-19 |
-| RW-33 | P2 | open | Test the 39 units without a test file | `tools/testing/untested_units.txt` is empty: 31 units in `applications/host_gui`, 6 in `applications/plugin`, and the ASIO and SDL2 device backends |  |  | 2026-10-19 |
+| RW-33 | P2 | open | Test the units that have no test file | `tools/testing/untested_units.txt` is empty |  |  | 2026-10-19 |
 | RW-34 | P2 | blocked | Take the untested-unit exception from SushiSkills | the shared `check_test_mirror.py` matches SushiSkills', the list is read from `tools/settings.py`, and `tools/testing/untested_units.txt` is gone | sushiskills RW-20 |  | 2026-10-19 |
 | RW-35 | P2 | open | Read a take's own sample rate | a clip carries its take's rate over the rig's into `VariRateReader` |  |  | 2026-10-19 |
 | RW-36 | P2 | open | Cap the imported-audio cache | `cache/imported_audio/` has a size cap and evicts by last use |  |  | 2026-10-19 |
