@@ -11,7 +11,7 @@
 | RW-31 | P2 | open | Keep a stereo branch stereo through a mixer | a `PortLayout` can say eight slots of two channels and `MixerNode` keeps its inputs' width |  |  | 2026-10-19 |
 | RW-32 | P2 | open | Export OGG, DS5 | a take leaves the host as OGG; a five-minute stereo take is 115 MB of float today |  |  | 2026-10-19 |
 | RW-33 | P2 | open | Test the units that have no test file | `tools/testing/untested_units.txt` is empty |  |  | 2026-10-19 |
-| RW-34 | P2 | blocked | Take the untested-unit exception from SushiSkills | the shared `check_test_mirror.py` matches SushiSkills', the list is read from `tools/settings.py`, and `tools/testing/untested_units.txt` is gone | sushiskills RW-20 |  | 2026-10-19 |
+| RW-34 | P2 | blocked | Take the untested-unit exception from the package checker | the list is read from `tools/settings.py` by the package's `check_test_mirror`, and `tools/testing/untested_units.txt` is gone | sushicore RW-189 |  | 2026-10-19 |
 | RW-35 | P2 | open | Read a take's own sample rate | a clip carries its take's rate over the rig's into `VariRateReader` |  |  | 2026-10-19 |
 | RW-36 | P2 | open | Cap the imported-audio cache | `cache/imported_audio/` has a size cap and evicts by last use |  |  | 2026-10-19 |
 | RW-37 | P2 | open | Start a rebuilt strip where its level is | a structural edit leaves no 20 ms glide from a parameter's default to its value |  |  | 2026-10-19 |
